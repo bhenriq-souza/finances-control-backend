@@ -15,10 +15,10 @@ Contexto de produto (requisitos, ADRs de arquitetura, roadmap): repositório hub
 
 1. **Uma tarefa = uma branch = um PR.** IDs de tarefa têm a forma `T-0010-01`.
 2. **Ritual de branch, sempre:**
-   ```bash
-   git checkout develop && git pull origin develop
-   git checkout -b <tipo>/<task-id>-<slug>     # ex.: feat/t-0010-01-user-entity
-   ```
+    ```bash
+    git checkout develop && git pull origin develop
+    git checkout -b <tipo>/<task-id>-<slug>     # ex.: feat/t-0010-01-user-entity
+    ```
 3. **Conventional Commits** (`feat|fix|docs|test|refactor|chore|ci`), escopo = módulo, rodapé `Task: T-xxxx-yy`. Nunca use `--no-verify`.
 4. **Abra um PR ao final da tarefa** (`gh pr create`, o template se aplica sozinho). Título do PR em formato Conventional Commit. **Nunca faça merge** — o merge é decisão do responsável, após revisão. Nunca faça push direto em `develop`.
 5. **Definition of done** (spec 0000): contratos implementados exatamente, testes mapeados passando, todos os gates verdes, checkbox do backlog marcado no mesmo PR, `status` da spec alterado quando for a última tarefa dela.
@@ -41,15 +41,15 @@ Ele orquestra: formatação, lint, tipos, contratos de fronteira entre módulos,
 
 ## Mapa do repositório
 
-| Caminho | O que é |
-|---|---|
-| `specs/` | Specs normativas (contratos, invariantes, ACs) |
-| `specs/adr/` | Decisões **locais do backend** (ver abaixo) |
-| `docs/backlog.md` | Tarefas ordenadas — sua fila de trabalho |
-| `scripts/check.mjs` | Orquestrador único dos gates |
-| `scripts/check-specs.mjs` | Validador estrutural das specs |
-| `src/<módulo>/` | Módulos por contexto (ADR-0003) |
-| `src/platform/` | Infra transversal: config, DB, logging, erros, eventos |
+| Caminho                   | O que é                                                |
+| ------------------------- | ------------------------------------------------------ |
+| `specs/`                  | Specs normativas (contratos, invariantes, ACs)         |
+| `specs/adr/`              | Decisões **locais do backend** (ver abaixo)            |
+| `docs/backlog.md`         | Tarefas ordenadas — sua fila de trabalho               |
+| `scripts/check.mjs`       | Orquestrador único dos gates                           |
+| `scripts/check-specs.mjs` | Validador estrutural das specs                         |
+| `src/<módulo>/`           | Módulos por contexto (ADR-0003)                        |
+| `src/platform/`           | Infra transversal: config, DB, logging, erros, eventos |
 
 ### Onde cada decisão é registrada
 

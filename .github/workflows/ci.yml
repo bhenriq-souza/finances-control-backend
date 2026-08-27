@@ -4,30 +4,26 @@ name: ci
 # Nunca adicione aqui um comando de verificação que não esteja em scripts/check.mjs.
 
 on:
-  pull_request:
-    branches: [develop, main]
-  push:
-    branches: [develop]
+    pull_request:
+        branches: [develop, main]
+    push:
+        branches: [develop]
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    check:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
 
-      - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            echo "Sem package-lock.json ainda (scaffold pendente) — seguindo sem instalar."
-          fi
+            - name: Install dependencies
+              run: npm ci
 
-      # --require-tools passa a ser obrigatório ao fim do scaffold (T-0002-03),
-      # quando todos os gates da spec 0002 existirem de fato.
-      - name: Quality gates
-        run: npm run check
+            # --require-tools converte SKIP em falha: no CI, um gate ausente é
+            # um pipeline incompleto, não um pipeline verde (INV-0002-05).
+            - name: Quality gates
+              run: npm run check -- --require-tools

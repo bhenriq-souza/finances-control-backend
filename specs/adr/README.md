@@ -6,6 +6,6 @@ Decisões de **produto e arquitetura macro** — stack, banco de dados, estilo a
 
 Formato: `NNNN-titulo-kebab.md`, com frontmatter `status: accepted | superseded` e as seções **Context**, **Decision**, **Consequences**, **Alternatives considered**. ADRs são imutáveis depois de aceitos — para mudar, crie um novo que supersede o anterior.
 
-| ADR | Título | Status |
-|---|---|---|
-| _(nenhum ainda)_ | | |
+| ADR              | Título | Status |
+| ---------------- | ------ | ------ |
+| _(nenhum ainda)_ |        |        |

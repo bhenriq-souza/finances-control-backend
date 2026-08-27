@@ -1,8 +1,8 @@
 ---
-id: "0002"
+id: '0002'
 title: Portões de qualidade e orquestrador único
 status: approved
-depends_on: ["0000", "0001"]
+depends_on: ['0000', '0001']
 ---
 
 # 0002 — Portões de Qualidade
@@ -20,15 +20,15 @@ Definir os portões de qualidade do repositório e o **orquestrador único** que
 
 ### Gates
 
-| Gate | Comando | Verifica |
-|---|---|---|
-| `format` | `npx prettier --check .` | formatação |
-| `lint` | `npx eslint .` | regras de lint |
-| `types` | `npx tsc --noEmit` | tipagem |
-| `boundaries` | `npx depcruise src` | fronteiras de módulo (ADR-0003, regras 1–3) |
-| `test` | `npx jest --coverage` | testes e cobertura mínima |
-| `audit` | `npm audit --audit-level=high --omit=dev` | vulnerabilidades em dependências de runtime |
-| `specs` | `node scripts/check-specs.mjs` | estrutura das specs e do backlog (spec 0000) |
+| Gate         | Comando                                   | Verifica                                     |
+| ------------ | ----------------------------------------- | -------------------------------------------- |
+| `format`     | `npx prettier --check .`                  | formatação                                   |
+| `lint`       | `npx eslint .`                            | regras de lint                               |
+| `types`      | `npx tsc --noEmit`                        | tipagem                                      |
+| `boundaries` | `npx depcruise src`                       | fronteiras de módulo (ADR-0003, regras 1–3)  |
+| `test`       | `npx jest --coverage`                     | testes e cobertura mínima                    |
+| `audit`      | `npm audit --audit-level=high --omit=dev` | vulnerabilidades em dependências de runtime  |
+| `specs`      | `node scripts/check-specs.mjs`            | estrutura das specs e do backlog (spec 0000) |
 
 O gate `boundaries` é o enforcement automatizado das regras de fronteira do ADR-0003; sua configuração declara quais módulos podem depender de quais, com `reporting` autorizado a ler múltiplos contextos e `platform` acessível a todos.
 
@@ -38,10 +38,10 @@ O gate `boundaries` é o enforcement automatizado das regras de fronteira do ADR
 
 1. Executa todos os gates **sequencialmente e até o fim** — não para no primeiro erro, para que uma rodada revele todas as falhas.
 2. Classifica cada gate como:
-   - **PASS** — executou e passou;
-   - **FAIL** — executou e falhou;
-   - **SKIP (contexto)** — a ferramenta ainda não existe no repositório nesta fase (ex.: antes do scaffold);
-   - **SKIP (ambiente)** — a ferramenta é opcional e não está instalada no ambiente atual.
+    - **PASS** — executou e passou;
+    - **FAIL** — executou e falhou;
+    - **SKIP (contexto)** — a ferramenta ainda não existe no repositório nesta fase (ex.: antes do scaffold);
+    - **SKIP (ambiente)** — a ferramenta é opcional e não está instalada no ambiente atual.
 3. Imprime uma tabela final com o estado de cada gate e o motivo de cada SKIP.
 4. Sai com código diferente de zero se houver qualquer FAIL.
 5. Com `--require-tools`, converte **todo SKIP em FAIL**. O CI sempre usa esta flag a partir da conclusão do scaffold (T-0002-03).
@@ -64,12 +64,12 @@ O modo estrito existe porque um ambiente sem as ferramentas instaladas produziri
 
 ## Error cases
 
-| Situação | Comportamento exigido |
-|---|---|
-| Ferramenta não instalada, modo normal | SKIP (ambiente ou contexto), com motivo na tabela; código de saída não é afetado |
-| Ferramenta não instalada, `--require-tools` | FAIL, com mensagem indicando qual ferramenta falta |
-| Gate falha | registrar a falha, seguir para os demais, reportar tudo ao final e sair com código 1 |
-| Script de gate inexistente | tratado como SKIP (contexto), citando o caminho esperado |
+| Situação                                    | Comportamento exigido                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Ferramenta não instalada, modo normal       | SKIP (ambiente ou contexto), com motivo na tabela; código de saída não é afetado     |
+| Ferramenta não instalada, `--require-tools` | FAIL, com mensagem indicando qual ferramenta falta                                   |
+| Gate falha                                  | registrar a falha, seguir para os demais, reportar tudo ao final e sair com código 1 |
+| Script de gate inexistente                  | tratado como SKIP (contexto), citando o caminho esperado                             |
 
 ## Acceptance criteria
 
@@ -80,11 +80,11 @@ O modo estrito existe porque um ambiente sem as ferramentas instaladas produziri
 
 ## Test mapping
 
-| Item | Teste |
-|---|---|
+| Item                                                          | Teste                                                                                     |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | AC-0002-01, AC-0002-02, INV-0002-01, INV-0002-02, INV-0002-04 | execução manual documentada no PR do seed; testes de unidade do orquestrador em T-0002-01 |
-| AC-0002-03, INV-0002-05 | execução do modo estrito no CI |
-| AC-0002-04, INV-0002-03 | inspeção de `.github/workflows/ci.yml` em revisão de PR |
+| AC-0002-03, INV-0002-05                                       | execução do modo estrito no CI                                                            |
+| AC-0002-04, INV-0002-03                                       | inspeção de `.github/workflows/ci.yml` em revisão de PR                                   |
 
 ## Open questions
 

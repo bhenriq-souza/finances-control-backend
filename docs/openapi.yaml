@@ -1,0 +1,88 @@
+openapi: 3.0.3
+
+info:
+    title: Finances Control API
+    description: |
+        API de controle financeiro pessoal.
+        Requisitos e decisões de arquitetura: https://github.com/bhenriq-souza/finances-control
+    version: 0.0.0
+
+servers:
+    - url: http://localhost:3000
+      description: Local
+    - url: http://finances.dev.homelab.local
+      description: Dev (cluster K3s homelab)
+
+tags:
+    - name: Platform
+      description: Endpoints de infraestrutura
+
+paths:
+    /health:
+        get:
+            tags: [Platform]
+            summary: Liveness da aplicação
+            description: |
+                Responde se o processo está de pé. Não verifica dependências —
+                checagens de banco pertencem a um endpoint de readiness separado.
+            operationId: getHealth
+            responses:
+                '200':
+                    description: Aplicação no ar
+                    headers:
+                        x-correlation-id:
+                            $ref: '#/components/headers/CorrelationId'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/HealthReport'
+                            example:
+                                data:
+                                    status: ok
+                                    application: finances-control-backend
+                                    version: 0.0.0
+                                    environment: dev
+                                    uptimeSeconds: 42
+
+components:
+    headers:
+        CorrelationId:
+            description: Identificador de correlação, ecoado do request ou gerado
+            schema:
+                type: string
+                format: uuid
+
+    schemas:
+        HealthReport:
+            type: object
+            required: [status, application, version, environment, uptimeSeconds]
+            properties:
+                status:
+                    type: string
+                    enum: [ok]
+                application:
+                    type: string
+                version:
+                    type: string
+                environment:
+                    type: string
+                uptimeSeconds:
+                    type: integer
+                    minimum: 0
+
+        Error:
+            type: object
+            required: [error]
+            properties:
+                error:
+                    type: object
+                    required: [message]
+                    properties:
+                        message:
+                            type: string
+                        code:
+                            type: string
+                        details: {}

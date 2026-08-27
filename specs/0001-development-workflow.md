@@ -1,8 +1,8 @@
 ---
-id: "0001"
+id: '0001'
 title: Fluxo de desenvolvimento (branches, commits, pull requests)
 status: approved
-depends_on: ["0000"]
+depends_on: ['0000']
 ---
 
 # 0001 — Fluxo de Desenvolvimento
@@ -64,7 +64,7 @@ Task: T-0012-01
 
 - Abertos ao fim de toda tarefa, da branch de tarefa para `develop`, via `gh pr create` usando `.github/PULL_REQUEST_TEMPLATE.md`.
 - **Título do PR = cabeçalho do commit de squash** (formato Conventional Commit): `feat(expenses): implement installment generation (T-0012-03)`.
-- Seções do template (normativas): *Task*, *Specs*, *What & why*, *Definition of done*, *Test evidence*, *Notes for review*.
+- Seções do template (normativas): _Task_, _Specs_, _What & why_, _Definition of done_, _Test evidence_, _Notes for review_.
 - **O merge é decisão do responsável pelo repositório.** Agentes abrem PRs e respondem à revisão; **nunca fazem merge** (INV-0001-04).
 - **Estratégia de merge: squash**, com exclusão da branch depois. O histórico de `develop` fica com um commit por tarefa, titulado em Conventional Commit.
 
@@ -76,7 +76,7 @@ Configuração ativa:
 2. Proibir force push e exclusão da branch.
 3. Exigir status check verde (`ci`) — **ativação faseada**, ver abaixo.
 
-**Sobre aprovação obrigatória:** o repositório tem um único mantenedor, e o GitHub não permite que o autor aprove o próprio PR. Exigir aprovação formal travaria todo PR criado pelo responsável. Portanto, o *"agentes nunca fazem merge"* é mantido como **regra de conduta normativa** (INV-0001-04) e não como bloqueio do host — a exigência de PR (regra 1) já impede que trabalho entre em `develop` sem passar por revisão explícita.
+**Sobre aprovação obrigatória:** o repositório tem um único mantenedor, e o GitHub não permite que o autor aprove o próprio PR. Exigir aprovação formal travaria todo PR criado pelo responsável. Portanto, o _"agentes nunca fazem merge"_ é mantido como **regra de conduta normativa** (INV-0001-04) e não como bloqueio do host — a exigência de PR (regra 1) já impede que trabalho entre em `develop` sem passar por revisão explícita.
 
 **Ativação faseada da regra 3:** o status check obrigatório só é habilitado **após** o primeiro PR que introduz o tooling ser mergeado e o workflow `ci` ter executado ao menos uma vez. Habilitar antes causa deadlock: o PR que cria o check nunca satisfaz o check que ele mesmo cria.
 
@@ -100,13 +100,13 @@ No mesmo PR que conclui uma tarefa: marcar o checkbox em `docs/backlog.md` e, se
 
 ## Error cases
 
-| Situação | Comportamento exigido |
-|---|---|
-| `develop` andou com a branch aberta | rebase sobre a `develop` atualizada; resolver conflito na branch, nunca em `develop` |
-| CI vermelho no PR | corrigir na branch antes de pedir revisão; nunca mergear vermelho |
-| Hook rejeita a mensagem de commit | reescrever a mensagem; nunca usar `--no-verify` |
-| Revisão pede mudanças | tratar na mesma branch e no mesmo PR; pedir nova revisão |
-| Tarefa mal especificada descoberta no meio | parar; corrigir a spec primeiro, em PR `docs/` separado; depois retomar |
+| Situação                                   | Comportamento exigido                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `develop` andou com a branch aberta        | rebase sobre a `develop` atualizada; resolver conflito na branch, nunca em `develop` |
+| CI vermelho no PR                          | corrigir na branch antes de pedir revisão; nunca mergear vermelho                    |
+| Hook rejeita a mensagem de commit          | reescrever a mensagem; nunca usar `--no-verify`                                      |
+| Revisão pede mudanças                      | tratar na mesma branch e no mesmo PR; pedir nova revisão                             |
+| Tarefa mal especificada descoberta no meio | parar; corrigir a spec primeiro, em PR `docs/` separado; depois retomar              |
 
 ## Acceptance criteria
 
@@ -117,12 +117,12 @@ No mesmo PR que conclui uma tarefa: marcar o checkbox em `docs/backlog.md` e, se
 
 ## Test mapping
 
-| Item | Teste |
-|---|---|
-| AC-0001-01, AC-0001-02 | PR canário do seed (FCB-001) — verificação manual de configuração |
-| AC-0001-03 | checklist pós-merge do seed, registrado em `docs/backlog.md` (T-0001-01) |
-| AC-0001-04 | inspeção manual após as primeiras tarefas mergeadas |
-| INV-0001-05 | `.github/workflows/ci.yml` invoca `npm run check` e nada mais |
+| Item                   | Teste                                                                    |
+| ---------------------- | ------------------------------------------------------------------------ |
+| AC-0001-01, AC-0001-02 | PR canário do seed (FCB-001) — verificação manual de configuração        |
+| AC-0001-03             | checklist pós-merge do seed, registrado em `docs/backlog.md` (T-0001-01) |
+| AC-0001-04             | inspeção manual após as primeiras tarefas mergeadas                      |
+| INV-0001-05            | `.github/workflows/ci.yml` invoca `npm run check` e nada mais            |
 
 ## Open questions
 
