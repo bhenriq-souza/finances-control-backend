@@ -1,5 +1,5 @@
 ---
-id: "0000"
+id: '0000'
 title: Processo de specs e convenções
 status: approved
 depends_on: []
@@ -24,10 +24,10 @@ Toda spec é um arquivo Markdown `specs/NNNN-titulo-kebab.md` com frontmatter YA
 
 ```yaml
 ---
-id: "NNNN"                  # com zeros à esquerda, único, nunca reutilizado
+id: 'NNNN' # com zeros à esquerda, único, nunca reutilizado
 title: Título curto
 status: draft | approved | implemented | superseded
-depends_on: ["NNNN", ...]   # IDs de specs sobre as quais esta se apoia
+depends_on: ['NNNN', ...] # IDs de specs sobre as quais esta se apoia
 ---
 ```
 
@@ -44,9 +44,9 @@ Seções obrigatórias, nesta ordem:
 
 ### Faixas de numeração
 
-| Faixa | Uso |
-|---|---|
-| `0000`–`0009` | Processo e plataforma (processo de specs, workflow, gates, configuração, DI, observabilidade) |
+| Faixa         | Uso                                                                                                                                                             |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0000`–`0009` | Processo e plataforma (processo de specs, workflow, gates, configuração, DI, observabilidade)                                                                   |
 | `0010`–`0099` | Domínio, na ordem dos requisitos de negócio (`0010` identity/F001, `0011` accounts/F002, `0012` expenses/F003, `0013` statements/F004, `0014` earnings/F005, …) |
 
 IDs nunca são reutilizados, mesmo após `superseded`.
@@ -89,16 +89,16 @@ Não se aplica (spec de processo). Violações de INV-0000-01..03 são reprovada
 
 - **AC-0000-01:** o gate `check-specs` verifica INV-0000-01 e INV-0000-03 em toda a árvore `specs/` e falha com diagnóstico acionável.
 - **AC-0000-02:** o gate `check-specs` verifica INV-0000-02 para todas as tarefas declaradas em `docs/backlog.md`.
-- **AC-0000-03:** uma spec com a seção *Open questions* não vazia não pode estar em `status: approved`.
+- **AC-0000-03:** uma spec com a seção _Open questions_ não vazia não pode estar em `status: approved`.
 
 ## Test mapping
 
-| Item | Teste |
-|---|---|
-| AC-0000-01, AC-0000-03, INV-0000-01, INV-0000-03 | `scripts/check-specs.mjs` |
-| AC-0000-02, INV-0000-02 | `scripts/check-specs.mjs` (seção de backlog) |
-| INV-0000-04 | testes de domínio das specs 0011+ e revisão em PR |
-| INV-0000-05 | revisão em PR |
+| Item                                             | Teste                                             |
+| ------------------------------------------------ | ------------------------------------------------- |
+| AC-0000-01, AC-0000-03, INV-0000-01, INV-0000-03 | `scripts/check-specs.mjs`                         |
+| AC-0000-02, INV-0000-02                          | `scripts/check-specs.mjs` (seção de backlog)      |
+| INV-0000-04                                      | testes de domínio das specs 0011+ e revisão em PR |
+| INV-0000-05                                      | revisão em PR                                     |
 
 ## Open questions
 

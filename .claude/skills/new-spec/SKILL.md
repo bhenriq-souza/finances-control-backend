@@ -14,4 +14,4 @@ description: Cria ou revisa uma spec seguindo o template 0000 (frontmatter + oit
 5. Reutilize nomes existentes literalmente (nomes de módulo, códigos de erro, chaves de configuração, rotas). Nunca invente um nome paralelo para um conceito que já existe.
 6. Respeite as invariantes transversais da spec 0000 — em especial INV-0000-04 (dinheiro fora de ponto flutuante) — e as regras do ADR-0003 sobre fronteiras de módulo e invariantes transacionais.
 7. Registre: adicione a linha em `specs/README.md` e as tarefas (`T-<id>-<nn>`, com What/Where/Done when) em `docs/backlog.md`, em ordem de dependência. Toda tarefa cita ao menos um `AC-*` ou `INV-*` — o gate `check-specs` reprova se faltar.
-8. Rode `npm run check` e entregue pelo fluxo padrão: branch `docs/`, Conventional Commit (`docs(specs): …`), PR via `/finish-task`. O `status` só vira `approved` quando *Open questions* estiver vazia e o responsável aprovar o PR.
+8. Rode `npm run check` e entregue pelo fluxo padrão: branch `docs/`, Conventional Commit (`docs(specs): …`), PR via `/finish-task`. O `status` só vira `approved` quando _Open questions_ estiver vazia e o responsável aprovar o PR.

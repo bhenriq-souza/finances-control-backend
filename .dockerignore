@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+.git
+.gitignore
+.github
+.claude
+specs
+scripts
+tests
+*.log
+.env
+.env.*
+!.env.example

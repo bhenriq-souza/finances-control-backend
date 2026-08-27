@@ -12,10 +12,10 @@ Argumento: um ID de tarefa (`T-xxxx-yy`). Se não vier, pegue a primeira tarefa 
 1. **Leia a tarefa** em `docs/backlog.md`: What / Where / Done when. Leia a spec referenciada por inteiro (contratos, invariantes, casos de erro, ACs, test mapping). Leia `AGENTS.md` se ainda não estiver em contexto.
 2. **Verifique as precondições:** as tarefas anteriores implicadas pela cadeia `depends_on` da spec estão concluídas. Se a tarefa estiver ambígua ou conflitar com sua spec, **PARE e reporte** — a spec é corrigida primeiro, em PR `docs/` separado.
 3. **Ritual de branch (nunca pule):**
-   ```bash
-   git checkout develop && git pull origin develop
-   git checkout -b <tipo>/<task-id-minúsculo>-<slug>
-   ```
+    ```bash
+    git checkout develop && git pull origin develop
+    git checkout -b <tipo>/<task-id-minúsculo>-<slug>
+    ```
 4. **Implemente** exatamente os contratos referenciados — nomes de campo, tipos e defaults literalmente como na spec. Escreva os testes mapeados na mesma branch.
 5. **Respeite as regras não-negociáveis:** invariantes financeiras na mesma transação (ADR-0003, regra 4); dinheiro fora de ponto flutuante (INV-0000-04); fronteiras de módulo (acesso só por interface pública, nada de repositório alheio, efeitos entre módulos por evento de domínio).
 6. **Rode os gates** — invoque a skill `/check`. Todos precisam passar; corrija até ficar verde.
