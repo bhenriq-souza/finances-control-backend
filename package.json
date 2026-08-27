@@ -1,0 +1,18 @@
+{
+    "name": "finances-control-backend",
+    "version": "0.0.0",
+    "private": true,
+    "description": "API backend do Finances Control",
+    "license": "ISC",
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "check": "node scripts/check.mjs",
+        "check:specs": "node scripts/check-specs.mjs"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bhenriq-souza/finances-control-backend.git"
+    }
+}

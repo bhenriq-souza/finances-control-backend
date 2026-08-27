@@ -1,0 +1,33 @@
+name: ci
+
+# O CI apenas invoca o orquestrador único de gates (spec 0002, INV-0002-03).
+# Nunca adicione aqui um comando de verificação que não esteja em scripts/check.mjs.
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            echo "Sem package-lock.json ainda (scaffold pendente) — seguindo sem instalar."
+          fi
+
+      # --require-tools passa a ser obrigatório ao fim do scaffold (T-0002-03),
+      # quando todos os gates da spec 0002 existirem de fato.
+      - name: Quality gates
+        run: npm run check
