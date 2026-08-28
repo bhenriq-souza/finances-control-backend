@@ -49,6 +49,19 @@ src/
 
 **Fronteiras são verificadas pelo gate `boundaries`**, não por disciplina: um módulo só é acessado pelo seu `index.ts`, módulos de domínio não dependem uns dos outros (`reporting` é a exceção, só leitura) e `platform` nunca depende de domínio.
 
+## Deploy
+
+Push em `develop` dispara `.github/workflows/deploy.yml`, que chama o workflow reutilizável do [homelab-gitops](https://github.com/bhenriq-souza/homelab-gitops):
+
+```
+push develop → build da imagem → Artifact Registry (tag sha-<commit> + latest)
+             → commit da nova tag no homelab-gitops → Argo CD reconcilia → dev-apps
+```
+
+A aplicação responde em `finances.dev.homelab.local` (rede local, via Traefik). Mudanças só em documentação não disparam deploy. Também dá para acionar manualmente pelo `workflow_dispatch`, escolhendo o ambiente.
+
+Autenticação sem chave estática: OIDC/Workload Identity Federation para o GCP, e uma deploy key SSH com escopo de um repositório para escrever no GitOps. Os três secrets necessários (`GCP_WIF_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `GITOPS_DEPLOY_KEY`) já estão configurados; o procedimento está em [`docs/app-onboarding.md`](https://github.com/bhenriq-souza/homelab-gitops/blob/main/docs/app-onboarding.md) do homelab-gitops.
+
 ## Como o trabalho é feito
 
 Desenvolvimento **agentic-driven**: comportamento em `specs/`, fila em [`docs/backlog.md`](docs/backlog.md), uma tarefa = uma branch = um PR, merge sempre humano. Regras completas em [`AGENTS.md`](AGENTS.md); skills em `.claude/skills/` (`/new-spec`, `/implement-task`, `/check`, `/finish-task`).
