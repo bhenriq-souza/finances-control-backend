@@ -74,11 +74,13 @@ Configuração ativa:
 
 1. Exigir pull request antes do merge — sem push direto, inclusive para administradores.
 2. Proibir force push e exclusão da branch.
-3. Exigir status check verde (`ci`) — **ativação faseada**, ver abaixo.
+3. Exigir o status check `check` verde — **ativação faseada**, ver abaixo. O contexto exigido é o **nome do job** (`check`) do workflow `ci`, não o nome do workflow.
 
 **Sobre aprovação obrigatória:** o repositório tem um único mantenedor, e o GitHub não permite que o autor aprove o próprio PR. Exigir aprovação formal travaria todo PR criado pelo responsável. Portanto, o _"agentes nunca fazem merge"_ é mantido como **regra de conduta normativa** (INV-0001-04) e não como bloqueio do host — a exigência de PR (regra 1) já impede que trabalho entre em `develop` sem passar por revisão explícita.
 
-**Ativação faseada da regra 3:** o status check obrigatório só é habilitado **após** o primeiro PR que introduz o tooling ser mergeado e o workflow `ci` ter executado ao menos uma vez. Habilitar antes causa deadlock: o PR que cria o check nunca satisfaz o check que ele mesmo cria.
+**Ativação faseada da regra 3:** o status check obrigatório só é habilitado **após** o primeiro PR que introduz o tooling ser mergeado e o workflow `ci` ter executado ao menos uma vez. Habilitar antes causa deadlock: o PR que cria o check nunca satisfaz o check que ele mesmo cria. Concluída em T-0001-01.
+
+A opção _branches up to date before merging_ (`strict`) fica **desligada**: com um único mantenedor e PRs em série, ela só adicionaria rebases obrigatórios. A obrigação de rebase quando `develop` anda continua valendo por INV-0001-03 e pela tabela de casos de erro.
 
 **Exceção de bootstrap:** commits feitos antes de a proteção existir permanecem no histórico. A partir da ativação, tudo passa por PR — inclusive mudanças em specs e neste fluxo.
 
@@ -112,7 +114,7 @@ No mesmo PR que conclui uma tarefa: marcar o checkbox em `docs/backlog.md` e, se
 
 - **AC-0001-01:** a proteção de `develop` está ativa com as regras 1 e 2 (verificável em configurações do repositório).
 - **AC-0001-02:** um PR canário exibe o template, dispara o workflow `ci` e não pode ser mergeado sem revisão explícita do responsável.
-- **AC-0001-03:** após o primeiro PR de tooling ser mergeado, o status check `ci` é tornado obrigatório (regra 3).
+- **AC-0001-03:** após o primeiro PR de tooling ser mergeado, o status check `check` é tornado obrigatório (regra 3), e um PR com esse check vermelho fica bloqueado para merge.
 - **AC-0001-04:** `git log develop --oneline` após as primeiras tarefas mostra um commit titulado em Conventional Commit por tarefa.
 
 ## Test mapping

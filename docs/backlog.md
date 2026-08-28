@@ -6,10 +6,10 @@ Este arquivo é a camada de **execução**. A camada de **entrega** são as issu
 
 ## Plataforma e processo
 
-- [ ] **T-0001-01 — Tornar o status check `ci` obrigatório em `develop`**
-    - What: concluída a ativação faseada, exigir o check `ci` verde para merge (regra 3 da proteção de branch)
+- [x] **T-0001-01 — Tornar o status check `check` obrigatório em `develop`**
+    - What: concluída a ativação faseada, exigir o check verde para merge (regra 3 da proteção de branch)
     - Where: configurações do repositório no GitHub
-    - Done when: `AC-0001-03` verificado — a proteção lista `ci` como obrigatório e um PR vermelho fica bloqueado
+    - Done when: `AC-0001-03` verificado — a proteção lista `check` como obrigatório e um PR vermelho fica bloqueado
 - [ ] **T-0002-01 — Testes do orquestrador de gates**
     - What: cobrir `scripts/check.mjs` — classificação PASS/FAIL/SKIP, código de saída e modo `--require-tools`
     - Where: `tests/unit/scripts/check.spec.ts`
