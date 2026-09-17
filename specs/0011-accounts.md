@@ -98,6 +98,10 @@ derivação do ciclo vive aqui porque é propriedade do cartão; **a fatura como
   que fecha dia 28 e vence dia 5 vence no mês seguinte, que é como todo cartão funciona.
 - `startsOn` é o dia seguinte ao fechamento anterior — a janela é fechada nas duas pontas e não deixa
   buraco nem sobreposição entre ciclos consecutivos.
+- **Vencimento nunca empata com o fechamento.** A resolução de dia inexistente pode colapsar os dois
+  numa mesma data — fechar dia 30 e vencer dia 31 dá 28 de fevereiro nos dois casos, uma fatura com
+  zero dia para pagar. Quando isso acontece, o vencimento vai para o mês seguinte: `dueOn` é sempre
+  posterior a `closesOn`.
 
 Alterar `closing_day` ou `due_day` **só afeta ciclos ainda não fechados**. A spec `0013` grava as
 datas em cada fatura no fechamento, e é ela que preserva o passado: aqui, a garantia é que a
@@ -230,22 +234,24 @@ regra 4). Nenhum endpoint desta spec os altera: `PATCH` não os aceita.
 - **AC-0011-12:** `BILLER` e `VIEWER` listam e consultam, e recebem `403 FORBIDDEN` em qualquer
   escrita; sem perfil, `403 PROFILE_PENDING` em todas (INV-0011-09).
 - **AC-0011-13:** valor monetário com fração de centavo recebe `400`, e o banco nunca guarda mais de
+- **AC-0011-14:** cartão que fecha no dia 30 e vence no dia 31 tem, em fevereiro, `dueOn` no
+  mês seguinte ao `closesOn` — nunca no mesmo dia.
   duas casas.
 
 ## Test mapping
 
-| Item                                                | Teste                                                                                            |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| AC-0011-01, AC-0011-02, AC-0011-03                  | `tests/integration/accounts/registration.spec.ts`                                                |
-| AC-0011-04 a AC-0011-07, INV-0011-06, INV-0011-08   | `tests/accounts/billing-cycle.spec.ts`                                                           |
-| AC-0011-08, INV-0011-04, INV-0011-05                | `tests/integration/accounts/immutable-fields.spec.ts`                                            |
-| AC-0011-09, AC-0011-10, INV-0011-03                 | `tests/integration/accounts/archiving.spec.ts`                                                   |
-| AC-0011-11, ERR-0011-07                             | `tests/integration/accounts/archiving.spec.ts`                                                   |
-| AC-0011-12, INV-0011-09                             | `tests/integration/accounts/authorization.spec.ts`                                               |
-| AC-0011-13, INV-0011-01, ERR-0011-10                | `tests/accounts/money-validation.spec.ts` e a suíte de registro                                  |
-| INV-0011-02                                         | `tests/integration/accounts/registration.spec.ts` (FK restrict)                                  |
-| INV-0011-07                                         | `tests/accounts/billing-cycle.spec.ts`; a garantia sobre fatura fechada se completa na spec 0013 |
-| ERR-0011-01 a ERR-0011-06, ERR-0011-11, ERR-0011-12 | as suítes de integração acima                                                                    |
+| Item                                                          | Teste                                                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| AC-0011-01, AC-0011-02, AC-0011-03                            | `tests/integration/accounts/registration.spec.ts`                                                |
+| AC-0011-04 a AC-0011-07, AC-0011-14, INV-0011-06, INV-0011-08 | `tests/accounts/billing-cycle.spec.ts`                                                           |
+| AC-0011-08, INV-0011-04, INV-0011-05                          | `tests/integration/accounts/immutable-fields.spec.ts`                                            |
+| AC-0011-09, AC-0011-10, INV-0011-03                           | `tests/integration/accounts/archiving.spec.ts`                                                   |
+| AC-0011-11, ERR-0011-07                                       | `tests/integration/accounts/archiving.spec.ts`                                                   |
+| AC-0011-12, INV-0011-09                                       | `tests/integration/accounts/authorization.spec.ts`                                               |
+| AC-0011-13, INV-0011-01, ERR-0011-10                          | `tests/accounts/money-validation.spec.ts` e a suíte de registro                                  |
+| INV-0011-02                                                   | `tests/integration/accounts/registration.spec.ts` (FK restrict)                                  |
+| INV-0011-07                                                   | `tests/accounts/billing-cycle.spec.ts`; a garantia sobre fatura fechada se completa na spec 0013 |
+| ERR-0011-01 a ERR-0011-06, ERR-0011-11, ERR-0011-12           | as suítes de integração acima                                                                    |
 
 ## Open questions
 
