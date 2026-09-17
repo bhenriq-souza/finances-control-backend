@@ -53,13 +53,52 @@ Ordem por dependência: as três primeiras são deste repositório, a última é
     - Where: GCP Secret Manager e `homelab-gitops` (`clusters/homelab/workloads/dev/manifests/finances-backend/`); evidência colada no PR deste repositório
     - Done when: `AC-0003-07` e `AC-0003-08` verificados no cluster, com `INV-0003-04` e `INV-0003-07` respeitados; fecha FCB-006
 
+## Identity (F001)
+
+Tarefas da [spec 0010](../specs/0010-identity.md), que fecha a issue de entrega
+[FCB-007](https://github.com/bhenriq-souza/finances-control-backend/issues/7). Ordem por dependência:
+o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
+
+- [ ] **T-0010-01 — Tabela `users` e migration**
+    - What: entidade `User` no módulo `identity`, com o perfil como `text` sob CHECK, e a migration
+      correspondente com as constraints nomeadas pela convenção da spec 0003
+    - Where: `src/identity/user.entity.ts`, `src/platform/database/migrations/`
+    - Done when: `AC-0010-11` coberto; `INV-0010-08` verificado; migration aplica e reverte num banco limpo
+- [ ] **T-0010-02 — Porta `TokenVerifier` e adaptador Firebase**
+    - What: `firebase-admin` como dependência de runtime, a porta com `verify`, o adaptador que a
+      implementa, as variáveis `FIREBASE_*` no `env.list` e a regra de fronteira que isola o pacote
+    - Where: `src/identity/`, `src/platform/config/env.list.ts`, `.dependency-cruiser.cjs`
+    - Done when: `AC-0010-12` verde no gate `boundaries`; `INV-0010-07` verificado
+- [ ] **T-0010-03 — Provisionamento no primeiro acesso e bootstrap do Admin**
+    - What: serviço que cria ou atualiza o usuário a partir do token verificado, numa transação, com
+      a promoção idempotente do email de bootstrap
+    - Where: `src/identity/`, `src/platform/config/env.list.ts`
+    - Done when: `AC-0010-02`, `AC-0010-03` e `AC-0010-04` cobertos; `INV-0010-04` verificado
+- [ ] **T-0010-04 — Middlewares de autenticação e de perfil**
+    - What: `requireAuthentication` e `requireProfile`, o usuário no `RequestStore` da plataforma e os
+      erros próprios de token e de perfil pendente
+    - Where: `src/identity/`, `src/platform/context/request-context.ts`, `src/platform/index.ts`
+    - Done when: `AC-0010-01`, `AC-0010-05` e `AC-0010-08` cobertos; `INV-0010-01`, `INV-0010-02`,
+      `INV-0010-03` e `INV-0010-09` verificados
+- [ ] **T-0010-05 — Endpoints de usuário e concessão de perfil**
+    - What: as quatro rotas de `/users`, com as guardas de perfil próprio e de último Admin, e o
+      contrato no `openapi.yaml`
+    - Where: `src/identity/`, `src/platform/config/api.config.ts`, `docs/openapi.yaml`
+    - Done when: `AC-0010-06`, `AC-0010-07`, `AC-0010-09` e `AC-0010-10` cobertos; `INV-0010-05` e
+      `INV-0010-06` verificados; fecha FCB-007
+- [ ] **T-0010-06 — Secrets do Firebase no cluster**
+    - What: service account do `firebase-admin` e email do Admin de bootstrap no GCP Secret Manager,
+      entregues por ExternalSecret, e as variáveis no deployment
+    - Where: GCP Secret Manager e `homelab-gitops`; evidência colada no PR deste repositório
+    - Done when: a aplicação em `dev` autentica uma requisição real e `GET /users/me` responde,
+      respeitando `INV-0003-07`
+
 ## Domínio
 
-As specs de domínio (`0010`+) ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
+As specs de domínio restantes (`0011`+) ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
 
 | Issue   | Spec prevista     | Requisito                       |
 | ------- | ----------------- | ------------------------------- |
-| FCB-007 | `0010` identity   | F001 — usuários e autenticação  |
 | FCB-008 | `0011` accounts   | F002 — bancos, contas e cartões |
 | FCB-009 | `0012` expenses   | F003 — despesas                 |
 | FCB-010 | `0013` statements | F004 — faturas                  |
