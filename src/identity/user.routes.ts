@@ -2,16 +2,14 @@ import type { RequestHandler } from 'express';
 import { inject, injectable } from 'tsyringe';
 import type { RouteDef } from '@bhs-dev/typescript-common-types';
 
-import { BaseRoute } from '../platform';
 import {
+    BaseRoute,
     RequireAuthenticationSymbol,
     RequireProfileSymbol,
-    UserControllerSymbol,
-} from './identity.symbols';
+    type RequireProfile,
+} from '../platform';
+import { UserControllerSymbol } from './identity.symbols';
 import type { UserController } from './user.controller';
-import type { UserProfile } from './user-profile';
-
-type RequireProfile = (...profiles: UserProfile[]) => RequestHandler;
 
 @injectable()
 export class UserRoutes extends BaseRoute {
