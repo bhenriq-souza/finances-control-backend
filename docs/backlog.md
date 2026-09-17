@@ -23,6 +23,36 @@ Este arquivo é a camada de **execução**. A camada de **entrega** são as issu
     - Where: `package.json`, `.dependency-cruiser.cjs`, `.github/workflows/ci.yml`
     - Done when: `AC-0002-04` e `INV-0002-05` — nenhum gate aparece como SKIP na execução do CI
 
+## Persistência
+
+Tarefas da [spec 0003](../specs/0003-persistence.md), que fecha a issue de entrega
+[FCB-006](https://github.com/bhenriq-souza/finances-control-backend/issues/6) (Fase 1 do roadmap).
+Ordem por dependência: as três primeiras são deste repositório, a última é infraestrutura.
+
+- [ ] **T-0003-01 — Conexão, convenções e transformer monetário**
+    - What: `typeorm` e `pg` como dependências de runtime, `AppDataSource` em
+      `src/platform/database/` registrado no container, variáveis `DATABASE_*` no `env.list`,
+      `SnakeCaseNamingStrategy` e `moneyTransformer`
+    - Where: `src/platform/database/`, `src/platform/config/env.list.ts`, `src/platform/symbols/index.ts`, `src/platform/index.ts`, `src/container.ts`, `package.json`
+    - Done when: `AC-0003-03` e `AC-0003-05` cobertos por teste; `INV-0003-01`, `INV-0003-02` e `INV-0003-05` verificados
+- [ ] **T-0003-02 — Migration inicial e banco real nos testes**
+    - What: scripts `migration:*`, migration `InitialBaseline` com a função `set_updated_at()`,
+      `docker-compose.test.yml`, `services: postgres` no job `check` do CI e as primeiras suítes de
+      integração
+    - Where: `src/platform/database/migrations/`, `package.json`, `docker-compose.test.yml`, `.github/workflows/ci.yml`, `tests/integration/`
+    - Done when: `AC-0003-01`, `AC-0003-02` e `AC-0003-06` verdes no CI, sem gate em SKIP
+- [ ] **T-0003-03 — Readiness com verificação de banco**
+    - What: `GET /health/ready` na `HealthRoutes` existente, mantendo `GET /health` como liveness
+      puro, e o endpoint documentado no `openapi.yaml`
+    - Where: `src/platform/health/`, `docs/openapi.yaml`
+    - Done when: `AC-0003-04` coberto por teste e `INV-0003-06` preservado
+- [ ] **T-0003-04 — Provisionamento do banco, do secret e do initContainer**
+    - What: database `finances_dev` e role `finances_app` por script idempotente, secrets
+      `homelab-dev-finances-database-*` no GCP Secret Manager, `ExternalSecret`, initContainer de
+      migration e `readinessProbe` apontando para `/health/ready`
+    - Where: GCP Secret Manager e `homelab-gitops` (`clusters/homelab/workloads/dev/manifests/finances-backend/`); evidência colada no PR deste repositório
+    - Done when: `AC-0003-07` e `AC-0003-08` verificados no cluster, com `INV-0003-04` e `INV-0003-07` respeitados; fecha FCB-006
+
 ## Domínio
 
 As specs de domínio (`0010`+) ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
