@@ -7,7 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import type { ILogger } from '@bhs-dev/typescript-common-types';
 
 import { container } from './container';
-import { apiModules } from './platform/config/api.config';
+import { apiModules } from './api.config';
 import { sortMiddlewares, type MiddlewareEntry } from './platform/config/middlewares.config';
 import { RequestContext } from './platform/context/request-context';
 import { HttpResponses } from './platform/http/http-responses';

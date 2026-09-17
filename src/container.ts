@@ -1,8 +1,20 @@
 import 'reflect-metadata';
-import { container } from 'tsyringe';
+import { container, instanceCachingFactory } from 'tsyringe';
+import type { RequestHandler } from 'express';
 
 import { EnvService } from '@bhs-dev/typescript-common-env';
 
+import {
+    FirebaseTokenVerifier,
+    RequireAuthenticationSymbol,
+    RequireProfileSymbol,
+    TokenVerifierSymbol,
+    UserProvisioningServiceSymbol,
+    createAuthenticationMiddleware,
+    createRequireProfile,
+    UserProvisioningService,
+    type TokenVerifier,
+} from './identity';
 import { envList } from './platform/config/env.list';
 import { AppDataSource } from './platform/database/data-source';
 import { RequestContext } from './platform/context/request-context';
@@ -32,5 +44,26 @@ container.registerSingleton(RequestContextSymbol, RequestContext);
 
 /* helpers de resposta */
 container.register(HttpResponsesSymbol, { useValue: HttpResponses });
+
+/* identidade — quem chama e o que pode (spec 0010) */
+container.registerSingleton(TokenVerifierSymbol, FirebaseTokenVerifier);
+container.registerSingleton(UserProvisioningServiceSymbol, UserProvisioningService);
+
+container.register(RequireAuthenticationSymbol, {
+    useFactory: instanceCachingFactory<RequestHandler>((c) =>
+        createAuthenticationMiddleware({
+            tokenVerifier: c.resolve<TokenVerifier>(TokenVerifierSymbol),
+            provisioning: c.resolve<UserProvisioningService>(UserProvisioningServiceSymbol),
+            requestContext: c.resolve<RequestContext>(RequestContextSymbol),
+            logger: c.resolve<LoggerService>(LoggerServiceSymbol),
+        }),
+    ),
+});
+
+container.register(RequireProfileSymbol, {
+    useFactory: instanceCachingFactory((c) =>
+        createRequireProfile(c.resolve<RequestContext>(RequestContextSymbol)),
+    ),
+});
 
 export { container };
