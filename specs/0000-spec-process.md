@@ -78,7 +78,7 @@ Regra: ao concluir a última tarefa de uma spec, o PR que a fecha referencia a i
 - **INV-0000-01:** toda spec tem frontmatter completo e as oito seções, na ordem.
 - **INV-0000-02:** toda tarefa do backlog referencia um ID de spec existente e ao menos um item `AC-*` ou `INV-*`.
 - **INV-0000-03:** referências em `depends_on` resolvem para IDs de specs existentes, e o grafo de dependências é acíclico.
-- **INV-0000-04:** valores monetários nunca são representados em ponto flutuante — persistidos como `numeric` e manipulados como inteiro de centavos ou string decimal.
+- **INV-0000-04:** valores monetários nunca são representados em ponto flutuante — persistidos como `numeric(14,2)` e manipulados, na aplicação e na API, como inteiro de centavos ([ADR-0007](https://github.com/bhenriq-souza/finances-control/blob/main/docs/adr/ADR-0007-monetary-representation.md); conversão na fronteira do banco pela spec [0003](0003-persistence.md)).
 - **INV-0000-05:** specs, ADRs, backlog e documentação em português; código, identificadores, commits e PRs em inglês.
 
 ## Error cases
@@ -93,12 +93,12 @@ Não se aplica (spec de processo). Violações de INV-0000-01..03 são reprovada
 
 ## Test mapping
 
-| Item                                             | Teste                                             |
-| ------------------------------------------------ | ------------------------------------------------- |
-| AC-0000-01, AC-0000-03, INV-0000-01, INV-0000-03 | `scripts/check-specs.mjs`                         |
-| AC-0000-02, INV-0000-02                          | `scripts/check-specs.mjs` (seção de backlog)      |
-| INV-0000-04                                      | testes de domínio das specs 0011+ e revisão em PR |
-| INV-0000-05                                      | revisão em PR                                     |
+| Item                                             | Teste                                                                                               |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| AC-0000-01, AC-0000-03, INV-0000-01, INV-0000-03 | `scripts/check-specs.mjs`                                                                           |
+| AC-0000-02, INV-0000-02                          | `scripts/check-specs.mjs` (seção de backlog)                                                        |
+| INV-0000-04                                      | `tests/platform/database/money.transformer.spec.ts` (spec 0003) e testes de domínio das specs 0011+ |
+| INV-0000-05                                      | revisão em PR                                                                                       |
 
 ## Open questions
 
