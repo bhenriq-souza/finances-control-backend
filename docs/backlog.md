@@ -35,7 +35,7 @@ Ordem por dependência: as três primeiras são deste repositório, a última é
       `SnakeCaseNamingStrategy` e `moneyTransformer`
     - Where: `src/platform/database/`, `src/platform/config/env.list.ts`, `src/platform/symbols/index.ts`, `src/platform/index.ts`, `src/container.ts`, `package.json`
     - Done when: `AC-0003-03` e `AC-0003-05` cobertos por teste; `INV-0003-01`, `INV-0003-02` e `INV-0003-05` verificados
-- [ ] **T-0003-02 — Migration inicial e banco real nos testes**
+- [x] **T-0003-02 — Migration inicial e banco real nos testes**
     - What: scripts `migration:*`, migration `InitialBaseline` com a função `set_updated_at()`,
       `docker-compose.test.yml`, `services: postgres` no job `check` do CI e as primeiras suítes de
       integração
