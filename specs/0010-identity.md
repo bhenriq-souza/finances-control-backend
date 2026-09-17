@@ -99,6 +99,15 @@ requisição autenticada.
 
 Tudo isso numa única transação por requisição.
 
+#### Nome de exibição
+
+`users.name` é `not null`, e o Firebase **não** obriga display name — quem se cadastra com email e
+senha costuma não ter nenhum. Na criação do registro, o email entra no lugar: é um marcador honesto,
+melhor do que inventar um nome ou tornar a coluna opcional por causa de um caso de borda.
+
+Um nome de verdade, uma vez gravado, nunca volta a ser o email: se o token deixar de trazer nome, o
+que já está no banco permanece.
+
 ### Middlewares
 
 Publicados pela interface do módulo e aplicados por cada rota que os exigir:
@@ -191,20 +200,22 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
 - **AC-0010-11:** emails que diferem só por maiúsculas e espaços resolvem para o mesmo usuário, e a
   segunda gravação viola `uq_users_email`.
 - **AC-0010-12:** o gate `boundaries` reprova qualquer import de `firebase-admin` fora do adaptador.
+- **AC-0010-13:** usuário criado a partir de um token sem display name fica com o email em `name`; e
+  um nome já gravado não é substituído pelo email quando o token deixa de trazê-lo.
 
 ## Test mapping
 
-| Item                                             | Teste                                                                                   |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| AC-0010-01, ERR-0010-01..03, ERR-0010-10         | `tests/identity/authentication.middleware.spec.ts` (verifier falso)                     |
-| AC-0010-02, AC-0010-03, AC-0010-04, INV-0010-04  | `tests/integration/identity/provisioning.spec.ts`                                       |
-| AC-0010-05, AC-0010-08, ERR-0010-04, ERR-0010-05 | `tests/identity/profile.guard.spec.ts`                                                  |
-| AC-0010-06, AC-0010-07, ERR-0010-08              | `tests/integration/identity/profile-grant.spec.ts`                                      |
-| AC-0010-09, AC-0010-10, INV-0010-05, INV-0010-06 | `tests/integration/identity/profile-guardrails.spec.ts`                                 |
-| AC-0010-11, INV-0010-08                          | `tests/identity/email.normalization.spec.ts` e o teste de integração de provisionamento |
-| AC-0010-12, INV-0010-07                          | gate `boundaries` (regra nova em `.dependency-cruiser.cjs`)                             |
-| INV-0010-01, INV-0010-02, INV-0010-03            | `tests/integration/identity/authorization.spec.ts`                                      |
-| INV-0010-09                                      | `tests/identity/authentication.middleware.spec.ts` (logger espionado)                   |
+| Item                                                        | Teste                                                                                   |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| AC-0010-01, ERR-0010-01..03, ERR-0010-10                    | `tests/identity/authentication.middleware.spec.ts` (verifier falso)                     |
+| AC-0010-02, AC-0010-03, AC-0010-04, AC-0010-13, INV-0010-04 | `tests/integration/identity/provisioning.spec.ts`                                       |
+| AC-0010-05, AC-0010-08, ERR-0010-04, ERR-0010-05            | `tests/identity/profile.guard.spec.ts`                                                  |
+| AC-0010-06, AC-0010-07, ERR-0010-08                         | `tests/integration/identity/profile-grant.spec.ts`                                      |
+| AC-0010-09, AC-0010-10, INV-0010-05, INV-0010-06            | `tests/integration/identity/profile-guardrails.spec.ts`                                 |
+| AC-0010-11, INV-0010-08                                     | `tests/identity/email.normalization.spec.ts` e o teste de integração de provisionamento |
+| AC-0010-12, INV-0010-07                                     | gate `boundaries` (regra nova em `.dependency-cruiser.cjs`)                             |
+| INV-0010-01, INV-0010-02, INV-0010-03                       | `tests/integration/identity/authorization.spec.ts`                                      |
+| INV-0010-09                                                 | `tests/identity/authentication.middleware.spec.ts` (logger espionado)                   |
 
 ## Open questions
 
