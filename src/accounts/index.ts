@@ -11,4 +11,8 @@ export { BankService } from './bank.service';
 export { BankController } from './bank.controller';
 export { BankRoutes } from './bank.routes';
 export { toBankResponse, type BankResponse } from './bank.response';
+export { BankAccountService } from './bank-account.service';
+export { BankAccountController } from './bank-account.controller';
+export { BankAccountRoutes } from './bank-account.routes';
+export { toBankAccountResponse, type BankAccountResponse } from './bank-account.response';
 export * from './accounts.symbols';
