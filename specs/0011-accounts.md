@@ -1,7 +1,7 @@
 ---
 id: '0011'
 title: Accounts — bancos, contas bancárias e cartões de crédito
-status: draft
+status: approved
 depends_on: ['0000', '0003', '0010']
 ---
 

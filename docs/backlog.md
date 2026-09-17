@@ -100,7 +100,7 @@ Tarefas da [spec 0011](../specs/0011-accounts.md), que fecha a issue de entrega
 [FCB-008](https://github.com/bhenriq-souza/finances-control-backend/issues/8). Ordem por
 dependência: o banco antes do que se liga a ele, e o ciclo antes do cartão que o publica.
 
-- [ ] **T-0011-01 — Entidades e migration de `banks`, `bank_accounts` e `credit_cards`**
+- [x] **T-0011-01 — Entidades e migration de `banks`, `bank_accounts` e `credit_cards`**
     - What: as três entidades com enum sob CHECK, colunas monetárias `numeric(14,2)` pelo
       `moneyTransformer`, e a migration com as constraints nomeadas pela convenção da spec 0003
     - Where: `src/accounts/`, `src/platform/database/migrations/`
