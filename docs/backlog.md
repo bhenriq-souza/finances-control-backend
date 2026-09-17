@@ -69,7 +69,7 @@ o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
       implementa, as variáveis `FIREBASE_*` no `env.list` e a regra de fronteira que isola o pacote
     - Where: `src/identity/`, `src/platform/config/env.list.ts`, `.dependency-cruiser.cjs`
     - Done when: `AC-0010-12` verde no gate `boundaries`; `INV-0010-07` verificado
-- [ ] **T-0010-03 — Provisionamento no primeiro acesso e bootstrap do Admin**
+- [x] **T-0010-03 — Provisionamento no primeiro acesso e bootstrap do Admin**
     - What: serviço que cria ou atualiza o usuário a partir do token verificado, numa transação, com
       a promoção idempotente do email de bootstrap
     - Where: `src/identity/`, `src/platform/config/env.list.ts`

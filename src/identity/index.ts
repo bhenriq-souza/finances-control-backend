@@ -13,3 +13,4 @@ export {
     type VerifiedToken,
 } from './token-verifier';
 export { FirebaseTokenVerifier, type VerifyIdToken } from './firebase-token-verifier';
+export { UserProvisioningService } from './user-provisioning.service';
