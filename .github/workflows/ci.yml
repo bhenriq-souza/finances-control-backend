@@ -12,6 +12,25 @@ on:
 jobs:
     check:
         runs-on: ubuntu-latest
+
+        # O gate `test` inclui as suítes de integração da spec 0003, que exigem um
+        # PostgreSQL real. A porta 5433 é a mesma do docker-compose.test.yml, para
+        # que a URL de teste seja uma só, local e no CI.
+        services:
+            postgres:
+                image: postgres:16-alpine
+                env:
+                    POSTGRES_USER: finances_test
+                    POSTGRES_DB: finances_test
+                    POSTGRES_HOST_AUTH_METHOD: trust
+                ports:
+                    - 5433:5432
+                options: >-
+                    --health-cmd "pg_isready -U finances_test -d finances_test"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+
         steps:
             - uses: actions/checkout@v4
 

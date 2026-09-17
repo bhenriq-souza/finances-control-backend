@@ -6,4 +6,5 @@ process.env.ENV = 'test';
 process.env.SERVER_PORT = '3000';
 process.env.LOG_LEVEL = 'error';
 // Sem senha de propósito: nenhuma credencial é versionada, nem em teste (INV-0003-07).
-process.env.DATABASE_URL = 'postgres://finances_test@localhost:5432/finances_test';
+process.env.DATABASE_URL =
+    process.env.DATABASE_URL ?? 'postgres://finances_test@localhost:5433/finances_test';
