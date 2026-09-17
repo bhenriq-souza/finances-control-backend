@@ -16,6 +16,8 @@ servers:
 tags:
     - name: Platform
       description: Endpoints de infraestrutura
+    - name: Identity
+      description: Usuários, autenticação e concessão de perfil
 
 paths:
     /health:
@@ -92,7 +94,165 @@ paths:
                                         checks:
                                             database: down
 
+    /users/me:
+        get:
+            tags: [Identity]
+            summary: O próprio usuário
+            description: |
+                Única rota que responde a quem ainda não tem perfil — é por ela que o
+                cliente descobre que a conta está aguardando aprovação de um Admin.
+                O registro local é criado aqui, no primeiro acesso autenticado.
+            operationId: getCurrentUser
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/User'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '503':
+                    $ref: '#/components/responses/AuthUnavailable'
+
+    /users:
+        get:
+            tags: [Identity]
+            summary: Lista os usuários
+            description: Exige perfil `ADMIN`. Ordenados por data de criação.
+            operationId: listUsers
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    description: Usuários da plataforma
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/UserResponse'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+
+    /users/{id}/profile:
+        parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                  type: string
+                  format: uuid
+        patch:
+            tags: [Identity]
+            summary: Concede ou troca o perfil de um usuário
+            description: |
+                Exige perfil `ADMIN`. O perfil passa a valer na requisição seguinte do
+                alvo, sem troca de token — ele é lido do banco a cada chamada.
+                Ninguém altera o próprio perfil, e a operação que deixaria a plataforma
+                sem nenhum `ADMIN` é recusada.
+            operationId: grantUserProfile
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required: [profile]
+                            properties:
+                                profile:
+                                    type: string
+                                    enum: [ADMIN, BILLER, VIEWER]
+            responses:
+                '200':
+                    $ref: '#/components/responses/User'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/UserNotFound'
+                '409':
+                    $ref: '#/components/responses/ProfileConflict'
+        delete:
+            tags: [Identity]
+            summary: Revoga o perfil de um usuário
+            description: |
+                Exige perfil `ADMIN`. Devolve o usuário ao estado pendente, sem acesso a
+                recurso de domínio algum. Mesmas travas do `PATCH`.
+            operationId: revokeUserProfile
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/User'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/UserNotFound'
+                '409':
+                    $ref: '#/components/responses/ProfileConflict'
+
 components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+            description: ID token do Firebase, obtido pelo cliente e enviado em toda chamada.
+
+    responses:
+        User:
+            description: O usuário
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/UserResponse'
+        Unauthenticated:
+            description: |
+                Sem token válido. `UNAUTHENTICATED` para header ausente ou credencial
+                inválida; `TOKEN_EXPIRED` quando basta renovar o token.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        Forbidden:
+            description: |
+                `PROFILE_PENDING` quando a conta ainda não tem perfil, e `FORBIDDEN`
+                quando o perfil não alcança a operação.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        UserNotFound:
+            description: '`USER_NOT_FOUND`'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        ProfileConflict:
+            description: |
+                `CANNOT_CHANGE_OWN_PROFILE` ao mirar o próprio usuário, e `LAST_ADMIN`
+                quando a operação deixaria a plataforma sem administrador.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        ValidationError:
+            description: '`VALIDATION_ERROR`'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+
     headers:
         CorrelationId:
             description: Identificador de correlação, ecoado do request ou gerado
@@ -132,6 +292,31 @@ components:
                         database:
                             type: string
                             enum: [up, down]
+
+        UserResponse:
+            type: object
+            required: [id, email, name, profile, profileGrantedAt, createdAt]
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                email:
+                    type: string
+                    format: email
+                name:
+                    type: string
+                profile:
+                    type: string
+                    nullable: true
+                    enum: [ADMIN, BILLER, VIEWER]
+                    description: Nulo enquanto um Admin não conceder perfil.
+                profileGrantedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                createdAt:
+                    type: string
+                    format: date-time
 
         Error:
             type: object

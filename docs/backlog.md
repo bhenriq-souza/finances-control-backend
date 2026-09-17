@@ -80,18 +80,19 @@ o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
     - Where: `src/identity/`, `src/platform/context/request-context.ts`, `src/platform/index.ts`
     - Done when: `AC-0010-01`, `AC-0010-05` e `AC-0010-08` cobertos; `INV-0010-01`, `INV-0010-02`,
       `INV-0010-03` e `INV-0010-09` verificados
-- [ ] **T-0010-05 — Endpoints de usuário e concessão de perfil**
+- [x] **T-0010-05 — Endpoints de usuário e concessão de perfil**
     - What: as quatro rotas de `/users`, com as guardas de perfil próprio e de último Admin, e o
       contrato no `openapi.yaml`
     - Where: `src/identity/`, `src/platform/config/api.config.ts`, `docs/openapi.yaml`
     - Done when: `AC-0010-06`, `AC-0010-07`, `AC-0010-09` e `AC-0010-10` cobertos; `INV-0010-05` e
-      `INV-0010-06` verificados; fecha FCB-007
+      `INV-0010-06` verificados
 - [ ] **T-0010-06 — Secrets do Firebase no cluster**
     - What: service account do `firebase-admin` e email do Admin de bootstrap no GCP Secret Manager,
       entregues por ExternalSecret, e as variáveis no deployment
     - Where: GCP Secret Manager e `homelab-gitops`; evidência colada no PR deste repositório
     - Done when: a aplicação em `dev` autentica uma requisição real e `GET /users/me` responde,
-      respeitando `INV-0003-07`
+      respeitando `INV-0003-07`; por ser a última tarefa da spec, fecha FCB-007 e muda o `status` da
+      spec 0010 para `implemented`
 
 ## Domínio
 

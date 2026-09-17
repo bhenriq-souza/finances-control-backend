@@ -17,6 +17,5 @@ export { SnakeCaseNamingStrategy } from './database/snake-case.naming-strategy';
 export { registerApiModules, type ApiModule, type ApiProvider } from './api/register-api-modules';
 export { sortMiddlewares, type MiddlewareEntry } from './config/middlewares.config';
 export { envList } from './config/env.list';
-export { apiModules } from './config/api.config';
 export { CORRELATION_ID_HEADER } from './middlewares/correlation-id.middleware';
 export * from './symbols';
