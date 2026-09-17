@@ -8,6 +8,14 @@ export default [
     { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'scripts/**'] },
     js.configs.recommended,
     {
+        // Configuração de ferramenta na raiz: CommonJS, fora do escopo de tipagem.
+        files: ['*.config.js'],
+        languageOptions: {
+            sourceType: 'commonjs',
+            globals: globals.node,
+        },
+    },
+    {
         files: ['src/**/*.ts', 'tests/**/*.ts'],
         languageOptions: {
             parser: tseslint.parser,

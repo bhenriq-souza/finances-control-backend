@@ -14,7 +14,7 @@ Este arquivo é a camada de **execução**. A camada de **entrega** são as issu
     - What: cobrir `scripts/check.mjs` — classificação PASS/FAIL/SKIP, código de saída e modo `--require-tools`
     - Where: `tests/unit/scripts/check.spec.ts`
     - Done when: `AC-0002-01`, `AC-0002-02` e `AC-0002-03` cobertos por teste automatizado
-- [ ] **T-0002-02 — Hook `commit-msg` com commitlint**
+- [x] **T-0002-02 — Hook `commit-msg` com commitlint**
     - What: instalar husky + commitlint para reprovar mensagens fora de Conventional Commits e sem o rodapé `Task:`
     - Where: `.husky/commit-msg`, `commitlint.config.js`
     - Done when: `INV-0001-02` passa a ser verificado localmente; uma mensagem inválida é rejeitada sem `--no-verify`
