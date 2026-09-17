@@ -171,10 +171,18 @@ primeiro nasce igual ao saldo de abertura e o segundo igual ao limite total.
 
 ### Quem move saldo e limite
 
-`current_balance_cents` e `available_limit_cents` **só mudam por despesa ou receita**, nas specs
-`0012` e `0014`, e sempre na mesma transação do lançamento
+`current_balance_cents` e `available_limit_cents` **não são informados por ninguém**: `PATCH` não os
+aceita, e mandá-los é `400`. Quem os move é despesa ou receita, nas specs `0012` e `0014`, sempre na
+mesma transação do lançamento
 ([ADR-0003](https://github.com/bhenriq-souza/finances-control/blob/main/docs/adr/ADR-0003-architecture-style.md),
-regra 4). Nenhum endpoint desta spec os altera: `PATCH` não os aceita.
+regra 4).
+
+**Uma exceção, e só uma:** alterar `credit_limit_cents` move `available_limit_cents` na mesma medida,
+na mesma transação. O que uma alteração de limite não muda é **quanto já foi gasto** — subir o limite
+de 5.000 para 8.000 com 3.000 em uso tem de deixar 5.000 disponíveis, ou o cartão passa a mentir
+sobre quanto ainda cabe nele. O disponível **pode ficar negativo**: um banco reduz limite abaixo do
+que já está em uso, e o cartão precisa saber dizer isso. O valor continua sem ser informável — ele é
+calculado a partir do limite anterior e do disponível anterior.
 
 ## Invariants
 
@@ -184,7 +192,10 @@ regra 4). Nenhum endpoint desta spec os altera: `PATCH` não os aceita.
   apagado enquanto houver algum deles (`on delete restrict`).
 - **INV-0011-03:** nenhum registro desta spec é apagado; o encerramento é arquivamento, e o
   arquivado continua legível e referenciável.
-- **INV-0011-04:** `current_balance_cents` e `available_limit_cents` não são escritos por nenhum
+- **INV-0011-04:** `current_balance_cents` e `available_limit_cents` nunca são informados
+  por um cliente. Quem os move é lançamento, na mesma transação (ADR-0003, regra 4) — com a
+  única exceção da alteração de `credit_limit_cents`, que ajusta o disponível pela mesma
+  diferença, também na mesma transação, preservando o quanto já foi gasto.
   endpoint desta spec — só por lançamento, na mesma transação (ADR-0003, regra 4).
 - **INV-0011-05:** `opening_balance_cents` é imutável depois da criação: alterá-lo reescreveria a
   origem de um saldo derivado de lançamentos.
@@ -236,6 +247,9 @@ regra 4). Nenhum endpoint desta spec os altera: `PATCH` não os aceita.
 - **AC-0011-13:** valor monetário com fração de centavo recebe `400`, e o banco nunca guarda mais de
 - **AC-0011-14:** cartão que fecha no dia 30 e vence no dia 31 tem, em fevereiro, `dueOn` no
   mês seguinte ao `closesOn` — nunca no mesmo dia.
+- **AC-0011-15:** alterar `creditLimitCents` de 500.000 para 800.000 num cartão com 300.000 em
+  uso resulta em `availableLimitCents` de 500.000; reduzir para 100.000 resulta em −200.000; e
+  alterar qualquer outro campo não toca no disponível.
   duas casas.
 
 ## Test mapping
@@ -245,6 +259,7 @@ regra 4). Nenhum endpoint desta spec os altera: `PATCH` não os aceita.
 | AC-0011-01, AC-0011-02, AC-0011-03                            | `tests/integration/accounts/registration.spec.ts`                                                |
 | AC-0011-04 a AC-0011-07, AC-0011-14, INV-0011-06, INV-0011-08 | `tests/accounts/billing-cycle.spec.ts`                                                           |
 | AC-0011-08, INV-0011-04, INV-0011-05                          | `tests/integration/accounts/immutable-fields.spec.ts`                                            |
+| AC-0011-15                                                    | `tests/integration/accounts/credit-cards.spec.ts`                                                |
 | AC-0011-09, AC-0011-10, INV-0011-03                           | `tests/integration/accounts/archiving.spec.ts`                                                   |
 | AC-0011-11, ERR-0011-07                                       | `tests/integration/accounts/archiving.spec.ts`                                                   |
 | AC-0011-12, INV-0011-09                                       | `tests/integration/accounts/authorization.spec.ts`                                               |
