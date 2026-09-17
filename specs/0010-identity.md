@@ -155,7 +155,11 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
 - **INV-0010-04:** o bootstrap só promove: nunca rebaixa um perfil existente nem revoga.
 - **INV-0010-05:** um `ADMIN` não altera nem revoga o próprio perfil; a mudança parte sempre de outro
   `ADMIN`.
-- **INV-0010-06:** existe sempre ao menos um usuário com perfil `ADMIN` — a operação que deixaria a
+- **INV-0010-06:** existe sempre ao menos um usuário com perfil `ADMIN` — a operação que
+  deixaria a plataforma sem nenhum é recusada. A checagem vive no serviço, junto da escrita, e
+  continua valendo se um dia surgir um endpoint administrativo, um script de manutenção ou a
+  decisão de permitir autoalteração — momentos em que o `INV-0010-05` deixaria de proteger
+  este caso por tabela.
   plataforma sem nenhum é recusada.
 - **INV-0010-07:** `firebase-admin` é importado apenas pelo adaptador da porta `TokenVerifier`.
 - **INV-0010-08:** email é persistido normalizado, e toda comparação usa a forma normalizada.
@@ -196,7 +200,10 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
 - **AC-0010-08:** `BILLER` e `VIEWER` recebem `403 FORBIDDEN` em `GET /users` e em
   `PATCH /users/:id/profile`.
 - **AC-0010-09:** um `ADMIN` que tenta alterar o próprio perfil recebe `409 CANNOT_CHANGE_OWN_PROFILE`.
-- **AC-0010-10:** revogar o perfil do único `ADMIN` restante recebe `409 LAST_ADMIN` e não altera o banco.
+- **AC-0010-10:** revogar ou rebaixar o perfil do único `ADMIN` restante recebe
+  `409 LAST_ADMIN` e não altera o banco. **Pela API esse caminho não existe**: só um `ADMIN`
+  alcança essas rotas e o `INV-0010-05` o impede de mirar em si mesmo, então sempre resta ao
+  menos ele. A trava é defesa em profundidade e se verifica chamando `UserService` diretamente.
 - **AC-0010-11:** emails que diferem só por maiúsculas e espaços resolvem para o mesmo usuário, e a
   segunda gravação viola `uq_users_email`.
 - **AC-0010-12:** o gate `boundaries` reprova qualquer import de `firebase-admin` fora do adaptador.
@@ -211,7 +218,8 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
 | AC-0010-02, AC-0010-03, AC-0010-04, AC-0010-13, INV-0010-04 | `tests/integration/identity/provisioning.spec.ts`                                       |
 | AC-0010-05, AC-0010-08, ERR-0010-04, ERR-0010-05            | `tests/identity/profile.guard.spec.ts`                                                  |
 | AC-0010-06, AC-0010-07, ERR-0010-08                         | `tests/integration/identity/profile-grant.spec.ts`                                      |
-| AC-0010-09, AC-0010-10, INV-0010-05, INV-0010-06            | `tests/integration/identity/profile-guardrails.spec.ts`                                 |
+| AC-0010-09, INV-0010-05                                     | `tests/integration/identity/profile-guardrails.spec.ts` (pelo HTTP)                     |
+| AC-0010-10, INV-0010-06                                     | `tests/integration/identity/profile-guardrails.spec.ts` (pelo serviço)                  |
 | AC-0010-11, INV-0010-08                                     | `tests/identity/email.normalization.spec.ts` e o teste de integração de provisionamento |
 | AC-0010-12, INV-0010-07                                     | gate `boundaries` (regra nova em `.dependency-cruiser.cjs`)                             |
 | INV-0010-01, INV-0010-02, INV-0010-03                       | `tests/integration/identity/authorization.spec.ts`                                      |
