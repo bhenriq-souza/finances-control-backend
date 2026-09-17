@@ -119,7 +119,7 @@ dependência: o banco antes do que se liga a ele, e o ciclo antes do cartão que
       recusa de vínculo a banco arquivado
     - Where: `src/accounts/`
     - Done when: `AC-0011-01`, `AC-0011-03`, `AC-0011-08`, `AC-0011-11` e `AC-0011-13`
-- [ ] **T-0011-05 — Cartões de crédito**
+- [x] **T-0011-05 — Cartões de crédito**
     - What: as rotas de `/credit-cards`, com limite disponível somente-leitura e o `currentCycle`
       derivado na resposta
     - Where: `src/accounts/`
