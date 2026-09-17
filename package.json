@@ -35,6 +35,7 @@
         "@bhs-dev/typescript-common-errors": "^1.0.0",
         "@bhs-dev/typescript-common-types": "^1.0.0",
         "express": "^5.1.0",
+        "firebase-admin": "^14.4.0",
         "js-yaml": "^4.1.0",
         "pg": "^8.23.0",
         "reflect-metadata": "^0.2.2",

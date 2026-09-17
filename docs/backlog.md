@@ -64,7 +64,7 @@ o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
       correspondente com as constraints nomeadas pela convenção da spec 0003
     - Where: `src/identity/user.entity.ts`, `src/platform/database/migrations/`
     - Done when: `AC-0010-11` coberto; `INV-0010-08` verificado; migration aplica e reverte num banco limpo
-- [ ] **T-0010-02 — Porta `TokenVerifier` e adaptador Firebase**
+- [x] **T-0010-02 — Porta `TokenVerifier` e adaptador Firebase**
     - What: `firebase-admin` como dependência de runtime, a porta com `verify`, o adaptador que a
       implementa, as variáveis `FIREBASE_*` no `env.list` e a regra de fronteira que isola o pacote
     - Where: `src/identity/`, `src/platform/config/env.list.ts`, `.dependency-cruiser.cjs`
