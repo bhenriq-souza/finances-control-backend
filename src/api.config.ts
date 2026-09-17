@@ -10,6 +10,14 @@ import {
     HealthServiceSymbol,
 } from './platform/symbols';
 import {
+    BankController,
+    BankControllerSymbol,
+    BankRoutes,
+    BankRoutesSymbol,
+    BankService,
+    BankServiceSymbol,
+} from './accounts';
+import {
     UserController,
     UserControllerSymbol,
     UserRoutes,
@@ -41,6 +49,14 @@ export const apiModules: ApiModule[] = [
         provides: [
             { token: UserServiceSymbol, clazz: UserService, scope: ScopeTypes.SINGLETON },
             { token: UserControllerSymbol, clazz: UserController, scope: ScopeTypes.SINGLETON },
+        ],
+    },
+    {
+        path: '/banks',
+        route: { token: BankRoutesSymbol, clazz: BankRoutes },
+        provides: [
+            { token: BankServiceSymbol, clazz: BankService, scope: ScopeTypes.SINGLETON },
+            { token: BankControllerSymbol, clazz: BankController, scope: ScopeTypes.SINGLETON },
         ],
     },
 ];
