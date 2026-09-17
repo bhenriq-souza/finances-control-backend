@@ -1,7 +1,7 @@
 ---
 id: '0003'
 title: Persistência — PostgreSQL, TypeORM e migrations
-status: approved
+status: implemented
 depends_on: ['0000', '0002']
 ---
 

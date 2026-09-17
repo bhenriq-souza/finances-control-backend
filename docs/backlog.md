@@ -46,7 +46,7 @@ Ordem por dependência: as três primeiras são deste repositório, a última é
       puro, e o endpoint documentado no `openapi.yaml`
     - Where: `src/platform/health/`, `docs/openapi.yaml`
     - Done when: `AC-0003-04` coberto por teste e `INV-0003-06` preservado
-- [ ] **T-0003-04 — Provisionamento do banco, do secret e do initContainer**
+- [x] **T-0003-04 — Provisionamento do banco, do secret e do initContainer**
     - What: database `finances_dev` e role `finances_app` por script idempotente, secrets
       `homelab-dev-finances-database-*` no GCP Secret Manager, `ExternalSecret`, initContainer de
       migration e `readinessProbe` apontando para `/health/ready`
