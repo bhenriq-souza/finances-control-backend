@@ -17,6 +17,12 @@ import {
     BankAccountService,
     BankAccountServiceSymbol,
     BankController,
+    CreditCardController,
+    CreditCardControllerSymbol,
+    CreditCardRoutes,
+    CreditCardRoutesSymbol,
+    CreditCardService,
+    CreditCardServiceSymbol,
     BankControllerSymbol,
     BankRoutes,
     BankRoutesSymbol,
@@ -77,6 +83,22 @@ export const apiModules: ApiModule[] = [
             {
                 token: BankAccountControllerSymbol,
                 clazz: BankAccountController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
+    },
+    {
+        path: '/credit-cards',
+        route: { token: CreditCardRoutesSymbol, clazz: CreditCardRoutes },
+        provides: [
+            {
+                token: CreditCardServiceSymbol,
+                clazz: CreditCardService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: CreditCardControllerSymbol,
+                clazz: CreditCardController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],

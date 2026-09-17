@@ -15,4 +15,8 @@ export { BankAccountService } from './bank-account.service';
 export { BankAccountController } from './bank-account.controller';
 export { BankAccountRoutes } from './bank-account.routes';
 export { toBankAccountResponse, type BankAccountResponse } from './bank-account.response';
+export { CreditCardService } from './credit-card.service';
+export { CreditCardController } from './credit-card.controller';
+export { CreditCardRoutes } from './credit-card.routes';
+export { toCreditCardResponse, type CreditCardResponse } from './credit-card.response';
 export * from './accounts.symbols';
