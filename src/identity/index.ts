@@ -14,3 +14,5 @@ export {
 } from './token-verifier';
 export { FirebaseTokenVerifier, type VerifyIdToken } from './firebase-token-verifier';
 export { UserProvisioningService } from './user-provisioning.service';
+export { createAuthenticationMiddleware } from './authentication.middleware';
+export { createRequireProfile } from './profile.guard';

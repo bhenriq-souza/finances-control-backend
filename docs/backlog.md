@@ -74,7 +74,7 @@ o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
       a promoção idempotente do email de bootstrap
     - Where: `src/identity/`, `src/platform/config/env.list.ts`
     - Done when: `AC-0010-02`, `AC-0010-03` e `AC-0010-04` cobertos; `INV-0010-04` verificado
-- [ ] **T-0010-04 — Middlewares de autenticação e de perfil**
+- [x] **T-0010-04 — Middlewares de autenticação e de perfil**
     - What: `requireAuthentication` e `requireProfile`, o usuário no `RequestStore` da plataforma e os
       erros próprios de token e de perfil pendente
     - Where: `src/identity/`, `src/platform/context/request-context.ts`, `src/platform/index.ts`
