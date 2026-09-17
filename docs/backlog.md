@@ -105,7 +105,7 @@ dependência: o banco antes do que se liga a ele, e o ciclo antes do cartão que
       `moneyTransformer`, e a migration com as constraints nomeadas pela convenção da spec 0003
     - Where: `src/accounts/`, `src/platform/database/migrations/`
     - Done when: `INV-0011-01` e `INV-0011-02` verificados; migration aplica e reverte num banco limpo
-- [ ] **T-0011-02 — Derivação do ciclo de fatura**
+- [x] **T-0011-02 — Derivação do ciclo de fatura**
     - What: `cycleFor(card, reference)` com a resolução de dia inexistente no mês e o vencimento que
       cai no mês seguinte, isolado de banco e de HTTP
     - Where: `src/accounts/`
