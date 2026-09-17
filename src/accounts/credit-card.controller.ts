@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 
 import { HttpResponses } from '../platform';
+import { listQuerySchema } from './archiving';
 import { CreditCardServiceSymbol } from './accounts.symbols';
 import { toCreditCardResponse } from './credit-card.response';
 import {
@@ -15,8 +16,10 @@ import type { CreditCardService } from './credit-card.service';
 export class CreditCardController {
     constructor(@inject(CreditCardServiceSymbol) private readonly service: CreditCardService) {}
 
-    async handleListCreditCards(_req: Request, res: Response): Promise<Response> {
-        const cards = await this.service.list();
+    async handleListCreditCards(req: Request, res: Response): Promise<Response> {
+        const query = listQuerySchema.parse(req.query);
+
+        const cards = await this.service.list(query);
 
         return HttpResponses.ok(
             res,
@@ -41,5 +44,23 @@ export class CreditCardController {
         const changes = updateCreditCardSchema.parse(req.body);
 
         return HttpResponses.ok(res, toCreditCardResponse(await this.service.update(id, changes)));
+    }
+
+    async handleArchiveCreditCard(req: Request, res: Response): Promise<Response> {
+        const { id } = creditCardIdParamsSchema.parse(req.params);
+
+        return HttpResponses.ok(
+            res,
+            toCreditCardResponse(await this.service.setArchived(id, true)),
+        );
+    }
+
+    async handleUnarchiveCreditCard(req: Request, res: Response): Promise<Response> {
+        const { id } = creditCardIdParamsSchema.parse(req.params);
+
+        return HttpResponses.ok(
+            res,
+            toCreditCardResponse(await this.service.setArchived(id, false)),
+        );
     }
 }
