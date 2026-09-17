@@ -4,10 +4,12 @@ import { container } from 'tsyringe';
 import { EnvService } from '@bhs-dev/typescript-common-env';
 
 import { envList } from './platform/config/env.list';
+import { AppDataSource } from './platform/database/data-source';
 import { RequestContext } from './platform/context/request-context';
 import { HttpResponses } from './platform/http/http-responses';
 import { LoggerService } from './platform/logging/logger.service';
 import {
+    DatabaseConnectionSymbol,
     EnvListSymbol,
     EnvServiceSymbol,
     HttpResponsesSymbol,
@@ -20,6 +22,9 @@ import {
 container.register(EnvListSymbol, { useValue: envList });
 container.registerInstance(ProcessEnvSymbol, process.env);
 container.registerSingleton(EnvServiceSymbol, EnvService);
+
+/* persistência — uma conexão por processo, resolvida por injeção (INV-0003-01) */
+container.registerInstance(DatabaseConnectionSymbol, AppDataSource);
 
 /* observabilidade */
 container.registerSingleton(LoggerServiceSymbol, LoggerService);

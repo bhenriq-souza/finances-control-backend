@@ -29,7 +29,7 @@ Tarefas da [spec 0003](../specs/0003-persistence.md), que fecha a issue de entre
 [FCB-006](https://github.com/bhenriq-souza/finances-control-backend/issues/6) (Fase 1 do roadmap).
 Ordem por dependência: as três primeiras são deste repositório, a última é infraestrutura.
 
-- [ ] **T-0003-01 — Conexão, convenções e transformer monetário**
+- [x] **T-0003-01 — Conexão, convenções e transformer monetário**
     - What: `typeorm` e `pg` como dependências de runtime, `AppDataSource` em
       `src/platform/database/` registrado no container, variáveis `DATABASE_*` no `env.list`,
       `SnakeCaseNamingStrategy` e `moneyTransformer`
