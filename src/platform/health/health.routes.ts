@@ -18,6 +18,11 @@ export class HealthRoutes extends BaseRoute {
                 path: '/',
                 handler: this.bind(this.controller, this.controller.handleGetHealth),
             },
+            {
+                method: 'GET',
+                path: '/ready',
+                handler: this.bind(this.controller, this.controller.handleGetReady),
+            },
         ];
     }
 }

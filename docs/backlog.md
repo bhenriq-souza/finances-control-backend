@@ -41,7 +41,7 @@ Ordem por dependência: as três primeiras são deste repositório, a última é
       integração
     - Where: `src/platform/database/migrations/`, `package.json`, `docker-compose.test.yml`, `.github/workflows/ci.yml`, `tests/integration/`
     - Done when: `AC-0003-01`, `AC-0003-02` e `AC-0003-06` verdes no CI, sem gate em SKIP
-- [ ] **T-0003-03 — Readiness com verificação de banco**
+- [x] **T-0003-03 — Readiness com verificação de banco**
     - What: `GET /health/ready` na `HealthRoutes` existente, mantendo `GET /health` como liveness
       puro, e o endpoint documentado no `openapi.yaml`
     - Where: `src/platform/health/`, `docs/openapi.yaml`
