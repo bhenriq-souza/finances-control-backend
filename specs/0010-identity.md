@@ -1,7 +1,7 @@
 ---
 id: '0010'
 title: Identity — usuários, autenticação e RBAC
-status: approved
+status: implemented
 depends_on: ['0000', '0003']
 ---
 

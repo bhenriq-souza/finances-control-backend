@@ -86,7 +86,7 @@ o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
     - Where: `src/identity/`, `src/platform/config/api.config.ts`, `docs/openapi.yaml`
     - Done when: `AC-0010-06`, `AC-0010-07`, `AC-0010-09` e `AC-0010-10` cobertos; `INV-0010-05` e
       `INV-0010-06` verificados
-- [ ] **T-0010-06 — Secrets do Firebase no cluster**
+- [x] **T-0010-06 — Secrets do Firebase no cluster**
     - What: service account do `firebase-admin` e email do Admin de bootstrap no GCP Secret Manager,
       entregues por ExternalSecret, e as variáveis no deployment
     - Where: GCP Secret Manager e `homelab-gitops`; evidência colada no PR deste repositório
