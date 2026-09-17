@@ -14,6 +14,7 @@ export {
 } from '@bhs-dev/typescript-common-types';
 
 /** Symbols próprios da plataforma. */
+export const DatabaseConnectionSymbol = Symbol.for('DatabaseConnection');
 export const HealthServiceSymbol = Symbol.for('HealthService');
 export const HealthControllerSymbol = Symbol.for('HealthController');
 export const HealthRoutesSymbol = Symbol.for('HealthRoutes');
