@@ -18,4 +18,10 @@ export { registerApiModules, type ApiModule, type ApiProvider } from './api/regi
 export { sortMiddlewares, type MiddlewareEntry } from './config/middlewares.config';
 export { envList } from './config/env.list';
 export { CORRELATION_ID_HEADER } from './middlewares/correlation-id.middleware';
+export {
+    USER_PROFILES,
+    isUserProfile,
+    type UserProfile,
+    type RequireProfile,
+} from './authorization';
 export * from './symbols';

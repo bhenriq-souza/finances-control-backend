@@ -6,8 +6,6 @@ import { EnvService } from '@bhs-dev/typescript-common-env';
 
 import {
     FirebaseTokenVerifier,
-    RequireAuthenticationSymbol,
-    RequireProfileSymbol,
     TokenVerifierSymbol,
     UserProvisioningServiceSymbol,
     createAuthenticationMiddleware,
@@ -23,6 +21,8 @@ import { LoggerService } from './platform/logging/logger.service';
 import {
     DatabaseConnectionSymbol,
     EnvListSymbol,
+    RequireAuthenticationSymbol,
+    RequireProfileSymbol,
     EnvServiceSymbol,
     HttpResponsesSymbol,
     LoggerServiceSymbol,

@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { USER_PROFILES, isUserProfile } from '../../src/identity/user-profile';
 
 describe('UserProfile', () => {

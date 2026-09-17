@@ -1,13 +1,11 @@
 /**
- * Perfis de acesso da plataforma. Perfil é **um só por usuário** — quem precisa
- * de outro pede a um Admin, não acumula (spec 0010).
+ * Perfis de acesso. A definição vive em `platform/authorization` porque
+ * autorização é infraestrutura transversal: todo módulo de domínio precisa do
+ * vocabulário para proteger suas rotas, e nenhum pode depender de outro
+ * (ADR-0003, regra 2).
  *
- * Persistido como `text` sob CHECK, e não como tipo `enum` do PostgreSQL:
- * acrescentar um valor é uma linha de migration, em vez do ritual de `ALTER TYPE`.
+ * O `identity` continua sendo quem **implementa** a autorização — quem concede
+ * perfil, quem o lê do banco e quem decide a requisição. Este arquivo mantém a
+ * interface pública do módulo estável para quem já importava daqui.
  */
-export const USER_PROFILES = ['ADMIN', 'BILLER', 'VIEWER'] as const;
-
-export type UserProfile = (typeof USER_PROFILES)[number];
-
-export const isUserProfile = (value: unknown): value is UserProfile =>
-    typeof value === 'string' && USER_PROFILES.includes(value as UserProfile);
+export { USER_PROFILES, isUserProfile, type UserProfile } from '../platform';
