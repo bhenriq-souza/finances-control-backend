@@ -47,6 +47,18 @@ export class BankRoutes extends BaseRoute {
                 middlewares: write,
                 handler: this.bind(this.controller, this.controller.handleUpdateBank),
             },
+            {
+                method: 'POST',
+                path: '/:id/archive',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleArchiveBank),
+            },
+            {
+                method: 'DELETE',
+                path: '/:id/archive',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleUnarchiveBank),
+            },
         ];
     }
 }

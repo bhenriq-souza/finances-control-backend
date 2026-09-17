@@ -3,6 +3,7 @@ import { CustomError } from '@bhs-dev/typescript-common-errors';
 import type { DataSource, Repository } from 'typeorm';
 
 import { DatabaseConnectionSymbol } from '../platform';
+import { archivedFilter, needsArchiveChange } from './archiving';
 import { BankAccount } from './bank-account.entity';
 import type { BankAccountType } from './bank-account-type';
 import { Bank } from './bank.entity';
@@ -38,8 +39,9 @@ export class BankAccountService {
         return this.dataSource.getRepository(BankAccount);
     }
 
-    list(): Promise<BankAccountWithBank[]> {
+    list(query: { archived?: 'true' | 'false' } = {}): Promise<BankAccountWithBank[]> {
         return this.accounts.find({
+            where: archivedFilter(query),
             relations: { bank: true },
             order: { description: 'ASC' },
         }) as Promise<BankAccountWithBank[]>;
@@ -71,6 +73,16 @@ export class BankAccountService {
         );
 
         return this.findById(created.id);
+    }
+
+    async setArchived(id: string, archived: boolean): Promise<BankAccountWithBank> {
+        const account = await this.findById(id);
+
+        if (!needsArchiveChange(account.archivedAt, archived)) return account;
+
+        await this.accounts.update({ id }, { archivedAt: archived ? new Date() : null });
+
+        return this.findById(id);
     }
 
     async update(id: string, changes: UpdateBankAccount): Promise<BankAccountWithBank> {

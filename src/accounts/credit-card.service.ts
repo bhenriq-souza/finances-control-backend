@@ -3,6 +3,7 @@ import { CustomError } from '@bhs-dev/typescript-common-errors';
 import type { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { DatabaseConnectionSymbol } from '../platform';
+import { archivedFilter, needsArchiveChange } from './archiving';
 import { Bank } from './bank.entity';
 import { CreditCard } from './credit-card.entity';
 import { asConflict } from './unique-violation';
@@ -36,8 +37,9 @@ export class CreditCardService {
         return this.dataSource.getRepository(CreditCard);
     }
 
-    list(): Promise<CreditCardWithBank[]> {
+    list(query: { archived?: 'true' | 'false' } = {}): Promise<CreditCardWithBank[]> {
         return this.cards.find({
+            where: archivedFilter(query),
             relations: { bank: true },
             order: { name: 'ASC' },
         }) as Promise<CreditCardWithBank[]>;
@@ -67,6 +69,16 @@ export class CreditCardService {
         );
 
         return this.findById(created.id);
+    }
+
+    async setArchived(id: string, archived: boolean): Promise<CreditCardWithBank> {
+        const card = await this.findById(id);
+
+        if (!needsArchiveChange(card.archivedAt, archived)) return card;
+
+        await this.cards.update({ id }, { archivedAt: archived ? new Date() : null });
+
+        return this.findById(id);
     }
 
     async update(id: string, changes: UpdateCreditCard): Promise<CreditCardWithBank> {

@@ -51,6 +51,18 @@ export class CreditCardRoutes extends BaseRoute {
                 middlewares: write,
                 handler: this.bind(this.controller, this.controller.handleUpdateCreditCard),
             },
+            {
+                method: 'POST',
+                path: '/:id/archive',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleArchiveCreditCard),
+            },
+            {
+                method: 'DELETE',
+                path: '/:id/archive',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleUnarchiveCreditCard),
+            },
         ];
     }
 }
