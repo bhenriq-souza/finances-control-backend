@@ -110,7 +110,7 @@ dependência: o banco antes do que se liga a ele, e o ciclo antes do cartão que
       cai no mês seguinte, isolado de banco e de HTTP
     - Where: `src/accounts/`
     - Done when: `AC-0011-05`, `AC-0011-06` e `AC-0011-07` cobertos; `INV-0011-08` verificado
-- [ ] **T-0011-03 — Cadastro e consulta de bancos**
+- [x] **T-0011-03 — Cadastro e consulta de bancos**
     - What: `POST`/`GET`/`PATCH` de `/banks`, com o código FEBRABAN validado e único
     - Where: `src/accounts/`, `src/api.config.ts`
     - Done when: `AC-0011-01` e `AC-0011-02` na parte de bancos; `ERR-0011-01` e `ERR-0011-02`

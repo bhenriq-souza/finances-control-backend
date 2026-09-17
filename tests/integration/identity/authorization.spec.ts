@@ -4,22 +4,22 @@ import {
     EXPIRED_TOKEN,
     INVALID_TOKEN,
     PROVIDER_DOWN_TOKEN,
-    startIdentityApp,
-    stopIdentityApp,
-    type IdentityTestApp,
-} from './identity-app.helper';
+    startApp,
+    stopApp,
+    type TestApp,
+} from '../app.helper';
 
 const SCHEMA = 'test_identity_authorization';
 
 describe('autorização nas rotas de usuário (spec 0010)', () => {
-    let ctx: IdentityTestApp;
+    let ctx: TestApp;
 
     beforeAll(async () => {
-        ctx = await startIdentityApp(SCHEMA);
+        ctx = await startApp(SCHEMA);
     });
 
     afterAll(async () => {
-        await stopIdentityApp(ctx, SCHEMA);
+        await stopApp(ctx, SCHEMA);
     });
 
     afterEach(async () => {

@@ -1,21 +1,21 @@
 import request from 'supertest';
 
-import { startIdentityApp, stopIdentityApp, type IdentityTestApp } from './identity-app.helper';
+import { startApp, stopApp, type TestApp } from '../app.helper';
 
 const SCHEMA = 'test_identity_profile_grant';
 const ADMIN = 'Bearer uid-admin';
 
 describe('concessão e revogação de perfil (spec 0010)', () => {
-    let ctx: IdentityTestApp;
+    let ctx: TestApp;
     let adminId: string;
     let targetId: string;
 
     beforeAll(async () => {
-        ctx = await startIdentityApp(SCHEMA);
+        ctx = await startApp(SCHEMA);
     });
 
     afterAll(async () => {
-        await stopIdentityApp(ctx, SCHEMA);
+        await stopApp(ctx, SCHEMA);
     });
 
     beforeEach(async () => {

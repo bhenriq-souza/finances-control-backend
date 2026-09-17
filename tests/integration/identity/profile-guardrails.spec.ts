@@ -3,21 +3,21 @@ import request from 'supertest';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 
 import { User, UserService } from '../../../src/identity';
-import { startIdentityApp, stopIdentityApp, type IdentityTestApp } from './identity-app.helper';
+import { startApp, stopApp, type TestApp } from '../app.helper';
 
 const SCHEMA = 'test_identity_guardrails';
 const ADMIN = 'Bearer uid-admin';
 
 describe('travas de segurança do perfil (spec 0010)', () => {
-    let ctx: IdentityTestApp;
+    let ctx: TestApp;
     let adminId: string;
 
     beforeAll(async () => {
-        ctx = await startIdentityApp(SCHEMA);
+        ctx = await startApp(SCHEMA);
     });
 
     afterAll(async () => {
-        await stopIdentityApp(ctx, SCHEMA);
+        await stopApp(ctx, SCHEMA);
     });
 
     beforeEach(async () => {
@@ -70,7 +70,7 @@ describe('travas de segurança do perfil (spec 0010)', () => {
     });
 
     describe('a plataforma nunca fica sem Admin (AC-0010-10, INV-0010-06)', () => {
-        const serviceOf = (ctx: IdentityTestApp) => new UserService(ctx.dataSource);
+        const serviceOf = (ctx: TestApp) => new UserService(ctx.dataSource);
 
         /**
          * Pelo HTTP este caso é inalcançável: só um ADMIN chama, e ele não pode

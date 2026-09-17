@@ -2,9 +2,9 @@ import 'reflect-metadata';
 import type { Express } from 'express';
 import type { DataSource } from 'typeorm';
 
-import { App } from '../../../src/app';
-import { container } from '../../../src/container';
-import { DatabaseConnectionSymbol } from '../../../src/platform';
+import { App } from '../../src/app';
+import { container } from '../../src/container';
+import { DatabaseConnectionSymbol } from '../../src/platform';
 import {
     AuthUnavailableError,
     ExpiredTokenError,
@@ -14,8 +14,8 @@ import {
     type TokenVerifier,
     type UserProfile,
     type VerifiedToken,
-} from '../../../src/identity';
-import { createIsolatedDataSource, dropIsolatedDataSource } from '../database.helper';
+} from '../../src/identity';
+import { createIsolatedDataSource, dropIsolatedDataSource } from './database.helper';
 
 /** Tokens com significado próprio, para exercitar cada falha pelo HTTP. */
 export const EXPIRED_TOKEN = 'token-expirado';
@@ -26,6 +26,8 @@ export const PROVIDER_DOWN_TOKEN = 'token-provedor-fora';
  * Verificador falso: o token é o próprio UID, e o email sai dele. Isso mantém os
  * testes legíveis (`Bearer uid-admin`) e garante que nenhum deles fale com o
  * Firebase — que é o motivo de a porta `TokenVerifier` existir.
+ *
+ * Serve a qualquer módulo: toda rota de domínio passa pela mesma autenticação.
  */
 const fakeVerifier: TokenVerifier = {
     verify: (idToken: string): Promise<VerifiedToken> => {
@@ -43,7 +45,7 @@ const fakeVerifier: TokenVerifier = {
     },
 };
 
-export type IdentityTestApp = {
+export type TestApp = {
     app: Express;
     dataSource: DataSource;
     /** Promove alguém direto no banco, para montar o cenário sem passar pela API. */
@@ -51,7 +53,7 @@ export type IdentityTestApp = {
     findByUid: (uid: string) => Promise<User | null>;
 };
 
-export async function startIdentityApp(schema: string): Promise<IdentityTestApp> {
+export async function startApp(schema: string): Promise<TestApp> {
     const dataSource = await createIsolatedDataSource(schema);
     await dataSource.runMigrations();
 
@@ -84,5 +86,5 @@ export async function startIdentityApp(schema: string): Promise<IdentityTestApp>
     };
 }
 
-export const stopIdentityApp = (context: IdentityTestApp | undefined, schema: string) =>
+export const stopApp = (context: TestApp | undefined, schema: string) =>
     dropIsolatedDataSource(context?.dataSource, schema);
