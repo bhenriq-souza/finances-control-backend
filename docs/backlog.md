@@ -94,15 +94,51 @@ o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
       respeitando `INV-0003-07`; por ser a última tarefa da spec, fecha FCB-007 e muda o `status` da
       spec 0010 para `implemented`
 
+## Accounts (F002)
+
+Tarefas da [spec 0011](../specs/0011-accounts.md), que fecha a issue de entrega
+[FCB-008](https://github.com/bhenriq-souza/finances-control-backend/issues/8). Ordem por
+dependência: o banco antes do que se liga a ele, e o ciclo antes do cartão que o publica.
+
+- [ ] **T-0011-01 — Entidades e migration de `banks`, `bank_accounts` e `credit_cards`**
+    - What: as três entidades com enum sob CHECK, colunas monetárias `numeric(14,2)` pelo
+      `moneyTransformer`, e a migration com as constraints nomeadas pela convenção da spec 0003
+    - Where: `src/accounts/`, `src/platform/database/migrations/`
+    - Done when: `INV-0011-01` e `INV-0011-02` verificados; migration aplica e reverte num banco limpo
+- [ ] **T-0011-02 — Derivação do ciclo de fatura**
+    - What: `cycleFor(card, reference)` com a resolução de dia inexistente no mês e o vencimento que
+      cai no mês seguinte, isolado de banco e de HTTP
+    - Where: `src/accounts/`
+    - Done when: `AC-0011-05`, `AC-0011-06` e `AC-0011-07` cobertos; `INV-0011-08` verificado
+- [ ] **T-0011-03 — Cadastro e consulta de bancos**
+    - What: `POST`/`GET`/`PATCH` de `/banks`, com o código FEBRABAN validado e único
+    - Where: `src/accounts/`, `src/api.config.ts`
+    - Done when: `AC-0011-01` e `AC-0011-02` na parte de bancos; `ERR-0011-01` e `ERR-0011-02`
+- [ ] **T-0011-04 — Contas bancárias**
+    - What: as rotas de `/bank-accounts`, com saldo de abertura, saldo corrente somente-leitura e
+      recusa de vínculo a banco arquivado
+    - Where: `src/accounts/`
+    - Done when: `AC-0011-01`, `AC-0011-03`, `AC-0011-08`, `AC-0011-11` e `AC-0011-13`
+- [ ] **T-0011-05 — Cartões de crédito**
+    - What: as rotas de `/credit-cards`, com limite disponível somente-leitura e o `currentCycle`
+      derivado na resposta
+    - Where: `src/accounts/`
+    - Done when: `AC-0011-04` e `AC-0011-08` na parte de cartões; `INV-0011-06`
+- [ ] **T-0011-06 — Arquivamento, autorização e OpenAPI**
+    - What: arquivar e desarquivar as três entidades, o filtro `?archived=true`, as guardas de perfil
+      nas rotas e o contrato no `openapi.yaml`
+    - Where: `src/accounts/`, `docs/openapi.yaml`
+    - Done when: `AC-0011-09`, `AC-0011-10` e `AC-0011-12` cobertos; `INV-0011-03` e `INV-0011-09`
+      verificados; por ser a última tarefa da spec, fecha FCB-008 e muda o `status` para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes (`0011`+) ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
 
-| Issue   | Spec prevista     | Requisito                       |
-| ------- | ----------------- | ------------------------------- |
-| FCB-008 | `0011` accounts   | F002 — bancos, contas e cartões |
-| FCB-009 | `0012` expenses   | F003 — despesas                 |
-| FCB-010 | `0013` statements | F004 — faturas                  |
-| FCB-011 | `0014` earnings   | F005 — receitas                 |
-| FCB-012 | `0015` reporting  | saldo previsto e relatórios     |
-| FCB-013 | `0016` imports    | importação CSV                  |
+| Issue   | Spec prevista     | Requisito                   |
+| ------- | ----------------- | --------------------------- |
+| FCB-009 | `0012` expenses   | F003 — despesas             |
+| FCB-010 | `0013` statements | F004 — faturas              |
+| FCB-011 | `0014` earnings   | F005 — receitas             |
+| FCB-012 | `0015` reporting  | saldo previsto e relatórios |
+| FCB-013 | `0016` imports    | importação CSV              |
