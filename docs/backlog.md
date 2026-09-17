@@ -114,7 +114,7 @@ dependência: o banco antes do que se liga a ele, e o ciclo antes do cartão que
     - What: `POST`/`GET`/`PATCH` de `/banks`, com o código FEBRABAN validado e único
     - Where: `src/accounts/`, `src/api.config.ts`
     - Done when: `AC-0011-01` e `AC-0011-02` na parte de bancos; `ERR-0011-01` e `ERR-0011-02`
-- [ ] **T-0011-04 — Contas bancárias**
+- [x] **T-0011-04 — Contas bancárias**
     - What: as rotas de `/bank-accounts`, com saldo de abertura, saldo corrente somente-leitura e
       recusa de vínculo a banco arquivado
     - Where: `src/accounts/`

@@ -10,6 +10,12 @@ import {
     HealthServiceSymbol,
 } from './platform/symbols';
 import {
+    BankAccountController,
+    BankAccountControllerSymbol,
+    BankAccountRoutes,
+    BankAccountRoutesSymbol,
+    BankAccountService,
+    BankAccountServiceSymbol,
     BankController,
     BankControllerSymbol,
     BankRoutes,
@@ -57,6 +63,22 @@ export const apiModules: ApiModule[] = [
         provides: [
             { token: BankServiceSymbol, clazz: BankService, scope: ScopeTypes.SINGLETON },
             { token: BankControllerSymbol, clazz: BankController, scope: ScopeTypes.SINGLETON },
+        ],
+    },
+    {
+        path: '/bank-accounts',
+        route: { token: BankAccountRoutesSymbol, clazz: BankAccountRoutes },
+        provides: [
+            {
+                token: BankAccountServiceSymbol,
+                clazz: BankAccountService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: BankAccountControllerSymbol,
+                clazz: BankAccountController,
+                scope: ScopeTypes.SINGLETON,
+            },
         ],
     },
 ];
