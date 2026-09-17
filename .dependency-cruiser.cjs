@@ -54,6 +54,16 @@ module.exports = {
             },
         },
         {
+            name: 'firebase-admin-only-in-its-adapter',
+            severity: 'error',
+            comment:
+                'INV-0010-07: `firebase-admin` é detalhe de um adaptador. Espalhá-lo pelo código ' +
+                'tornaria autenticação e autorização intestáveis sem rede e sem projeto Firebase. ' +
+                'Quem precisa verificar um token depende da porta `TokenVerifier`.',
+            from: { pathNot: '^src/identity/firebase-token-verifier\\.ts$' },
+            to: { path: '^firebase-admin' },
+        },
+        {
             name: 'no-orphans',
             severity: 'warn',
             comment: 'Arquivo que ninguém importa costuma ser resto de refatoração.',
