@@ -1,7 +1,7 @@
 ---
 id: '0010'
 title: Identity — usuários, autenticação e RBAC
-status: draft
+status: approved
 depends_on: ['0000', '0003']
 ---
 

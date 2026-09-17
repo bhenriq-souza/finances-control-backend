@@ -59,7 +59,7 @@ Tarefas da [spec 0010](../specs/0010-identity.md), que fecha a issue de entrega
 [FCB-007](https://github.com/bhenriq-souza/finances-control-backend/issues/7). Ordem por dependência:
 o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
 
-- [ ] **T-0010-01 — Tabela `users` e migration**
+- [x] **T-0010-01 — Tabela `users` e migration**
     - What: entidade `User` no módulo `identity`, com o perfil como `text` sob CHECK, e a migration
       correspondente com as constraints nomeadas pela convenção da spec 0003
     - Where: `src/identity/user.entity.ts`, `src/platform/database/migrations/`
