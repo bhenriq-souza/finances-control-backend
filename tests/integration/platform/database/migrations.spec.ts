@@ -1,11 +1,18 @@
 import type { DataSource } from 'typeorm';
 
-import { connectOrExplain, createTestDataSource } from '../../database.helper';
+import { createIsolatedDataSource, dropIsolatedDataSource } from '../../database.helper';
 
 const functionExists = async (dataSource: DataSource): Promise<boolean> => {
-    const rows = await dataSource.query<{ exists: boolean }[]>(
-        "SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'set_updated_at') AS exists;",
-    );
+    // Filtrar por `current_schema()` é o que torna a asserção verdadeira sobre o
+    // schema desta suíte, e não sobre qualquer cópia da função no banco.
+    const rows = await dataSource.query<{ exists: boolean }[]>(`
+        SELECT EXISTS (
+            SELECT 1
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE p.proname = 'set_updated_at' AND n.nspname = current_schema()
+        ) AS exists;
+    `);
 
     return rows[0]?.exists === true;
 };
@@ -18,18 +25,19 @@ const appliedMigrations = async (dataSource: DataSource): Promise<string[]> => {
     return rows.map((row) => row.name);
 };
 
+const SCHEMA = 'test_migrations';
+
 describe('migrations no banco real', () => {
     let dataSource: DataSource;
 
+    // Schema exclusivo desta suíte: ela precisa de um banco vazio, e o Jest roda
+    // as suítes em paralelo (ver `createIsolatedDataSource`).
     beforeAll(async () => {
-        dataSource = await connectOrExplain(createTestDataSource());
-        // Cada rodada começa de um schema vazio: a suíte não pode depender de
-        // ter sido a primeira a rodar na vida do container.
-        await dataSource.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+        dataSource = await createIsolatedDataSource(SCHEMA);
     });
 
     afterAll(async () => {
-        if (dataSource?.isInitialized) await dataSource.destroy();
+        await dropIsolatedDataSource(dataSource, SCHEMA);
     });
 
     it('aplica a baseline num banco vazio (AC-0003-01)', async () => {
@@ -51,13 +59,20 @@ describe('migrations no banco real', () => {
     });
 
     it('desfaz a última migration (AC-0003-02)', async () => {
+        // Qual é a última muda a cada spec de domínio; o que a spec 0003 exige é
+        // que seja ela a voltar, e só ela.
+        const before = await appliedMigrations(dataSource);
+        const last = before.at(-1);
+
         await dataSource.undoLastMigration();
 
-        await expect(functionExists(dataSource)).resolves.toBe(false);
-        expect(await appliedMigrations(dataSource)).not.toContain('InitialBaseline1758120000000');
+        const after = await appliedMigrations(dataSource);
+        expect(after).not.toContain(last);
+        expect(after).toEqual(before.slice(0, -1));
 
         // Deixa o banco aplicado para quem rodar depois.
         await dataSource.runMigrations();
+        expect(await appliedMigrations(dataSource)).toEqual(before);
     });
 
     it('o trigger mantém updated_at na escrita fora do ORM (INV-0003-08)', async () => {
