@@ -47,6 +47,51 @@ paths:
                                     environment: dev
                                     uptimeSeconds: 42
 
+    /health/ready:
+        get:
+            tags: [Platform]
+            summary: Readiness da aplicação
+            description: |
+                Verifica as dependências externas — hoje, a conexão com o PostgreSQL,
+                por `SELECT 1` com teto de 2 segundos e sem cache entre requisições.
+                Responde 503 enquanto alguma delas estiver fora, para tirar o pod do
+                balanceamento sem que o kubelet o reinicie.
+            operationId: getReadiness
+            responses:
+                '200':
+                    description: Aplicação pronta para receber tráfego
+                    headers:
+                        x-correlation-id:
+                            $ref: '#/components/headers/CorrelationId'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/ReadinessReport'
+                            example:
+                                data:
+                                    status: ready
+                                    checks:
+                                        database: up
+                '503':
+                    description: Alguma dependência está indisponível
+                    headers:
+                        x-correlation-id:
+                            $ref: '#/components/headers/CorrelationId'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                            example:
+                                error:
+                                    message: Service not ready
+                                    code: NOT_READY
+                                    details:
+                                        checks:
+                                            database: down
+
 components:
     headers:
         CorrelationId:
@@ -72,6 +117,21 @@ components:
                 uptimeSeconds:
                     type: integer
                     minimum: 0
+
+        ReadinessReport:
+            type: object
+            required: [status, checks]
+            properties:
+                status:
+                    type: string
+                    enum: [ready, not-ready]
+                checks:
+                    type: object
+                    required: [database]
+                    properties:
+                        database:
+                            type: string
+                            enum: [up, down]
 
         Error:
             type: object
