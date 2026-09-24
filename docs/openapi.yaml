@@ -18,6 +18,8 @@ tags:
       description: Endpoints de infraestrutura
     - name: Identity
       description: Usuários, autenticação e concessão de perfil
+    - name: Accounts
+      description: Bancos, contas bancárias e cartões de crédito
 
 paths:
     /health:
@@ -198,7 +200,384 @@ paths:
                 '409':
                     $ref: '#/components/responses/ProfileConflict'
 
+    /banks:
+        get:
+            tags: [Accounts]
+            summary: Lista os bancos
+            operationId: listBanks
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/IncludeArchived'
+            responses:
+                '200':
+                    description: Bancos cadastrados, ordenados por nome
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/BankResponse'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+        post:
+            tags: [Accounts]
+            summary: Cadastra um banco
+            description: Exige perfil `ADMIN`.
+            operationId: createBank
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required: [febrabanCode, name]
+                            properties:
+                                febrabanCode:
+                                    type: string
+                                    pattern: '^[0-9]{3}$'
+                                    description: Código FEBRABAN, três dígitos com zeros à esquerda.
+                                name:
+                                    type: string
+            responses:
+                '201':
+                    $ref: '#/components/responses/Bank'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '409':
+                    $ref: '#/components/responses/AccountsConflict'
+
+    /banks/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        patch:
+            tags: [Accounts]
+            summary: Altera um banco
+            description: |
+                Exige perfil `ADMIN`. Só o nome é alterável: trocar o código FEBRABAN
+                faria do registro outro banco, e as contas e cartões ligados a ele
+                continuariam apontando para o antigo.
+            operationId: updateBank
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required: [name]
+                            properties:
+                                name:
+                                    type: string
+            responses:
+                '200':
+                    $ref: '#/components/responses/Bank'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+
+    /banks/{id}/archive:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        post:
+            tags: [Accounts]
+            summary: Arquiva um banco
+            description: |
+                Exige perfil `ADMIN`. Registro financeiro não se apaga: arquivar o tira
+                da listagem padrão e o mantém sustentando o histórico. A operação é
+                idempotente. Um banco arquivado não recebe conta nem cartão novo.
+            operationId: archiveBank
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/Bank'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+        delete:
+            tags: [Accounts]
+            summary: Desarquiva um banco
+            operationId: unarchiveBank
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/Bank'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+
+    /bank-accounts:
+        get:
+            tags: [Accounts]
+            summary: Lista as contas bancárias
+            operationId: listBankAccounts
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/IncludeArchived'
+            responses:
+                '200':
+                    description: Contas cadastradas, ordenadas por descrição
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/BankAccountResponse'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+        post:
+            tags: [Accounts]
+            summary: Cadastra uma conta bancária
+            description: |
+                Exige perfil `ADMIN`. O saldo corrente nasce igual ao de abertura e **não
+                é informável**: daí em diante, só lançamento o move.
+            operationId: createBankAccount
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateBankAccount'
+            responses:
+                '201':
+                    $ref: '#/components/responses/BankAccount'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+                '409':
+                    $ref: '#/components/responses/AccountsConflict'
+
+    /bank-accounts/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        get:
+            tags: [Accounts]
+            summary: Consulta uma conta bancária
+            operationId: getBankAccount
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/BankAccount'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+        patch:
+            tags: [Accounts]
+            summary: Altera uma conta bancária
+            description: |
+                Exige perfil `ADMIN`. `currentBalanceCents`, `openingBalanceCents` e
+                `bankId` não são aceitos: o primeiro só muda por lançamento, o segundo é
+                imutável, e trocar a conta de banco é cadastrar outra conta.
+            operationId: updateBankAccount
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                type:
+                                    $ref: '#/components/schemas/BankAccountType'
+                                accountNumber:
+                                    type: string
+                                description:
+                                    type: string
+                                overdraftLimitCents:
+                                    type: integer
+                                    minimum: 0
+            responses:
+                '200':
+                    $ref: '#/components/responses/BankAccount'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+                '409':
+                    $ref: '#/components/responses/AccountsConflict'
+
+    /bank-accounts/{id}/archive:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        post:
+            tags: [Accounts]
+            summary: Arquiva uma conta bancária
+            operationId: archiveBankAccount
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/BankAccount'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+        delete:
+            tags: [Accounts]
+            summary: Desarquiva uma conta bancária
+            operationId: unarchiveBankAccount
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/BankAccount'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+
+    /credit-cards:
+        get:
+            tags: [Accounts]
+            summary: Lista os cartões de crédito
+            operationId: listCreditCards
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/IncludeArchived'
+            responses:
+                '200':
+                    description: Cartões cadastrados, ordenados por nome
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/CreditCardResponse'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+        post:
+            tags: [Accounts]
+            summary: Cadastra um cartão de crédito
+            description: |
+                Exige perfil `ADMIN`. O limite disponível nasce igual ao total e não é
+                informável. O cartão já responde com o ciclo de fatura corrente — não
+                existe cartão cadastrado e não operante.
+            operationId: createCreditCard
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateCreditCard'
+            responses:
+                '201':
+                    $ref: '#/components/responses/CreditCard'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+                '409':
+                    $ref: '#/components/responses/AccountsConflict'
+
+    /credit-cards/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        get:
+            tags: [Accounts]
+            summary: Consulta um cartão de crédito
+            operationId: getCreditCard
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/CreditCard'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+        patch:
+            tags: [Accounts]
+            summary: Altera um cartão de crédito
+            description: |
+                Exige perfil `ADMIN`. Alterar `creditLimitCents` move o limite disponível
+                na mesma medida, preservando o quanto já foi gasto; o disponível pode
+                ficar negativo se o novo limite for menor que o uso atual. Alterar os dias
+                do ciclo vale para ciclos ainda não fechados.
+            operationId: updateCreditCard
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                name:
+                                    type: string
+                                creditLimitCents:
+                                    type: integer
+                                    exclusiveMinimum: 0
+                                closingDay:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 31
+                                dueDay:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 31
+            responses:
+                '200':
+                    $ref: '#/components/responses/CreditCard'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+                '409':
+                    $ref: '#/components/responses/AccountsConflict'
+
+    /credit-cards/{id}/archive:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        post:
+            tags: [Accounts]
+            summary: Arquiva um cartão de crédito
+            operationId: archiveCreditCard
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/CreditCard'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+        delete:
+            tags: [Accounts]
+            summary: Desarquiva um cartão de crédito
+            operationId: unarchiveCreditCard
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/CreditCard'
+                '404':
+                    $ref: '#/components/responses/AccountsNotFound'
+
 components:
+    parameters:
+        ResourceId:
+            name: id
+            in: path
+            required: true
+            schema:
+                type: string
+                format: uuid
+        IncludeArchived:
+            name: archived
+            in: query
+            required: false
+            description: '`true` inclui os arquivados na listagem; o padrão os esconde.'
+            schema:
+                type: string
+                enum: ['true', 'false']
+
     securitySchemes:
         bearerAuth:
             type: http
@@ -224,6 +603,14 @@ components:
                 application/json:
                     schema:
                         $ref: '#/components/schemas/Error'
+        AuthUnavailable:
+            description: |
+                `AUTH_UNAVAILABLE` — o provedor de identidade está fora do ar. Não é
+                credencial inválida: o cliente deve tentar de novo mais tarde.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
         Forbidden:
             description: |
                 `PROFILE_PENDING` quando a conta ainda não tem perfil, e `FORBIDDEN`
@@ -242,6 +629,48 @@ components:
             description: |
                 `CANNOT_CHANGE_OWN_PROFILE` ao mirar o próprio usuário, e `LAST_ADMIN`
                 quando a operação deixaria a plataforma sem administrador.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        Bank:
+            description: O banco
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/BankResponse'
+        BankAccount:
+            description: A conta bancária
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/BankAccountResponse'
+        CreditCard:
+            description: O cartão de crédito
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/CreditCardResponse'
+        AccountsNotFound:
+            description: '`BANK_NOT_FOUND`, `BANK_ACCOUNT_NOT_FOUND` ou `CREDIT_CARD_NOT_FOUND`'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        AccountsConflict:
+            description: |
+                `BANK_ALREADY_EXISTS`, `BANK_ACCOUNT_ALREADY_EXISTS` e
+                `CREDIT_CARD_ALREADY_EXISTS` para duplicidade; `BANK_ARCHIVED` ao tentar
+                vincular a um banco arquivado.
             content:
                 application/json:
                     schema:
@@ -317,6 +746,121 @@ components:
                 createdAt:
                     type: string
                     format: date-time
+
+        BankAccountType:
+            type: string
+            enum: [CHECKING, SAVINGS, INVESTMENT]
+
+        BankResponse:
+            type: object
+            required: [id, febrabanCode, name, archivedAt, createdAt]
+            properties:
+                id: { type: string, format: uuid }
+                febrabanCode: { type: string, pattern: '^[0-9]{3}$' }
+                name: { type: string }
+                archivedAt: { type: string, format: date-time, nullable: true }
+                createdAt: { type: string, format: date-time }
+
+        CreateBankAccount:
+            type: object
+            required: [bankId, type, accountNumber, description, openingBalanceCents]
+            properties:
+                bankId: { type: string, format: uuid }
+                type: { $ref: '#/components/schemas/BankAccountType' }
+                accountNumber: { type: string }
+                description: { type: string }
+                openingBalanceCents:
+                    type: integer
+                    description: Inteiro de centavos; pode ser negativo. Fração de centavo é 400.
+                overdraftLimitCents:
+                    type: integer
+                    minimum: 0
+                    default: 0
+                    description: Cheque especial. O saldo pode ficar negativo.
+
+        BankAccountResponse:
+            type: object
+            required:
+                [
+                    id,
+                    bank,
+                    type,
+                    accountNumber,
+                    description,
+                    openingBalanceCents,
+                    currentBalanceCents,
+                    overdraftLimitCents,
+                    archivedAt,
+                    createdAt,
+                ]
+            properties:
+                id: { type: string, format: uuid }
+                bank: { $ref: '#/components/schemas/BankResponse' }
+                type: { $ref: '#/components/schemas/BankAccountType' }
+                accountNumber: { type: string }
+                description: { type: string }
+                openingBalanceCents:
+                    type: integer
+                    description: Imutável — é de onde o saldo derivado parte.
+                currentBalanceCents:
+                    type: integer
+                    description: Só muda por lançamento, na mesma transação.
+                overdraftLimitCents: { type: integer, minimum: 0 }
+                archivedAt: { type: string, format: date-time, nullable: true }
+                createdAt: { type: string, format: date-time }
+
+        CreateCreditCard:
+            type: object
+            required: [bankId, name, creditLimitCents, closingDay, dueDay]
+            properties:
+                bankId: { type: string, format: uuid }
+                name: { type: string }
+                creditLimitCents: { type: integer, exclusiveMinimum: 0 }
+                closingDay: { type: integer, minimum: 1, maximum: 31 }
+                dueDay: { type: integer, minimum: 1, maximum: 31 }
+
+        BillingCycle:
+            type: object
+            required: [startsOn, closesOn, dueOn]
+            description: |
+                Derivado do cartão a cada resposta, nunca persistido. Dia que não existe no
+                mês resolve para o último; vencimento no mesmo dia do fechamento, ou antes,
+                cai no mês seguinte.
+            properties:
+                startsOn: { type: string, format: date }
+                closesOn: { type: string, format: date }
+                dueOn: { type: string, format: date }
+
+        CreditCardResponse:
+            type: object
+            required:
+                [
+                    id,
+                    bank,
+                    name,
+                    creditLimitCents,
+                    availableLimitCents,
+                    closingDay,
+                    dueDay,
+                    currentCycle,
+                    archivedAt,
+                    createdAt,
+                ]
+            properties:
+                id: { type: string, format: uuid }
+                bank: { $ref: '#/components/schemas/BankResponse' }
+                name: { type: string }
+                creditLimitCents: { type: integer, exclusiveMinimum: 0 }
+                availableLimitCents:
+                    type: integer
+                    description: |
+                        Não informável. Muda por lançamento ou por alteração do limite total,
+                        que o move na mesma medida. Pode ser negativo.
+                closingDay: { type: integer, minimum: 1, maximum: 31 }
+                dueDay: { type: integer, minimum: 1, maximum: 31 }
+                currentCycle: { $ref: '#/components/schemas/BillingCycle' }
+                archivedAt: { type: string, format: date-time, nullable: true }
+                createdAt: { type: string, format: date-time }
 
         Error:
             type: object

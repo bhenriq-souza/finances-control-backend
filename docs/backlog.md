@@ -124,7 +124,7 @@ dependência: o banco antes do que se liga a ele, e o ciclo antes do cartão que
       derivado na resposta
     - Where: `src/accounts/`
     - Done when: `AC-0011-04` e `AC-0011-08` na parte de cartões; `INV-0011-06`
-- [ ] **T-0011-06 — Arquivamento, autorização e OpenAPI**
+- [x] **T-0011-06 — Arquivamento, autorização e OpenAPI**
     - What: arquivar e desarquivar as três entidades, o filtro `?archived=true`, as guardas de perfil
       nas rotas e o contrato no `openapi.yaml`
     - Where: `src/accounts/`, `docs/openapi.yaml`

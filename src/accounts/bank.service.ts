@@ -3,6 +3,7 @@ import { CustomError } from '@bhs-dev/typescript-common-errors';
 import type { DataSource, Repository } from 'typeorm';
 
 import { DatabaseConnectionSymbol } from '../platform';
+import { archivedFilter, needsArchiveChange } from './archiving';
 import { Bank } from './bank.entity';
 import { asConflict } from './unique-violation';
 
@@ -21,8 +22,8 @@ export class BankService {
         return this.dataSource.getRepository(Bank);
     }
 
-    list(): Promise<Bank[]> {
-        return this.banks.find({ order: { name: 'ASC' } });
+    list(query: { archived?: 'true' | 'false' } = {}): Promise<Bank[]> {
+        return this.banks.find({ where: archivedFilter(query), order: { name: 'ASC' } });
     }
 
     async findById(id: string): Promise<Bank> {
@@ -41,6 +42,16 @@ export class BankService {
 
         // Recarrega porque `created_at` é do banco e o INSERT do ORM não a traz.
         return this.banks.findOneByOrFail({ id: created.id });
+    }
+
+    async setArchived(id: string, archived: boolean): Promise<Bank> {
+        const bank = await this.findById(id);
+
+        if (!needsArchiveChange(bank.archivedAt, archived)) return bank;
+
+        await this.banks.update({ id }, { archivedAt: archived ? new Date() : null });
+
+        return this.banks.findOneByOrFail({ id });
     }
 
     async update(id: string, changes: { name: string }): Promise<Bank> {

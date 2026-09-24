@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 
 import { HttpResponses } from '../platform';
+import { listQuerySchema } from './archiving';
 import { BankAccountServiceSymbol } from './accounts.symbols';
 import { toBankAccountResponse } from './bank-account.response';
 import {
@@ -15,8 +16,10 @@ import type { BankAccountService } from './bank-account.service';
 export class BankAccountController {
     constructor(@inject(BankAccountServiceSymbol) private readonly service: BankAccountService) {}
 
-    async handleListBankAccounts(_req: Request, res: Response): Promise<Response> {
-        const accounts = await this.service.list();
+    async handleListBankAccounts(req: Request, res: Response): Promise<Response> {
+        const query = listQuerySchema.parse(req.query);
+
+        const accounts = await this.service.list(query);
 
         return HttpResponses.ok(res, accounts.map(toBankAccountResponse));
     }
@@ -38,5 +41,23 @@ export class BankAccountController {
         const changes = updateBankAccountSchema.parse(req.body);
 
         return HttpResponses.ok(res, toBankAccountResponse(await this.service.update(id, changes)));
+    }
+
+    async handleArchiveBankAccount(req: Request, res: Response): Promise<Response> {
+        const { id } = bankAccountIdParamsSchema.parse(req.params);
+
+        return HttpResponses.ok(
+            res,
+            toBankAccountResponse(await this.service.setArchived(id, true)),
+        );
+    }
+
+    async handleUnarchiveBankAccount(req: Request, res: Response): Promise<Response> {
+        const { id } = bankAccountIdParamsSchema.parse(req.params);
+
+        return HttpResponses.ok(
+            res,
+            toBankAccountResponse(await this.service.setArchived(id, false)),
+        );
     }
 }
