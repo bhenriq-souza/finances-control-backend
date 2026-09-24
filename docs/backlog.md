@@ -53,6 +53,34 @@ Ordem por dependência: as três primeiras são deste repositório, a última é
     - Where: GCP Secret Manager e `homelab-gitops` (`clusters/homelab/workloads/dev/manifests/finances-backend/`); evidência colada no PR deste repositório
     - Done when: `AC-0003-07` e `AC-0003-08` verificados no cluster, com `INV-0003-04` e `INV-0003-07` respeitados; fecha FCB-006
 
+## Eventos de domínio
+
+Tarefas da [spec 0004](../specs/0004-domain-events.md), que fecha a issue de entrega
+[FCB-014](https://github.com/bhenriq-souza/finances-control-backend/issues/14). Ordem por
+dependência: o envelope e o dispatcher antes do escopo de transação, e os dois antes da composição.
+
+- [ ] **T-0004-01 — Envelope do evento e dispatcher in-process**
+    - What: tipos `DomainEvent`, `JsonObject` e `DomainEventHandler`, a porta `DomainEventDispatcher`
+      e a `InProcessDomainEventDispatcher` (inscrição idempotente, entrega em ordem, falha isolada e
+      logada), com símbolos e exportações na interface pública da plataforma
+    - Where: `src/platform/events/`, `src/platform/symbols/index.ts`, `src/platform/index.ts`
+    - Done when: `AC-0004-01` a `AC-0004-04` cobertos; `INV-0004-04`, `INV-0004-05` e `INV-0004-09`
+      verificados
+- [ ] **T-0004-02 — `TransactionRunner` e publicação pós-commit**
+    - What: `TransactionScope` e `TransactionRunner` sobre `dataSource.transaction`, acumulando
+      eventos e despachando só após o commit, descartando no rollback e fechando o escopo ao fim;
+      registro dos dois singletons no container
+    - Where: `src/platform/events/transaction-runner.ts`, `src/container.ts`, `tests/integration/platform/events/`
+    - Done when: `AC-0004-05` a `AC-0004-09` e `AC-0004-12` cobertos; `INV-0004-01` e `INV-0004-02`
+      verificados
+- [ ] **T-0004-03 — Catálogo `src/events/`, subscribers na composição e regras de fronteira**
+    - What: `src/events/index.ts` com o contrato documentado, a interface `DomainEventSubscriber`,
+      o campo `subscribers` de `ApiModule` tratado por `registerApiModules`, as duas regras novas no
+      `.dependency-cruiser.cjs` e o parágrafo em `AGENTS.md` (regra 8) sobre publicar e consumir
+    - Where: `src/events/`, `src/platform/api/register-api-modules.ts`, `.dependency-cruiser.cjs`, `AGENTS.md`
+    - Done when: `AC-0004-10` e `AC-0004-11` cobertos; `INV-0004-07` e `INV-0004-10` verificados;
+      última tarefa da spec: fecha FCB-014 e muda o `status` para `implemented`
+
 ## Identity (F001)
 
 Tarefas da [spec 0010](../specs/0010-identity.md), que fecha a issue de entrega
