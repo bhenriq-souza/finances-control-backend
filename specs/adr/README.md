@@ -6,6 +6,7 @@ Decisões de **produto e arquitetura macro** — stack, banco de dados, estilo a
 
 Formato: `NNNN-titulo-kebab.md`, com frontmatter `status: accepted | superseded` e as seções **Context**, **Decision**, **Consequences**, **Alternatives considered**. ADRs são imutáveis depois de aceitos — para mudar, crie um novo que supersede o anterior.
 
-| ADR                                 | Título                            | Status   |
-| ----------------------------------- | --------------------------------- | -------- |
-| [0001](0001-migration-execution.md) | Execução e formato das migrations | accepted |
+| ADR                                  | Título                                          | Status   |
+| ------------------------------------ | ----------------------------------------------- | -------- |
+| [0001](0001-migration-execution.md)  | Execução e formato das migrations               | accepted |
+| [0002](0002-domain-event-catalog.md) | Catálogo de eventos de domínio em `src/events/` | accepted |
