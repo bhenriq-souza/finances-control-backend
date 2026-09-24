@@ -159,13 +159,61 @@ dependência: o banco antes do que se liga a ele, e o ciclo antes do cartão que
     - Done when: `AC-0011-09`, `AC-0011-10` e `AC-0011-12` cobertos; `INV-0011-03` e `INV-0011-09`
       verificados; por ser a última tarefa da spec, fecha FCB-008 e muda o `status` para `implemented`
 
+## Expenses (F003)
+
+Tarefas da [spec 0012](../specs/0012-expenses.md), que fecha a issue de entrega
+[FCB-009](https://github.com/bhenriq-souza/finances-control-backend/issues/9). Ordem por
+dependência: schema e helper antes de tudo; o `accounts` ganha os movimentos antes de a despesa os
+usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI por último.
+
+- [ ] **T-0012-01 — Entidades, migration, seed dos tipos e `splitCents`**
+    - What: `ExpenseType` e `Expense` com os enums sob CHECK e as constraints nomeadas, a migration
+      com as dez linhas pré-definidas, e `splitCents` em `src/platform/money.ts` exportado pela
+      interface da plataforma
+    - Where: `src/expenses/`, `src/platform/money.ts`, `src/platform/index.ts`, `src/platform/database/migrations/`
+    - Done when: `AC-0012-01` e `AC-0012-20` cobertos; `INV-0012-01`, `INV-0012-02` e `INV-0012-07`
+      verificados pelas constraints
+- [ ] **T-0012-02 — Tipos de despesa**
+    - What: as rotas de `/expense-types` com unicidade case-insensitive, arquivamento idempotente e
+      guardas de perfil, registradas em `api.config.ts`
+    - Where: `src/expenses/`, `src/api.config.ts`
+    - Done when: `AC-0012-02` coberto; `ERR-0012-01`, `ERR-0012-02` e `ERR-0012-16`
+- [ ] **T-0012-03 — Movimentos de saldo e limite no `accounts`**
+    - What: `BankAccountService.applyBalanceDelta` e `CreditCardService.applyAvailableLimitDelta`,
+      com lock de escrita pelo `EntityManager` recebido, sem abrir transação, aceitando arquivados
+    - Where: `src/accounts/bank-account.service.ts`, `src/accounts/credit-card.service.ts`, `tests/integration/accounts/`
+    - Done when: `AC-0012-10` coberto; `INV-0012-10` e `INV-0004-03` verificados
+- [ ] **T-0012-04 — Criação de despesa simples e evento `ExpenseCreated`**
+    - What: `POST /expenses` para `FIXED` e `VARIABLE` dentro de `TransactionRunner.run`, com a
+      validação conta-ou-cartão, recusa de arquivados, reflexo no limite do cartão e o evento no
+      catálogo `src/events/expenses.events.ts`
+    - Where: `src/expenses/`, `src/events/expenses.events.ts`, `src/api.config.ts`
+    - Done when: `AC-0012-03`, `AC-0012-04`, `AC-0012-15`, `AC-0012-17` e `AC-0012-19` cobertos;
+      `INV-0012-03` e `INV-0012-09` verificados
+- [ ] **T-0012-05 — Parcelamento**
+    - What: `kind: INSTALLMENT` gerando as parcelas na mesma transação, com rateio por `splitCents`,
+      datas mensais com dia preservado e limite abatido pelo total
+    - Where: `src/expenses/`
+    - Done when: `AC-0012-07`, `AC-0012-08` e `AC-0012-09` cobertos; `INV-0012-06` verificado
+- [ ] **T-0012-06 — Máquina de status, pagamento e varredura de vencidas**
+    - What: `PATCH /expenses/:id/status` com a tabela de transições, pagamento e desfazer movendo
+      o saldo da conta, recusa para cartão, `ExpensePaid` e `ExpenseService.markOverdue`
+    - Where: `src/expenses/`, `src/events/expenses.events.ts`
+    - Done when: `AC-0012-05`, `AC-0012-06`, `AC-0012-11` e `AC-0012-12` cobertos; `INV-0012-04`,
+      `INV-0012-05`, `INV-0012-07` e `INV-0012-08` verificados
+- [ ] **T-0012-07 — Consulta, alteração, exclusão, autorização e OpenAPI**
+    - What: `GET /expenses` com filtros, `GET /expenses/:id`, `PATCH /expenses/:id`, `DELETE`
+      com a regra do grupo, `listByCreditCard`, as guardas de perfil e o contrato no `openapi.yaml`
+    - Where: `src/expenses/`, `docs/openapi.yaml`
+    - Done when: `AC-0012-13`, `AC-0012-14`, `AC-0012-16` e `AC-0012-18` cobertos; `INV-0012-11`,
+      `INV-0012-12` e `INV-0012-13`; última tarefa: fecha FCB-009 e muda o `status` para `implemented`
+
 ## Domínio
 
-As specs de domínio restantes (`0011`+) ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
+As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
 
 | Issue   | Spec prevista     | Requisito                   |
 | ------- | ----------------- | --------------------------- |
-| FCB-009 | `0012` expenses   | F003 — despesas             |
 | FCB-010 | `0013` statements | F004 — faturas              |
 | FCB-011 | `0014` earnings   | F005 — receitas             |
 | FCB-012 | `0015` reporting  | saldo previsto e relatórios |
