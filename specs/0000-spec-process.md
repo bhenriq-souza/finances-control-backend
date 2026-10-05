@@ -71,7 +71,14 @@ Uma tarefa não pode exigir interpretação além da sua spec. Se exigir, a spec
 
 O board [Finances Control](https://github.com/users/bhenriq-souza/projects/2) e as issues `FCB-*` são a camada de **entrega**: cada issue de domínio corresponde a uma spec e ao conjunto das suas tarefas. O `docs/backlog.md` é a camada de **execução**, mais granular, e é a fila que os agentes consomem.
 
-Regra: ao concluir a última tarefa de uma spec, o PR que a fecha referencia a issue `FCB-*` correspondente (`Closes #N`), fechando as duas camadas juntas.
+Toda tarefa do backlog também existe como issue no board, para que a execução seja visível ali:
+
+- Título `T-xxxx-yy — <título do backlog>`, corpo com **What** / **Where** / **Done when** copiados do backlog e o link para a spec; labels `task` e a da fase.
+- A issue da tarefa é **sub-issue** da issue `FCB-*` da sua spec, e entra no board em `Todo`. O campo _Sub-issues progress_ da entrega mostra quanto da spec já foi feito.
+- O backlog anota o número da issue ao lado do título da tarefa (`· #N`). O backlog continua sendo a fonte: se os dois divergirem, a issue é corrigida a partir dele.
+- As issues de tarefa nascem no PR da spec, que já leva as anotações `· #N` no backlog; se a revisão mudar as tarefas, as issues mudam junto.
+
+Regras de fechamento: o PR de uma tarefa fecha a issue dela (`Closes #N`). O PR da última tarefa de uma spec fecha também a issue `FCB-*` correspondente, fechando as duas camadas juntas.
 
 ## Invariants
 
