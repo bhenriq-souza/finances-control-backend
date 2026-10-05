@@ -523,7 +523,8 @@ CreditCardRefundResponse { id, creditCardId, expenseId, description, amountCents
 ### Interface pública do módulo
 
 `src/statements/index.ts` exporta as classes de rota e controller, `StatementService.closeDue` para
-o job do FCB-015 e `StatementPeriodGuardService` para a composição. `reporting` (spec `0015`) lê as
+o job do FCB-015, `StatementPeriodGuardService` para a composição e `StatementService.list`, o
+serviço de `GET /statements`, que a spec `0015` usa para as faturas projetadas. `reporting` (spec `0015`) lê as
 três tabelas por consulta própria (ADR-0003, regra 5) — o pagamento de fatura é a saída de caixa
 que o saldo previsto precisa enxergar.
 
