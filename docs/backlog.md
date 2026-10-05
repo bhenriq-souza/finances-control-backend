@@ -313,22 +313,22 @@ Tarefas da [spec 0015](../specs/0015-reporting.md), que fecha a issue de entrega
 0012, 0013 e 0014 implementadas. Ordem por dependência: a regra de composição e o realizado antes
 do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma regra.
 
-- [ ] **T-0015-01 — Módulo, regra de composição e saldo realizado**
+- [ ] **T-0015-01 — Módulo, regra de composição e saldo realizado** · #81
     - What: o módulo `reporting` só de leitura, os conjuntos realizado/pendente/comprometido num
       lugar só, e o saldo realizado de uma conta em qualquer data
     - Where: `src/reporting/`, `.dependency-cruiser.cjs`
     - Done when: `AC-0015-01` e `AC-0015-12` cobertos; `INV-0015-01` a `INV-0015-04` verificados
-- [ ] **T-0015-02 — Saldo previsto, dívida dos cartões e série mensal**
+- [ ] **T-0015-02 — Saldo previsto, dívida dos cartões e série mensal** · #82
     - What: `GET /reports/balance`, com o previsto por conta, a dívida dos cartões sobre
       `StatementService.list` (exportado pelo `statements`) e o consolidado mês a mês
     - Where: `src/reporting/`, `src/statements/index.ts`, `src/api.config.ts`
     - Done when: `AC-0015-02` a `AC-0015-06` cobertos; `INV-0015-05` e `INV-0015-06` verificados
-- [ ] **T-0015-03 — Relatórios por tipo**
+- [ ] **T-0015-03 — Relatórios por tipo** · #83
     - What: `GET /reports/expenses-by-type` e `GET /reports/earnings-by-type`, por mês e tipo,
       com `includeForecast` e os estornos à parte
     - Where: `src/reporting/`
     - Done when: `AC-0015-07` e `AC-0015-08` cobertos; `INV-0015-07` verificado
-- [ ] **T-0015-04 — Fluxo de caixa, validação, autorização e OpenAPI**
+- [ ] **T-0015-04 — Fluxo de caixa, validação, autorização e OpenAPI** · #84
     - What: `GET /reports/cash-flow`, a validação comum dos parâmetros, as guardas de perfil e o
       contrato dos quatro relatórios no `openapi.yaml`
     - Where: `src/reporting/`, `docs/openapi.yaml`
