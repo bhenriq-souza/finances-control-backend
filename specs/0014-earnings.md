@@ -29,7 +29,8 @@ nenhuma regra.
   receita em cartão de crédito — crédito no cartão é estorno (spec `0013`); parcelamento de
   receita — o F005 não o prevê, e um recebimento em partes é lançado como receitas separadas;
   transferência entre contas próprias, que não é receita nem despesa e precisará de decisão
-  própria; contraparte (quem paga) e autoria por usuário; paginação de listagem.
+  própria; contraparte como entidade — quem deve é descrito em `description` e `notes`, ver
+  _Recebíveis de terceiros_ —; autoria por usuário; paginação de listagem.
 
 ## Contracts
 
@@ -76,13 +77,32 @@ A unicidade de `name` é **case-insensitive**, por índice único funcional `uq_
 sobre `lower(name)`; a aplicação faz `trim` na escrita — a mesma regra de `expense_types`.
 
 **Tipos pré-definidos** (F005) entram pela migration que cria a tabela, como linhas comuns,
-arquiváveis e renomeáveis, sem coluna que as distinga:
+arquiváveis e renomeáveis, sem coluna que as distinga. A lista vem do uso real: a planilha legada
+não tem coluna de categoria nos recebíveis, e os tipos abaixo agrupam as descrições dos seus 336
+recebíveis e das entradas do extrato:
 
-`Salário` · `13º e férias` · `Pró-labore` · `Freelance` · `Rendimentos` · `Aluguel` ·
-`Reembolso` · `Venda` · `Outros`
+| Tipo                               | O que cobre na planilha                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------ |
+| `Salário`                          | salário mensal do empregador                                             |
+| `Férias, 13º e verbas rescisórias` | férias, 13º, saldo de salário                                            |
+| `Rendimento de investimento`       | rendimento automático, juros                                             |
+| `Restituição de imposto`           | restituição de IR                                                        |
+| `Reembolso`                        | compra feita no próprio cartão para outra pessoa, ou despesa reembolsada |
+| `Devolução de empréstimo`          | empréstimo concedido a outra pessoa, devolvido em parcelas               |
+| `Rateio de despesa`                | parte de terceiros numa viagem, refeição ou evento dividido              |
+| `Outros`                           | acertos, adiantamentos e o que não couber acima                          |
 
-As demais categorias nascem pelas rotas de `/earning-types`, que a página de administração do
-frontend consome, ou pela importação CSV (spec `0016`) — como em despesas.
+A lista não é fechada: as demais categorias nascem pelas rotas de `/earning-types`, que a página de
+administração do frontend consome, ou pela importação CSV (spec `0016`) — como em despesas.
+
+#### Recebíveis de terceiros
+
+`Reembolso`, `Devolução de empréstimo` e `Rateio de despesa` são os **recebíveis**: dinheiro que
+uma pessoa deve. Não há entidade de contraparte: o recebível é uma receita como outra, e **quem
+deve e o quê** vão em `description` e `notes` — "Notebook — Júnior, parcela 3 de 10". É o que a
+planilha faz com a coluna `Pagante`, e a importação (spec `0016`) leva essa coluna para `notes`.
+Um recebível em aberto é uma receita `OPEN`: entra no saldo previsto e vira `OVERDUE` pela
+varredura quando a data esperada passa sem pagamento.
 
 Tipos de receita e de despesa são tabelas separadas: o F005 pede "tipos de receitas" próprios, e
 uma lista única obrigaria o usuário a ver `Moradia` ao lançar um salário.
@@ -313,7 +333,7 @@ lê `earnings` por consulta própria (ADR-0003, regra 5).
 
 ## Acceptance criteria
 
-- **AC-0014-01:** a migration cria as duas tabelas com as constraints nomeadas e as nove linhas
+- **AC-0014-01:** a migration cria as duas tabelas com as constraints nomeadas e as oito linhas
   pré-definidas em `earning_types`; aplica e reverte num banco limpo.
 - **AC-0014-02:** criar tipo devolve `201`; nome repetido, inclusive com caixa diferente, recebe
   `409 EARNING_TYPE_ALREADY_EXISTS`; arquivar esconde da listagem, `?archived=true` mostra, e
@@ -366,10 +386,4 @@ lê `earnings` por consulta própria (ADR-0003, regra 5).
 
 ## Open questions
 
-1. **Tipos pré-definidos:** a lista de nove acima é um ponto de partida genérico. A planilha
-   legada tem 998 recebíveis; se eles usam categorias próprias, a seed pode adotá-las. Como em
-   despesas, as demais se criam pela página de administração. Confirmar a lista.
-2. **Recebíveis de terceiros:** 711 dos 998 recebíveis da planilha estão em aberto. Se parte deles
-   for dinheiro a receber de **pessoas** (empréstimo a um parente, conta dividida), pode valer
-   registrar a contraparte, para cobrar e acompanhar quem deve. Esta spec deixa a contraparte fora
-   de escopo; confirmar se o uso real pede.
+Nenhuma.

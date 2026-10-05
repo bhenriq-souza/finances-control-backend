@@ -273,7 +273,7 @@ OpenAPI por último.
 
 - [ ] **T-0014-01 — Entidades, migration e seed dos tipos** · #71
     - What: `EarningType` e `Earning` com os enums sob CHECK e as constraints nomeadas, e a
-      migration com as nove linhas pré-definidas
+      migration com as oito linhas pré-definidas
     - Where: `src/earnings/`, `src/platform/database/migrations/`
     - Done when: `AC-0014-01` e `AC-0014-13` cobertos; `INV-0014-01`, `INV-0014-02` e `INV-0014-04`
       verificados pelas constraints
