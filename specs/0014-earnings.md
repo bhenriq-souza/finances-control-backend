@@ -19,16 +19,14 @@ nenhuma regra.
 ## Scope / Non-goals
 
 - **Em escopo:** tipos de receita, com os pré-definidos e os que o usuário cria; a receita e seus
-  dois tipos de ocorrência; a associação a uma conta bancária; o reflexo no saldo, na mesma
+  três tipos de ocorrência, inclusive a parcelada e a geração das parcelas; a associação a uma conta bancária; o reflexo no saldo, na mesma
   transação; a máquina de status, espelho da spec `0012`; a varredura que marca vencidas; os
   eventos `EarningCreated` e `EarningReceived`; autorização por perfil; o contrato no
   `openapi.yaml`.
 - **Fora de escopo:** saldo previsto e relatórios (spec `0015`); importação CSV (spec `0016`),
   embora o F005 a mencione; a geração automática das ocorrências mensais de uma receita fixa e o
   agendamento da varredura de vencidas (FCB-015) — esta spec entrega as operações que o job chama;
-  receita em cartão de crédito — crédito no cartão é estorno (spec `0013`); parcelamento de
-  receita — o F005 não o prevê, e um recebimento em partes é lançado como receitas separadas;
-  transferência entre contas próprias, que não é receita nem despesa e precisará de decisão
+  receita em cartão de crédito — crédito no cartão é estorno (spec `0013`); transferência entre contas próprias, que não é receita nem despesa e precisará de decisão
   própria; contraparte como entidade — quem deve é descrito em `description` e `notes`, ver
   _Recebíveis de terceiros_ —; autoria por usuário; paginação de listagem.
 
@@ -99,7 +97,8 @@ administração do frontend consome, ou pela importação CSV (spec `0016`) — 
 
 `Reembolso`, `Devolução de empréstimo` e `Rateio de despesa` são os **recebíveis**: dinheiro que
 uma pessoa deve. Não há entidade de contraparte: o recebível é uma receita como outra, e **quem
-deve e o quê** vão em `description` e `notes` — "Notebook — Júnior, parcela 3 de 10". É o que a
+deve e o quê** vão em `description` e `notes` — "Notebook — Júnior", lançado como receita
+parcelada em 10×, ver _Parcelamento_. É o que a
 planilha faz com a coluna `Pagante`, e a importação (spec `0016`) leva essa coluna para `notes`.
 Um recebível em aberto é uma receita `OPEN`: entra no saldo previsto e vira `OVERDUE` pela
 varredura quando a data esperada passa sem pagamento.
@@ -114,16 +113,24 @@ uma lista única obrigaria o usuário a ver `Moradia` ao lançar um salário.
 | `id`                      | `uuid`          | PK                                                                                 |
 | `description`             | `text`          | not null                                                                           |
 | `earning_type_id`         | `uuid`          | not null, FK `earning_types(id)` `on delete restrict`                              |
-| `kind`                    | `text`          | not null, `ck_earnings_kind`: `FIXED`/`VARIABLE`                                   |
+| `kind`                    | `text`          | not null, `ck_earnings_kind`: `FIXED`/`VARIABLE`/`INSTALLMENT`                     |
 | `status`                  | `text`          | not null, `ck_earnings_status`: `OPEN`/`FORECAST`/`RECEIVED`/`OVERDUE`/`VERIFYING` |
 | `amount_cents`            | `numeric(14,2)` | not null, `ck_earnings_amount` > 0                                                 |
 | `occurred_on`             | `date`          | not null — a data **esperada** do recebimento                                      |
 | `received_on`             | `date`          | nullable, `ck_earnings_received_on`: not null **se e só se** `status = 'RECEIVED'` |
 | `bank_account_id`         | `uuid`          | not null, FK `bank_accounts(id)` `on delete restrict`                              |
+| `installment_group_id`    | `uuid`          | nullable                                                                           |
+| `installment_number`      | `integer`       | nullable                                                                           |
+| `installment_total`       | `integer`       | nullable                                                                           |
 | `notes`                   | `text`          | nullable                                                                           |
 | `created_at`/`updated_at` | `timestamptz`   | convenções da spec 0003                                                            |
 
-Índices: `idx_earnings_occurred_on`, `idx_earnings_bank_account_id`, `idx_earnings_status`.
+- `ck_earnings_installment`: as três colunas `installment_*` são não nulas **se e só se**
+  `kind = 'INSTALLMENT'`; `installment_total >= 2` e `1 <= installment_number <= installment_total`
+  — a mesma regra de `expenses` (spec 0012).
+- `uq_earnings_installment_group_id_installment_number` sobre
+  `(installment_group_id, installment_number)`.
+- Índices: `idx_earnings_occurred_on`, `idx_earnings_bank_account_id`, `idx_earnings_status`.
 
 **`occurred_on`** é a data em que a receita é esperada — o dia do salário, o vencimento da nota
 emitida. A varredura de vencidas usa esta data. **`received_on`** é a data em que ela de fato
@@ -134,10 +141,36 @@ a conta pela interface pública do `accounts` (ADR-0003, regra 2).
 
 ### Tipos de ocorrência
 
-| `kind`     | O que é                            | Regra                                                                                             |
-| ---------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `FIXED`    | Ocorre todo mês (salário, aluguel) | Uma linha por ocorrência. A geração dos meses seguintes é do FCB-015, que os cria como `FORECAST` |
-| `VARIABLE` | Ocorre uma vez                     | Uma linha                                                                                         |
+| `kind`        | O que é                                                                       | Regra                                                                                             |
+| ------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `FIXED`       | Ocorre todo mês (salário, aluguel)                                            | Uma linha por ocorrência. A geração dos meses seguintes é do FCB-015, que os cria como `FORECAST` |
+| `VARIABLE`    | Ocorre uma vez                                                                | Uma linha                                                                                         |
+| `INSTALLMENT` | Recebimento dividido em parcelas mensais (reembolso, devolução de empréstimo) | `n` linhas criadas de uma vez, ver _Parcelamento_                                                 |
+
+### Parcelamento
+
+A planilha legada registra recebíveis parcelados — o reembolso de uma compra parcelada no próprio
+cartão, a devolução de um empréstimo em prestações — numa coluna `Parcelamento`. A receita
+parcelada segue **exatamente** as regras de parcelamento da spec 0012, sem acrescentar nenhuma:
+
+- `POST /earnings` com `kind: 'INSTALLMENT'` recebe o **total** em `amountCents` e
+  `installmentTotal` (`2` a `120`), e cria `installmentTotal` linhas na mesma transação, todas com
+  o mesmo `installment_group_id` (gerado), `installment_number` de 1 a `n`, o mesmo tipo, a mesma
+  conta, a mesma `description` e o mesmo `notes`.
+- **Rateio** por `splitCents` (spec 0012, ADR-0007 regra 3): resto na primeira parcela; a soma das
+  parcelas é o total, sempre.
+- **Datas**: a parcela `k` é esperada em `occurredOn + (k − 1)` meses, com dia inexistente
+  resolvido para o último dia do mês e o dia original preservado.
+- **Status**: todas nascem com o `status` informado (`OPEN` por padrão). Nenhuma move saldo ao
+  nascer; cada parcela soma ao saldo quando é **recebida**, individualmente, pela máquina de
+  status — a devolução de um empréstimo cai uma prestação por vez.
+- Não existe a receita-mãe: o total do grupo é a soma das parcelas, derivado, nunca gravado.
+- **Excluir** uma parcela exclui, na mesma transação, todas as parcelas **não recebidas** do
+  grupo; as recebidas permanecem — a regra de "cancelar o que ainda vai entrar, nunca o que já
+  entrou" da spec 0012.
+- **Trocar a conta** de uma parcela por `PATCH` troca a de todas as parcelas não recebidas do
+  grupo; as recebidas ficam na conta em que entraram. Alterar `amountCents`, `occurredOn` ou os
+  demais campos altera **só aquela parcela**.
 
 ### Reflexo no saldo (mesma transação)
 
@@ -201,11 +234,12 @@ export type EarningCreated = DomainEvent<
     typeof EARNING_CREATED,
     {
         earningId: string;
-        kind: 'FIXED' | 'VARIABLE';
+        kind: 'FIXED' | 'VARIABLE' | 'INSTALLMENT';
         status: 'OPEN' | 'FORECAST' | 'VERIFYING';
         amountCents: number;
         occurredOn: string; // `YYYY-MM-DD`
         bankAccountId: string;
+        installmentGroupId: string | null;
     }
 >;
 
@@ -216,6 +250,8 @@ export type EarningReceived = DomainEvent<
 >;
 ```
 
+- `EarningCreated` é publicado **uma vez por linha**: uma devolução em 10× publica 10 eventos, com o
+  mesmo `installmentGroupId`.
 - `EarningReceived` é publicado na transição para `RECEIVED`; desfazer não publica evento, como
   nas specs `0012` e `0013`.
 - Nenhum módulo consome estes eventos nesta spec.
@@ -252,10 +288,10 @@ Tipos de receita seguem o arquivamento das specs 0011 e 0012: `GET` esconde arqu
 
 **Receita pode ser excluída** se **não recebida** (`FORECAST`, `OPEN`, `OVERDUE`, `VERIFYING`);
 `RECEIVED` recebe `ERR-0014-10` — desfaça o recebimento antes, para que o saldo seja devolvido
-explicitamente. Excluir não move saldo.
+explicitamente. Excluir não move saldo. Numa parcela, vale a regra do grupo (_Parcelamento_).
 
 **`GET /earnings`** aceita os filtros `from` e `to` (`occurredOn`, inclusivos, `YYYY-MM-DD`),
-`status`, `kind`, `earningTypeId` e `bankAccountId`, todos opcionais e combináveis por E.
+`status`, `kind`, `earningTypeId`, `bankAccountId` e `installmentGroupId`, todos opcionais e combináveis por E.
 Ordenação: `occurredOn` crescente, depois `createdAt`.
 
 **`PATCH /earnings/:id`** aceita `description`, `earningTypeId`, `occurredOn`, `amountCents`,
@@ -263,7 +299,7 @@ Ordenação: `occurredOn` crescente, depois `createdAt`.
 contrário da troca de forma de pagamento de despesa (spec 0012): receita não recebida não está no
 saldo de conta nenhuma, então nada se move. A conta de destino precisa existir e não estar
 arquivada (`ERR-0014-04`, `ERR-0014-05`). Recusa, citando o campo (`ERR-0014-11`): `kind`,
-`status` e `receivedOn` — mudar status é `PATCH …/status`. `amountCents` e `bankAccountId` de
+`status`, `receivedOn` e qualquer `installment*` — mudar status é `PATCH …/status`. `amountCents` e `bankAccountId` de
 receita **recebida** são recusados (`ERR-0014-10`): o saldo já a absorveu.
 
 ### Corpos
@@ -273,14 +309,18 @@ EarningTypeResponse  { id, name, archivedAt, createdAt }
 EarningResponse      { id, description, kind, status, amountCents, occurredOn, receivedOn, notes,
                        earningType: EarningTypeResponse,
                        bankAccountId,
+                       installment: { groupId, number, total } | null,
                        createdAt, updatedAt }
 ```
 
-Criação (`POST /earnings`), que devolve `201` com um `EarningResponse`:
+Criação (`POST /earnings`), que devolve `201` com **uma lista** de `EarningResponse` — de um
+elemento para `FIXED`/`VARIABLE`, de `installmentTotal` elementos para `INSTALLMENT`, em ordem de
+parcela, o mesmo formato único da spec 0012:
 
 ```
 { description, earningTypeId, kind, amountCents, occurredOn, bankAccountId,
   status?: 'OPEN' | 'FORECAST' | 'VERIFYING',   // default OPEN
+  installmentTotal?,                      // obrigatório se INSTALLMENT, proibido nos demais
   notes? }
 ```
 
@@ -311,25 +351,29 @@ lê `earnings` por consulta própria (ADR-0003, regra 5).
 - **INV-0014-07:** receita recebida não se altera em valor nem em conta, nem se exclui, sem antes
   desfazer o recebimento.
 - **INV-0014-08:** escrita exige `ADMIN` ou `BILLER`; leitura, qualquer perfil (spec 0010).
+- **INV-0014-09:** a soma das parcelas de um grupo é igual ao total informado na criação, o resto
+  fica na primeira parcela, e todas nascem na mesma transação — ou nenhuma.
+- **INV-0014-10:** a exclusão e a troca de conta de uma parcela alcançam todas as parcelas não
+  recebidas do grupo, e nunca uma recebida.
 
 ## Error cases
 
-| Situação                                                                  | Comportamento exigido                                                      |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **ERR-0014-01** Tipo com nome repetido (case-insensitive)                 | `409`, `EARNING_TYPE_ALREADY_EXISTS`                                       |
-| **ERR-0014-02** `:id` inexistente                                         | `404`, `EARNING_TYPE_NOT_FOUND` ou `EARNING_NOT_FOUND`                     |
-| **ERR-0014-03** `bankAccountId` ausente                                   | `400`, `VALIDATION_ERROR` citando o campo                                  |
-| **ERR-0014-04** `bankAccountId` ou `earningTypeId` inexistente            | `404`, `BANK_ACCOUNT_NOT_FOUND` ou `EARNING_TYPE_NOT_FOUND`                |
-| **ERR-0014-05** Conta arquivada na criação ou na troca de conta           | `409`, `BANK_ACCOUNT_ARCHIVED`                                             |
-| **ERR-0014-06** Tipo de receita arquivado                                 | `409`, `EARNING_TYPE_ARCHIVED`                                             |
-| **ERR-0014-07** `kind` fora de `FIXED`/`VARIABLE`                         | `400`, `VALIDATION_ERROR`                                                  |
-| **ERR-0014-08** Transição de status não permitida                         | `409`, `EARNING_STATUS_TRANSITION_NOT_ALLOWED`, mensagem com `from` e `to` |
-| **ERR-0014-09** `status` na criação fora de `OPEN`/`FORECAST`/`VERIFYING` | `400`, `VALIDATION_ERROR`                                                  |
-| **ERR-0014-10** Alterar valor ou conta, ou excluir, receita recebida      | `409`, `EARNING_ALREADY_RECEIVED`                                          |
-| **ERR-0014-11** `PATCH` com campo imutável                                | `400`, `VALIDATION_ERROR` citando o campo recusado                         |
-| **ERR-0014-12** `amountCents` ≤ 0 ou não inteiro                          | `400`, `VALIDATION_ERROR` — nunca arredondar em silêncio                   |
-| **ERR-0014-13** `from` > `to` na listagem                                 | `400`, `VALIDATION_ERROR`                                                  |
-| **ERR-0014-14** Arquivar tipo já arquivado                                | `200`, sem efeito — idempotente                                            |
+| Situação                                                                                                                                            | Comportamento exigido                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **ERR-0014-01** Tipo com nome repetido (case-insensitive)                                                                                           | `409`, `EARNING_TYPE_ALREADY_EXISTS`                                       |
+| **ERR-0014-02** `:id` inexistente                                                                                                                   | `404`, `EARNING_TYPE_NOT_FOUND` ou `EARNING_NOT_FOUND`                     |
+| **ERR-0014-03** `bankAccountId` ausente                                                                                                             | `400`, `VALIDATION_ERROR` citando o campo                                  |
+| **ERR-0014-04** `bankAccountId` ou `earningTypeId` inexistente                                                                                      | `404`, `BANK_ACCOUNT_NOT_FOUND` ou `EARNING_TYPE_NOT_FOUND`                |
+| **ERR-0014-05** Conta arquivada na criação ou na troca de conta                                                                                     | `409`, `BANK_ACCOUNT_ARCHIVED`                                             |
+| **ERR-0014-06** Tipo de receita arquivado                                                                                                           | `409`, `EARNING_TYPE_ARCHIVED`                                             |
+| **ERR-0014-07** `kind` fora de `FIXED`/`VARIABLE`/`INSTALLMENT`; `installmentTotal` fora de 2..120, ausente em `INSTALLMENT` ou presente nos demais | `400`, `VALIDATION_ERROR` citando o campo                                  |
+| **ERR-0014-08** Transição de status não permitida                                                                                                   | `409`, `EARNING_STATUS_TRANSITION_NOT_ALLOWED`, mensagem com `from` e `to` |
+| **ERR-0014-09** `status` na criação fora de `OPEN`/`FORECAST`/`VERIFYING`                                                                           | `400`, `VALIDATION_ERROR`                                                  |
+| **ERR-0014-10** Alterar valor ou conta, ou excluir, receita recebida                                                                                | `409`, `EARNING_ALREADY_RECEIVED`                                          |
+| **ERR-0014-11** `PATCH` com campo imutável                                                                                                          | `400`, `VALIDATION_ERROR` citando o campo recusado                         |
+| **ERR-0014-12** `amountCents` ≤ 0 ou não inteiro                                                                                                    | `400`, `VALIDATION_ERROR` — nunca arredondar em silêncio                   |
+| **ERR-0014-13** `from` > `to` na listagem                                                                                                           | `400`, `VALIDATION_ERROR`                                                  |
+| **ERR-0014-14** Arquivar tipo já arquivado                                                                                                          | `200`, sem efeito — idempotente                                            |
 
 ## Acceptance criteria
 
@@ -367,6 +411,16 @@ lê `earnings` por consulta própria (ADR-0003, regra 5).
   escreve; sem perfil, `403 PROFILE_PENDING` (INV-0014-08).
 - **AC-0014-13:** `amountCents` com fração de centavo, zero ou negativo recebe `400`, e o banco
   nunca guarda mais de duas casas (INV-0014-01).
+- **AC-0014-14:** `INSTALLMENT` com `amountCents: 10000` e `installmentTotal: 3` devolve `201` com
+  três receitas de 3334, 3333 e 3333 centavos, mesmo `installment.groupId`, números 1 a 3, esperadas
+  em 31/01, 28/02 (29 em bissexto) e 31/03 a partir de 31/01; nenhuma move o saldo; publica três
+  `EarningCreated` (INV-0014-09).
+- **AC-0014-15:** se a gravação de uma parcela falhar, nenhuma parcela existe (INV-0014-09).
+- **AC-0014-16:** receber a parcela 1 de 3334 soma 3334 ao saldo e deixa as demais `OPEN`; excluir
+  a parcela 2 exclui as parcelas 2 e 3 e mantém a 1; trocar a conta da parcela 2 de um grupo
+  intacto troca a das parcelas 2 e 3 e mantém a da 1, se recebida (INV-0014-10).
+- **AC-0014-17:** `installmentTotal` 1 ou 121, ausente em `INSTALLMENT` ou presente em `VARIABLE`
+  recebe `400`; `PATCH` com `installmentTotal` recebe `400` citando o campo.
 
 ## Test mapping
 
@@ -381,6 +435,7 @@ lê `earnings` por consulta própria (ADR-0003, regra 5).
 | AC-0014-09, INV-0014-07, ERR-0014-10, ERR-0014-11                                                                  | `tests/integration/earnings/update-and-delete.spec.ts`              |
 | AC-0014-10, ERR-0014-02, ERR-0014-13                                                                               | `tests/integration/earnings/listing.spec.ts`                        |
 | AC-0014-11                                                                                                         | `tests/integration/earnings/events.spec.ts`                         |
+| AC-0014-14 a AC-0014-17, INV-0014-09, INV-0014-10, ERR-0014-07                                                     | `tests/integration/earnings/installments.spec.ts`                   |
 | AC-0014-12, INV-0014-08                                                                                            | `tests/integration/earnings/authorization.spec.ts`                  |
 | INV-0014-06                                                                                                        | gate `boundaries`                                                   |
 
