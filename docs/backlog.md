@@ -272,29 +272,29 @@ Tarefas da [spec 0014](../specs/0014-earnings.md), que fecha a issue de entrega
 Ordem por dependência: schema antes de tudo; criação antes de status; consulta, alteração e
 OpenAPI por último.
 
-- [ ] **T-0014-01 — Entidades, migration e seed dos tipos**
+- [ ] **T-0014-01 — Entidades, migration e seed dos tipos** · #71
     - What: `EarningType` e `Earning` com os enums sob CHECK e as constraints nomeadas, e a
       migration com as nove linhas pré-definidas
     - Where: `src/earnings/`, `src/platform/database/migrations/`
     - Done when: `AC-0014-01` e `AC-0014-13` cobertos; `INV-0014-01`, `INV-0014-02` e `INV-0014-04`
       verificados pelas constraints
-- [ ] **T-0014-02 — Tipos de receita**
+- [ ] **T-0014-02 — Tipos de receita** · #72
     - What: as rotas de `/earning-types` com unicidade case-insensitive, arquivamento idempotente e
       guardas de perfil, registradas em `api.config.ts`
     - Where: `src/earnings/`, `src/api.config.ts`
     - Done when: `AC-0014-02` coberto; `ERR-0014-01`, `ERR-0014-06` e `ERR-0014-14`
-- [ ] **T-0014-03 — Criação de receita e evento `EarningCreated`**
+- [ ] **T-0014-03 — Criação de receita e evento `EarningCreated`** · #73
     - What: `POST /earnings` dentro de `TransactionRunner.run`, com a recusa de conta e tipo
       arquivados e o evento no catálogo `src/events/earnings.events.ts`
     - Where: `src/earnings/`, `src/events/earnings.events.ts`, `src/api.config.ts`
     - Done when: `AC-0014-03`, `AC-0014-08` e `AC-0014-11` cobertos; `INV-0014-03` verificado
-- [ ] **T-0014-04 — Máquina de status, recebimento e varredura de vencidas**
+- [ ] **T-0014-04 — Máquina de status, recebimento e varredura de vencidas** · #74
     - What: `PATCH /earnings/:id/status` com a tabela de transições, recebimento e desfazer movendo
       o saldo pela interface do `accounts`, `EarningReceived` e `EarningService.markOverdue`
     - Where: `src/earnings/`, `src/events/earnings.events.ts`
     - Done when: `AC-0014-04` a `AC-0014-07` cobertos; `INV-0014-03`, `INV-0014-05` e `INV-0014-06`
       verificados
-- [ ] **T-0014-05 — Consulta, alteração, exclusão, autorização e OpenAPI**
+- [ ] **T-0014-05 — Consulta, alteração, exclusão, autorização e OpenAPI** · #75
     - What: `GET /earnings` com filtros, `GET /earnings/:id`, `PATCH /earnings/:id`, `DELETE`, as
       guardas de perfil e o contrato no `openapi.yaml`
     - Where: `src/earnings/`, `docs/openapi.yaml`
