@@ -25,7 +25,7 @@ com o saldo corrente de cada conta.
 - **Fora de escopo:** o resumo de uma fatura, que é da spec `0013`; orçamento e metas por
   categoria — citados na descrição do produto, mas sem requisito; alertas e notificações (saldo
   negativo, fatura vencida); exportação em PDF ou planilha; gráficos, que são do frontend;
-  transferência entre contas próprias, que nenhuma spec modela ainda (ver _Open questions_);
+  transferência entre contas próprias, que a spec `0018` modela e acrescenta a estes cálculos;
   cache ou tabela materializada — o volume real (centenas de lançamentos por ano) cabe em consulta
   direta, e uma tabela derivada seria um segundo lugar onde o saldo pode divergir.
 
@@ -91,9 +91,8 @@ previsto(conta, D) = current_balance_cents
 
 - Pendências com `occurred_on` no passado — vencidas, ou abertas com data já passada — entram no
   primeiro ponto futuro: ainda vão se mover.
-- Despesa de **cartão** não entra no saldo de conta nenhuma: ela é paga pela fatura, e a fatura
-  ainda não tem conta pagadora até ser paga (spec 0013). Ela entra na **dívida dos cartões**, no
-  consolidado.
+- Despesa de **cartão** não entra diretamente no saldo de conta nenhuma: ela é paga pela fatura.
+  Ela entra na **dívida dos cartões**, abaixo, que é descontada da conta pagadora do cartão.
 
 **Dívida dos cartões** em `D`, por cartão, sobre as faturas de `StatementService.list`:
 
@@ -110,8 +109,14 @@ dívida(cartão, D) = Σ remainingCents             das faturas CLOSED
   fechada já foi contado na primeira linha, e somá-lo de novo contaria a mesma dívida duas vezes.
 - `ROLLED_OVER` não entra: o seu restante já está na fatura seguinte.
 
+**Conta pagadora.** Para que o previsto de uma conta mostre o que vai sobrar depois das faturas, o
+cartão ganha a conta pagadora padrão `paymentBankAccountId` (emenda à spec 0011). Cada ponto
+previsto de uma conta traz `cardDebtCents`, a soma da dívida dos cartões que ela paga, e
+`balanceAfterCardsCents = balanceCents − cardDebtCents`. A dívida de cartão sem conta pagadora não
+é atribuída a conta nenhuma e aparece em `unassignedCardDebtCents`.
+
 **Consolidado** em `D`: `Σ previsto(conta, D)` de todas as contas, arquivadas inclusive,
-`− Σ dívida(cartão, D)` de todos os cartões. É o "Saldo Final" da planilha: contas mais "a pagar"
+`− Σ dívida(cartão, D)` de todos os cartões, atribuídos ou não. É o "Saldo Final" da planilha: contas mais "a pagar"
 mais "a receber" (análise, 2.1).
 
 ### Série mensal
@@ -127,7 +132,8 @@ parte do saldo do anterior.
   e o detalhe do mês: `pendingEarningsCents` e `pendingExpensesCents` com `occurred_on` dentro do
   mês — no mês corrente, também as pendências com data passada — e `cardDueCents`, a dívida das
   faturas que vencem no mês.
-- Com `bankAccountId`, só aquela conta e sem consolidado; sem ele, todas as contas e o consolidado.
+- Com `bankAccountId`, só aquela conta, com a dívida dos cartões que ela paga, e sem consolidado;
+  sem ele, todas as contas e o consolidado.
 - A janela cobre no máximo 120 meses (`ERR-0015-02`), o maior parcelamento das specs 0012 e 0014.
 
 ### Relatórios por tipo
@@ -166,9 +172,11 @@ BalanceReport {
         month,                         // 'YYYY-MM'
         kind,                          // 'REALIZED' | 'FORECAST'
         accounts: [{ bankAccountId, balanceCents,
-                     pendingEarningsCents?, pendingExpensesCents? }],   // pending* só em FORECAST
+                     pendingEarningsCents?, pendingExpensesCents?,     // só em FORECAST
+                     cardDebtCents?, balanceAfterCardsCents? }],       // só em FORECAST
         accountsTotalCents,
-        cardDebtCents,                 // null em REALIZED ou com bankAccountId
+        cardDebtCents,                 // todos os cartões; null em REALIZED ou com bankAccountId
+        unassignedCardDebtCents,       // cartões sem conta pagadora; idem
         cardDueCents,                  // idem
         consolidatedCents              // accountsTotalCents − cardDebtCents; null com bankAccountId
     }]
@@ -265,6 +273,9 @@ Ler relatório é ler: qualquer perfil com acesso, como as listagens das specs 0
 - **AC-0015-11:** `VIEWER` lê os quatro relatórios; sem perfil, `403 PROFILE_PENDING`.
 - **AC-0015-12:** com 1000 lançamentos de valores com centavos, todo total bate exatamente com a
   soma dos inteiros de centavos (INV-0015-04).
+- **AC-0015-13:** um cartão com conta pagadora A e dívida 1920 em `D` reduz o
+  `balanceAfterCardsCents` de A em 1920 e não altera o de outra conta; um cartão sem conta
+  pagadora entra em `unassignedCardDebtCents` e no consolidado, e em conta nenhuma.
 
 ## Test mapping
 
@@ -272,7 +283,7 @@ Ler relatório é ler: qualquer perfil com acesso, como as listagens das specs 0
 | ------------------------------------------------- | --------------------------------------------------------- |
 | AC-0015-01, INV-0015-03                           | `tests/integration/reporting/realized-balance.spec.ts`    |
 | AC-0015-02, AC-0015-03, AC-0015-06, INV-0015-05   | `tests/integration/reporting/forecast-balance.spec.ts`    |
-| AC-0015-04, AC-0015-05, INV-0015-06               | `tests/integration/reporting/card-debt.spec.ts`           |
+| AC-0015-04, AC-0015-05, AC-0015-13, INV-0015-06   | `tests/integration/reporting/card-debt.spec.ts`           |
 | AC-0015-07, AC-0015-08, INV-0015-07               | `tests/integration/reporting/by-type.spec.ts`             |
 | AC-0015-09                                        | `tests/integration/reporting/cash-flow.spec.ts`           |
 | AC-0015-10, AC-0015-11, ERR-0015-01 a ERR-0015-04 | `tests/integration/reporting/validation-and-auth.spec.ts` |
@@ -281,11 +292,4 @@ Ler relatório é ler: qualquer perfil com acesso, como as listagens das specs 0
 
 ## Open questions
 
-1. **Conta pagadora do cartão:** a dívida de cartão só entra no consolidado, porque nada diz qual
-   conta paga cada cartão até a fatura ser paga. Se o saldo previsto **por conta** precisar
-   descontar a fatura que ela vai pagar, o cartão ganha uma conta pagadora padrão — campo novo na
-   spec 0011, já implementada, e default da conta no pagamento da 0013. Precisa?
-2. **Transferência entre contas próprias:** nenhuma spec a modela. Hoje, mover dinheiro da conta
-   corrente para a poupança não tem registro possível: lançar como despesa e receita distorce os
-   relatórios por tipo. A planilha tem dezenas de transferências e resgates. Entra como spec
-   própria antes da importação (`0016`), ou os relatórios convivem com o desvio?
+Nenhuma.

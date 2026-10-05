@@ -159,8 +159,17 @@ BankAccountResponse  { id, bank: BankResponse, type, accountNumber, description,
                        archivedAt, createdAt }
 CreditCardResponse   { id, bank: BankResponse, name, creditLimitCents, availableLimitCents,
                        closingDay, dueDay, currentCycle: { startsOn, closesOn, dueOn },
-                       archivedAt, createdAt }
+                       paymentBankAccountId, archivedAt, createdAt }
 ```
+
+**Conta pagadora.** O cartão tem uma conta pagadora padrão opcional, `payment_bank_account_id`
+(`uuid`, nullable, FK `bank_accounts(id)` `on delete restrict`), informável na criação e no
+`PATCH` como `paymentBankAccountId`, ou `null` para remover. É a conta de onde a fatura costuma
+sair: a spec `0013` a usa como default do pagamento, e a `0015` desconta a dívida do cartão no
+saldo previsto dela. A conta precisa existir (`ERR-0011-06`) e não estar arquivada
+(`ERR-0011-13`); arquivar a conta depois não altera o cartão — a conta continua apontada, e o
+pagamento de fatura a partir dela é que passa a ser recusado (spec 0013). Acrescentado pela spec
+`0015`, depois da implementação desta spec.
 
 `currentCycle` é derivado na resposta, nunca persistido — é o que torna verdadeiro que **um cartão
 cadastrado já nasce operante**, sem passo extra que alguém possa esquecer.
@@ -221,6 +230,7 @@ calculado a partir do limite anterior e do disponível anterior.
 | **ERR-0011-10** Valor monetário não inteiro            | `400`, `VALIDATION_ERROR` — nunca arredondar em silêncio                            |
 | **ERR-0011-11** `PATCH` com campo derivado ou imutável | `400`, `VALIDATION_ERROR` citando o campo recusado                                  |
 | **ERR-0011-12** Arquivar o que já está arquivado       | `200`, sem efeito — a operação é idempotente                                        |
+| **ERR-0011-13** `paymentBankAccountId` arquivada       | `409`, código `BANK_ACCOUNT_ARCHIVED`                                               |
 
 ## Acceptance criteria
 
@@ -252,6 +262,10 @@ calculado a partir do limite anterior e do disponível anterior.
   alterar qualquer outro campo não toca no disponível.
   duas casas.
 
+- **AC-0011-16:** criar ou alterar um cartão com `paymentBankAccountId` grava a conta pagadora e a
+  devolve na resposta; `null` a remove; conta inexistente recebe `404 BANK_ACCOUNT_NOT_FOUND`;
+  arquivada, `409 BANK_ACCOUNT_ARCHIVED`.
+
 ## Test mapping
 
 | Item                                                          | Teste                                                                                            |
@@ -259,7 +273,7 @@ calculado a partir do limite anterior e do disponível anterior.
 | AC-0011-01, AC-0011-02, AC-0011-03                            | `tests/integration/accounts/registration.spec.ts`                                                |
 | AC-0011-04 a AC-0011-07, AC-0011-14, INV-0011-06, INV-0011-08 | `tests/accounts/billing-cycle.spec.ts`                                                           |
 | AC-0011-08, INV-0011-04, INV-0011-05                          | `tests/integration/accounts/immutable-fields.spec.ts`                                            |
-| AC-0011-15                                                    | `tests/integration/accounts/credit-cards.spec.ts`                                                |
+| AC-0011-15, AC-0011-16                                        | `tests/integration/accounts/credit-cards.spec.ts`                                                |
 | AC-0011-09, AC-0011-10, INV-0011-03                           | `tests/integration/accounts/archiving.spec.ts`                                                   |
 | AC-0011-11, ERR-0011-07                                       | `tests/integration/accounts/archiving.spec.ts`                                                   |
 | AC-0011-12, INV-0011-09                                       | `tests/integration/accounts/authorization.spec.ts`                                               |

@@ -291,7 +291,9 @@ Como no app do banco, a fatura fechada se paga com o **valor total**, com o **m�
 **valor livre** — para o backend, os três são um `amountCents` entre 1 e `remainingCents`; a
 escolha é do cliente, que tem os dois números na resposta. Uma fatura aceita vários pagamentos.
 
-`POST /statements/:id/payments` com `{ bankAccountId, amountCents, paidOn? }`. `paidOn` é opcional,
+`POST /statements/:id/payments` com `{ bankAccountId?, amountCents, paidOn? }`. `bankAccountId` é
+opcional quando o cartão tem conta pagadora (spec 0011), que é o default; sem os dois, `400`
+citando o campo. `paidOn` é opcional,
 default hoje, posterior a `closesOn` e não posterior a hoje. Numa única transação, sob o lock do
 cartão e com lock de escrita na linha da fatura:
 
@@ -316,7 +318,7 @@ arquivado não impede o pagamento. Pagamento parcial não marca despesa como pag
 
 **Pagamento antecipado.** Como no app do banco, a fatura **aberta** também se paga, antes do
 fechamento: `POST /statements/current/payments` com
-`{ creditCardId, bankAccountId, amountCents, paidOn? }`. Mesma transação, mesmo lock e mesmos
+`{ creditCardId, bankAccountId?, amountCents, paidOn? }`, com o mesmo default de conta. Mesma transação, mesmo lock e mesmos
 passos 2 a 5 do pagamento acima — a conta é debitada e o limite liberado na hora —, com três
 diferenças:
 
