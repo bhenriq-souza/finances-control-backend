@@ -297,7 +297,13 @@ OpenAPI por último.
     - What: `GET /earnings` com filtros, `GET /earnings/:id`, `PATCH /earnings/:id`, `DELETE`, as
       guardas de perfil e o contrato no `openapi.yaml`
     - Where: `src/earnings/`, `docs/openapi.yaml`
-    - Done when: `AC-0014-09`, `AC-0014-10` e `AC-0014-12` cobertos; `INV-0014-07` e `INV-0014-08`;
+    - Done when: `AC-0014-09`, `AC-0014-10` e `AC-0014-12` cobertos; `INV-0014-07` e
+      `INV-0014-08` verificados
+- [ ] **T-0014-06 — Receita parcelada** · #79
+    - What: `kind: INSTALLMENT` gerando as parcelas na mesma transação por `splitCents`, com
+      datas mensais e as regras de grupo na exclusão e na troca de conta
+    - Where: `src/earnings/`, `docs/openapi.yaml`
+    - Done when: `AC-0014-14` a `AC-0014-17` cobertos; `INV-0014-09` e `INV-0014-10` verificados;
       última tarefa: fecha FCB-011 e muda o `status` para `implemented`
 
 ## Domínio
