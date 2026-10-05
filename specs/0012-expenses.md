@@ -40,6 +40,12 @@ parcelada nasce com todas as parcelas, somando exatamente o total; e a spec `001
 Os requisitos F002 e F003 se contradizem sobre "Previsto" e usam "refletir no saldo" para duas
 coisas diferentes. Esta spec fixa a leitura, que a `0014` (receitas) espelha:
 
+- **Hoje** é a data corrente no **fuso de negócio**, `America/Sao_Paulo`, nunca em UTC: uma
+  compra às 22h do dia 10, no horário de Brasília, aconteceu no dia 10, e não no 11. A data vem de
+  `businessToday()`, helper único em `src/platform/business-date.ts`, exportado pela interface da
+  plataforma junto da constante `BUSINESS_TIME_ZONE`. Todo default de data de negócio desta spec e
+  das seguintes passa por ele.
+
 - **Saldo corrente** de uma conta (`current_balance_cents`, spec 0011) é dinheiro que **já saiu ou
   entrou**. Só despesa **paga** o move. Uma despesa aberta é um compromisso, não uma saída: se ela
   abatesse o saldo corrente ao ser lançada, o saldo previsto do F002 — que soma as abertas ao
@@ -105,6 +111,7 @@ consome, ou pela importação CSV (spec `0016`). Nenhuma categoria exige migrati
 | `paid_on`                 | `date`          | nullable, `ck_expenses_paid_on`: not null **se e só se** `status = 'PAID'`     |
 | `bank_account_id`         | `uuid`          | nullable, FK `bank_accounts(id)` `on delete restrict`                          |
 | `credit_card_id`          | `uuid`          | nullable, FK `credit_cards(id)` `on delete restrict`                           |
+| `posted_on`               | `date`          | nullable, `ck_expenses_posted_on` — ver abaixo                                 |
 | `installment_group_id`    | `uuid`          | nullable                                                                       |
 | `installment_number`      | `integer`       | nullable                                                                       |
 | `installment_total`       | `integer`       | nullable                                                                       |
@@ -120,13 +127,22 @@ Constraints:
   `kind = 'INSTALLMENT'`; `installment_total >= 2` e `1 <= installment_number <= installment_total`.
 - `uq_expenses_installment_group_id_installment_number` sobre `(installment_group_id,
 installment_number)`.
+- `ck_expenses_posted_on`: `posted_on` é não nulo **se e só se** `credit_card_id` é não nulo, e
+  `posted_on >= occurred_on`.
 - Índices: `idx_expenses_occurred_on`, `idx_expenses_bank_account_id`, `idx_expenses_credit_card_id`,
-  `idx_expenses_status`.
+  `idx_expenses_status`, `idx_expenses_credit_card_id_posted_on`.
 
 **`occurred_on`** é a data de negócio do lançamento, uma só porque o CSV legado tem uma só
 (`Data`): para despesa de **conta**, é o **vencimento** — a varredura de vencidas usa esta data;
-para despesa de **cartão**, é a **data da compra** — a fatura a que ela pertence é decidida pela
-janela do ciclo em que esta data cai (spec `0013`, regra derivada da planilha legada, item 2.2).
+para despesa de **cartão**, é a **data da compra**.
+
+**`posted_on`** existe só na despesa de cartão: é a **data de lançamento na fatura**, e é ela — não
+a data da compra — que decide a fatura a que a despesa pertence (spec `0013`). Na maior parte das
+vezes as duas coincidem. Divergem quando o banco lança a compra depois: a compra feita no dia do
+fechamento que o banco joga para o ciclo seguinte, ou a despesa antiga que passa a ser paga por um
+cartão recém-cadastrado. A criação e a troca de forma de pagamento aceitam `postedOn`; sem ele, o
+default é `occurredOn`, deslocado pela spec `0013` para o primeiro dia da fatura aberta quando a
+fatura daquela data já fechou.
 
 As FKs para `bank_accounts` e `credit_cards` são constraints de banco, não acesso de código: o
 módulo `expenses` só toca essas tabelas pela interface pública do `accounts` (ADR-0003, regra 2).
@@ -153,7 +169,8 @@ módulo `expenses` só toca essas tabelas pela interface pública do `accounts` 
 - **Datas**: a parcela `k` ocorre em `occurredOn + (k − 1)` meses. Dia inexistente no mês resolve
   para o **último dia do mês**, a mesma regra do ciclo de fatura (spec 0011): comprar dia 31 de
   janeiro em 3× dá 31/01, 28/02 (ou 29) e 31/03 — o dia original é preservado, não o dia
-  colapsado.
+  colapsado. No cartão, `posted_on` da parcela `k` é o `postedOn` da primeira mais `(k − 1)`
+  meses, pela mesma regra: a compra empurrada para o ciclo seguinte empurra todas as parcelas.
 - **Status**: as parcelas nascem com o `status` informado (`OPEN` por padrão) — todas. Parcela de
   cartão nascida `OPEN` consome limite: o cartão abate o **total** no ato da compra, como o F003
   exige e como o cartão real faz.
@@ -166,16 +183,17 @@ Cada operação abaixo roda dentro de um único `TransactionRunner.run` (spec 00
 uma chamada síncrona à interface pública do `accounts` com o `EntityManager` do escopo
 (INV-0004-03). Nada aqui passa por evento.
 
-| Operação                             | Despesa de conta                 | Despesa de cartão                               |
-| ------------------------------------ | -------------------------------- | ----------------------------------------------- |
-| Criar como `OPEN` ou `VERIFYING`     | nada                             | `available_limit −= amountCents`                |
-| Criar como `FORECAST`                | nada                             | nada                                            |
-| `FORECAST → OPEN`                    | nada                             | `available_limit −= amountCents`                |
-| `OPEN`/`OVERDUE`/`VERIFYING → PAID`  | `current_balance −= amountCents` | **recusado** (ERR-0012-09): paga-se pela fatura |
-| `PAID → OPEN` (desfazer pagamento)   | `current_balance += amountCents` | não se aplica                                   |
-| Alterar `amountCents` (não paga)     | nada                             | `available_limit −= (novo − antigo)`            |
-| Excluir `OPEN`/`OVERDUE`/`VERIFYING` | nada                             | `available_limit += amountCents`                |
-| Excluir `FORECAST`                   | nada                             | nada                                            |
+| Operação                             | Despesa de conta                  | Despesa de cartão                               |
+| ------------------------------------ | --------------------------------- | ----------------------------------------------- |
+| Criar como `OPEN` ou `VERIFYING`     | nada                              | `available_limit −= amountCents`                |
+| Criar como `FORECAST`                | nada                              | nada                                            |
+| `FORECAST → OPEN`                    | nada                              | `available_limit −= amountCents`                |
+| `OPEN`/`OVERDUE`/`VERIFYING → PAID`  | `current_balance −= amountCents`  | **recusado** (ERR-0012-09): paga-se pela fatura |
+| `PAID → OPEN` (desfazer pagamento)   | `current_balance += amountCents`  | não se aplica                                   |
+| Alterar `amountCents` (não paga)     | nada                              | `available_limit −= (novo − antigo)`            |
+| Excluir `OPEN`/`OVERDUE`/`VERIFYING` | nada                              | `available_limit += amountCents`                |
+| Excluir `FORECAST`                   | nada                              | nada                                            |
+| Trocar a forma de pagamento          | ver _Troca de forma de pagamento_ | ver _Troca de forma de pagamento_               |
 
 **Nem o saldo nem o limite barram o lançamento.** O sistema registra o que aconteceu na vida real:
 uma compra que estourou o limite ou um pagamento que usou o cheque especial são fatos, e recusá-los
@@ -227,7 +245,7 @@ CreditCardService.applyAvailableLimitDelta(manager: EntityManager, id: string, d
 | `FORECAST`                     | `OPEN`      | —                                                                |
 | `OPEN`, `OVERDUE`              | `VERIFYING` | —                                                                |
 | `VERIFYING`                    | `OPEN`      | —                                                                |
-| `OPEN`, `OVERDUE`, `VERIFYING` | `PAID`      | só despesa de **conta**; `paidOn` opcional, default hoje (UTC)   |
+| `OPEN`, `OVERDUE`, `VERIFYING` | `PAID`      | só despesa de **conta**; `paidOn` opcional, default hoje         |
 | `PAID`                         | `OPEN`      | só despesa de **conta**: `paid_on` volta a nulo, saldo devolvido |
 
 - `FORECAST` só se atribui na **criação**; `OVERDUE` só pela **varredura**. Qualquer outro par é
@@ -258,6 +276,7 @@ export type ExpenseCreated = DomainEvent<
         occurredOn: string; // ISO date, `YYYY-MM-DD`
         bankAccountId: string | null;
         creditCardId: string | null;
+        postedOn: string | null;
         installmentGroupId: string | null;
     }
 >;
@@ -291,19 +310,20 @@ rebaixar a si mesmo para usar o produto.
 
 ### Endpoints
 
-| Método   | Rota                         | Perfil            |
-| -------- | ---------------------------- | ----------------- |
-| `POST`   | `/expense-types`             | `ADMIN`, `BILLER` |
-| `GET`    | `/expense-types`             | qualquer          |
-| `PATCH`  | `/expense-types/:id`         | `ADMIN`, `BILLER` |
-| `POST`   | `/expense-types/:id/archive` | `ADMIN`, `BILLER` |
-| `DELETE` | `/expense-types/:id/archive` | `ADMIN`, `BILLER` |
-| `POST`   | `/expenses`                  | `ADMIN`, `BILLER` |
-| `GET`    | `/expenses`                  | qualquer          |
-| `GET`    | `/expenses/:id`              | qualquer          |
-| `PATCH`  | `/expenses/:id`              | `ADMIN`, `BILLER` |
-| `PATCH`  | `/expenses/:id/status`       | `ADMIN`, `BILLER` |
-| `DELETE` | `/expenses/:id`              | `ADMIN`, `BILLER` |
+| Método   | Rota                           | Perfil            |
+| -------- | ------------------------------ | ----------------- |
+| `POST`   | `/expense-types`               | `ADMIN`, `BILLER` |
+| `GET`    | `/expense-types`               | qualquer          |
+| `PATCH`  | `/expense-types/:id`           | `ADMIN`, `BILLER` |
+| `POST`   | `/expense-types/:id/archive`   | `ADMIN`, `BILLER` |
+| `DELETE` | `/expense-types/:id/archive`   | `ADMIN`, `BILLER` |
+| `POST`   | `/expenses`                    | `ADMIN`, `BILLER` |
+| `GET`    | `/expenses`                    | qualquer          |
+| `GET`    | `/expenses/:id`                | qualquer          |
+| `PATCH`  | `/expenses/:id`                | `ADMIN`, `BILLER` |
+| `PATCH`  | `/expenses/:id/status`         | `ADMIN`, `BILLER` |
+| `PATCH`  | `/expenses/:id/payment-method` | `ADMIN`, `BILLER` |
+| `DELETE` | `/expenses/:id`                | `ADMIN`, `BILLER` |
 
 Tipos de despesa seguem o arquivamento da spec 0011: `GET` esconde arquivados, `?archived=true`
 inclui, arquivar é idempotente, tipo arquivado não recebe despesa nova (ERR-0012-06) e continua
@@ -329,12 +349,37 @@ não é histórico, é engano — e a alternativa, editar até ficar igual a out
 opcionais e combináveis por E. Sem filtro, devolve tudo. Ordenação: `occurredOn` crescente, depois
 `createdAt`.
 
-**`PATCH /expenses/:id`** aceita `description`, `expenseTypeId`, `occurredOn`, `amountCents` e
-`notes`. Recusa, citando o campo (`ERR-0012-11`): `kind`, `status`, `paidOn`, `bankAccountId`,
-`creditCardId` e qualquer `installment*` — trocar a conta ou o cartão de uma despesa é excluir e
-lançar de novo; mudar status é `PATCH …/status`. `amountCents` de despesa **paga** é recusado
+**`PATCH /expenses/:id`** aceita `description`, `expenseTypeId`, `occurredOn`, `amountCents`,
+`notes` e, só em despesa de cartão, `postedOn`. Recusa, citando o campo (`ERR-0012-11`): `kind`,
+`status`, `paidOn`, `bankAccountId`, `creditCardId` e qualquer `installment*` — trocar a conta ou o
+cartão é `PATCH …/payment-method`; mudar status é `PATCH …/status`. Alterar `occurredOn` de despesa
+de cartão sem informar `postedOn` recalcula `postedOn` pelo default. `amountCents` de despesa **paga** é recusado
 (`ERR-0012-10`): o saldo já a absorveu. Numa parcela, o `PATCH` altera **só aquela parcela**; o
 total do grupo é a soma e acompanha.
+
+### Troca de forma de pagamento
+
+`PATCH /expenses/:id/payment-method` com `{ bankAccountId }` ou `{ creditCardId, postedOn? }` —
+exatamente um dos dois ids — move uma despesa **não paga** de uma conta ou cartão para outro. É o
+caminho para uma despesa antiga, ainda em aberto, passar a ser paga por um cartão recém-cadastrado.
+
+- Despesa `PAID` recebe `ERR-0012-10`. Destino inexistente ou arquivado recebe `ERR-0012-04` ou
+  `ERR-0012-05`. Destino igual à origem responde `200` sem efeito.
+- Numa **parcela**, a troca vale para todas as parcelas não pagas do grupo, como a exclusão; as
+  pagas, e as de cartão em fatura fechada (spec `0013`), ficam onde estão. A resposta é a lista das
+  parcelas movidas, em ordem de parcela.
+- Tudo numa transação, por despesa movida:
+
+| Situação da despesa     | Saindo de um cartão              | Entrando num cartão                                        |
+| ----------------------- | -------------------------------- | ---------------------------------------------------------- |
+| `OPEN`, `VERIFYING`     | `available_limit += amountCents` | `available_limit −= amountCents`                           |
+| `OVERDUE` (só de conta) | não se aplica                    | `available_limit −= amountCents` e o status passa a `OPEN` |
+| `FORECAST`              | nada                             | nada                                                       |
+
+- Entrando num cartão, `posted_on` recebe o `postedOn` informado ou o default; saindo para uma
+  conta, `posted_on` volta a nulo. Despesa de cartão nunca está `OVERDUE` (INV-0012-08), por isso a
+  vencida de conta chega ao cartão como `OPEN`.
+- Saldo de conta não se move: despesa não paga não está no saldo (INV-0012-04).
 
 ### Corpos
 
@@ -342,12 +387,12 @@ total do grupo é a soma e acompanha.
 ExpenseTypeResponse  { id, name, archivedAt, createdAt }
 ExpenseResponse      { id, description, kind, status, amountCents, occurredOn, paidOn, notes,
                        expenseType: ExpenseTypeResponse,
-                       bankAccountId, creditCardId,
+                       bankAccountId, creditCardId, postedOn,
                        installment: { groupId, number, total } | null,
                        createdAt, updatedAt }
 ```
 
-- Datas de negócio (`occurredOn`, `paidOn`) são `YYYY-MM-DD`, sem hora nem fuso: são `date` no
+- Datas de negócio (`occurredOn`, `postedOn`, `paidOn`) são `YYYY-MM-DD`, sem hora nem fuso: são `date` no
   banco (spec 0003).
 - Conta e cartão vão por **id**: o cliente já tem as listas de `/bank-accounts` e
   `/credit-cards`, e embutir os corpos obrigaria o `expenses` a ler o `accounts` a cada linha.
@@ -360,6 +405,7 @@ Criação (`POST /expenses`):
 ```
 { description, expenseTypeId, kind, amountCents, occurredOn,
   bankAccountId? | creditCardId?,        // exatamente um
+  postedOn?,                              // só com creditCardId; >= occurredOn
   status?: 'OPEN' | 'FORECAST' | 'VERIFYING',   // default OPEN
   installmentTotal?,                      // obrigatório se INSTALLMENT, proibido nos demais
   notes? }
@@ -373,7 +419,7 @@ Além das classes de rota e controller, `src/expenses/index.ts` exporta o que ou
 consomem — leitura, sempre:
 
 - `ExpenseService.listByCreditCard(creditCardId, range: { from: Date; to: Date })` — despesas de
-  um cartão com `occurred_on` na janela, para a fatura (spec `0013`).
+  um cartão com `posted_on` na janela, para a fatura (spec `0013`, que fixa o contrato).
 - `ExpenseService.markOverdue(asOf)` — para o job do FCB-015.
 - Os tipos `ExpenseKind`, `ExpenseStatus` e as constantes `EXPENSE_KINDS`, `EXPENSE_STATUSES`.
 
@@ -408,6 +454,11 @@ consomem — leitura, sempre:
 - **INV-0012-12:** escrita exige `ADMIN` ou `BILLER`; leitura, qualquer perfil (spec 0010).
 - **INV-0012-13:** a exclusão de uma parcela exclui, na mesma transação, todas as parcelas não
   pagas do grupo, e nunca uma parcela paga.
+- **INV-0012-14:** `posted_on` existe se e só se a despesa é de cartão, e nunca é anterior a
+  `occurred_on`.
+- **INV-0012-15:** a troca de forma de pagamento move o limite do cartão de origem e o do destino
+  na **mesma transação** da troca, e nunca move saldo de conta.
+- **INV-0012-16:** toda data de negócio default é `businessToday()`, no fuso `America/Sao_Paulo`.
 
 ## Error cases
 
@@ -429,6 +480,7 @@ consomem — leitura, sempre:
 | **ERR-0012-14** `status` na criação fora de `OPEN`/`FORECAST`/`VERIFYING`                          | `400`, `VALIDATION_ERROR`                                                            |
 | **ERR-0012-15** `from` > `to` na listagem                                                          | `400`, `VALIDATION_ERROR`                                                            |
 | **ERR-0012-16** Arquivar tipo já arquivado                                                         | `200`, sem efeito — idempotente                                                      |
+| **ERR-0012-17** `postedOn` em despesa de conta, ou anterior a `occurredOn`                         | `400`, `VALIDATION_ERROR` citando o campo                                            |
 
 ## Acceptance criteria
 
@@ -443,7 +495,7 @@ consomem — leitura, sempre:
   mesma transação; criar como `FORECAST` não abate; confirmar (`FORECAST → OPEN`) abate
   (INV-0012-03, INV-0012-08).
 - **AC-0012-05:** pagar despesa de conta abate `amountCents` de `currentBalanceCents`, grava
-  `paidOn` (default: a data de hoje em UTC) e publica `ExpensePaid`; desfazer (`PAID → OPEN`)
+  `paidOn` (default: hoje, no fuso de negócio) e publica `ExpensePaid`; desfazer (`PAID → OPEN`)
   devolve o valor e zera `paidOn` (INV-0012-04, INV-0012-07).
 - **AC-0012-06:** pagar despesa de cartão recebe `409 CREDIT_CARD_EXPENSE_PAID_BY_STATEMENT` e
   nada muda (INV-0012-05).
@@ -483,6 +535,18 @@ consomem — leitura, sempre:
   igual nas parcelas, e só depois do commit (INV-0004-01).
 - **AC-0012-20:** `splitCents(10000, 3)` devolve `[3334, 3333, 3333]`; `splitCents(1, 3)` devolve
   `[1, 0, 0]`; a soma é sempre o total; `parts < 1` ou não inteiro lança `TypeError`.
+- **AC-0012-21:** despesa de cartão sem `postedOn` nasce com `postedOn` igual a `occurredOn`; com
+  `postedOn` posterior, grava o informado; `postedOn` anterior a `occurredOn`, ou em despesa de
+  conta, recebe `400`; um parcelamento em 3× com `postedOn` um mês adiante tem as três parcelas
+  lançadas um mês adiante (INV-0012-14).
+- **AC-0012-22:** trocar uma despesa de conta `OPEN` de 1000 para um cartão abate 1000 do limite e
+  grava `postedOn`; trocar de volta devolve os 1000 e zera `postedOn`; uma despesa `OVERDUE` de
+  conta chega ao cartão como `OPEN`; uma `FORECAST` troca sem mover limite; despesa paga recebe
+  `409 EXPENSE_ALREADY_PAID`; cartão arquivado recebe `409 CREDIT_CARD_ARCHIVED` (INV-0012-15).
+- **AC-0012-23:** trocar a forma de pagamento de uma parcela de um grupo em 3× com a parcela 1 paga
+  move as parcelas 2 e 3 e mantém a 1.
+- **AC-0012-24:** com o relógio em 10/03 às 22h em `America/Sao_Paulo` (11/03 em UTC), pagar uma
+  despesa sem `paidOn` grava `paidOn` 10/03 (INV-0012-16).
 
 ## Test mapping
 
@@ -495,6 +559,9 @@ consomem — leitura, sempre:
 | AC-0012-11, INV-0012-08                                                                  | `tests/integration/expenses/overdue.spec.ts`                                                               |
 | AC-0012-07, AC-0012-08, AC-0012-09, INV-0012-06                                          | `tests/expenses/installments.spec.ts` (datas e rateio) e `tests/integration/expenses/installments.spec.ts` |
 | AC-0012-20                                                                               | `tests/platform/money.spec.ts`                                                                             |
+| AC-0012-21, INV-0012-14, ERR-0012-17                                                     | `tests/integration/expenses/creation.spec.ts`                                                              |
+| AC-0012-22, AC-0012-23, INV-0012-15                                                      | `tests/integration/expenses/payment-method.spec.ts`                                                        |
+| AC-0012-24, INV-0012-16                                                                  | `tests/platform/business-date.spec.ts` e `tests/integration/expenses/status.spec.ts`                       |
 | AC-0012-10                                                                               | `tests/integration/accounts/apply-delta.spec.ts`                                                           |
 | AC-0012-13, AC-0012-14, INV-0012-11, INV-0012-13, ERR-0012-10, ERR-0012-11               | `tests/integration/expenses/update-and-delete.spec.ts`                                                     |
 | AC-0012-15, ERR-0012-03, ERR-0012-04, ERR-0012-05, ERR-0012-07, ERR-0012-12, ERR-0012-14 | `tests/integration/expenses/creation.spec.ts`                                                              |

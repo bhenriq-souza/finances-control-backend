@@ -14,7 +14,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0010](0010-identity.md)             | Identity — usuários, autenticação e RBAC                           | implemented |
 | [0011](0011-accounts.md)             | Accounts — bancos, contas bancárias e cartões de crédito           | implemented |
 | [0012](0012-expenses.md)             | Expenses — despesas, tipos, parcelamento e status                  | draft       |
-| [0013](0013-statements.md)           | Statements — faturas de cartão, fechamento e pagamento             | draft       |
+| [0013](0013-statements.md)           | Statements — faturas de cartão, estornos, fechamento e pagamento   | draft       |
 
 Specs de domínio planejadas (ainda não escritas): `0014` earnings (F005) · `0015` reporting · `0016` imports.
 
