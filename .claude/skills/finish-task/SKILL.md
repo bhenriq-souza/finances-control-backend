@@ -22,5 +22,5 @@ Precondição: você está numa branch de tarefa (`<tipo>/<task-id>-<slug>`), co
     ```
     - Título = cabeçalho Conventional Commit (vira o commit de squash em `develop`).
     - Preencha **todas** as seções de `.github/PULL_REQUEST_TEMPLATE.md`: task, specs, what & why, checkboxes da DoD (marque só o que você verificou), evidência de teste (cole a saída real) e notas para revisão.
-    - Se a tarefa encerra uma issue de entrega, inclua `Closes #N`.
+    - Inclua `Closes #N` da issue da tarefa (o número anotado ao lado dela no backlog). Se for a última tarefa da spec, inclua também `Closes #N` da issue de entrega `FCB-*`.
 5. **PARE.** O merge é decisão do responsável pelo repositório (spec 0001, INV-0001-04). Reporte a URL do PR. Se vier feedback de revisão depois, trate na mesma branch e peça nova revisão.

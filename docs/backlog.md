@@ -2,7 +2,7 @@
 
 Fila de trabalho deste repositório. Formato e regras em [spec 0000](../specs/0000-spec-process.md): cada tarefa é `T-<spec>-<nn>` e declara **What** / **Where** / **Done when**, citando ao menos um `AC-*` ou `INV-*`.
 
-Este arquivo é a camada de **execução**. A camada de **entrega** são as issues `FCB-*` e o [board](https://github.com/users/bhenriq-souza/projects/2) — o PR que conclui a última tarefa de uma spec fecha também a issue correspondente.
+Este arquivo é a camada de **execução**. A camada de **entrega** são as issues `FCB-*` e o [board](https://github.com/users/bhenriq-souza/projects/2). Cada tarefa aberta tem também a sua issue no board, sub-issue da `FCB-*` da spec, com o número anotado ao lado do título (`· #N`); o PR da tarefa fecha a issue dela, e o PR da última tarefa de uma spec fecha também a `FCB-*` (spec 0000, _Rastreabilidade com o board_).
 
 ## Plataforma e processo
 
@@ -59,21 +59,21 @@ Tarefas da [spec 0004](../specs/0004-domain-events.md), que fecha a issue de ent
 [FCB-014](https://github.com/bhenriq-souza/finances-control-backend/issues/14). Ordem por
 dependência: o envelope e o dispatcher antes do escopo de transação, e os dois antes da composição.
 
-- [ ] **T-0004-01 — Envelope do evento e dispatcher in-process**
+- [ ] **T-0004-01 — Envelope do evento e dispatcher in-process** · #50
     - What: tipos `DomainEvent`, `JsonObject` e `DomainEventHandler`, a porta `DomainEventDispatcher`
       e a `InProcessDomainEventDispatcher` (inscrição idempotente, entrega em ordem, falha isolada e
       logada), com símbolos e exportações na interface pública da plataforma
     - Where: `src/platform/events/`, `src/platform/symbols/index.ts`, `src/platform/index.ts`
     - Done when: `AC-0004-01` a `AC-0004-04` cobertos; `INV-0004-04`, `INV-0004-05` e `INV-0004-09`
       verificados
-- [ ] **T-0004-02 — `TransactionRunner` e publicação pós-commit**
+- [ ] **T-0004-02 — `TransactionRunner` e publicação pós-commit** · #51
     - What: `TransactionScope` e `TransactionRunner` sobre `dataSource.transaction`, acumulando
       eventos e despachando só após o commit, descartando no rollback e fechando o escopo ao fim;
       registro dos dois singletons no container
     - Where: `src/platform/events/transaction-runner.ts`, `src/container.ts`, `tests/integration/platform/events/`
     - Done when: `AC-0004-05` a `AC-0004-09` e `AC-0004-12` cobertos; `INV-0004-01` e `INV-0004-02`
       verificados
-- [ ] **T-0004-03 — Catálogo `src/events/`, subscribers na composição e regras de fronteira**
+- [ ] **T-0004-03 — Catálogo `src/events/`, subscribers na composição e regras de fronteira** · #52
     - What: `src/events/index.ts` com o contrato documentado, a interface `DomainEventSubscriber`,
       o campo `subscribers` de `ApiModule` tratado por `registerApiModules`, as duas regras novas no
       `.dependency-cruiser.cjs` e o parágrafo em `AGENTS.md` (regra 8) sobre publicar e consumir
@@ -166,47 +166,47 @@ Tarefas da [spec 0012](../specs/0012-expenses.md), que fecha a issue de entrega
 dependência: schema e helper antes de tudo; o `accounts` ganha os movimentos antes de a despesa os
 usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI por último.
 
-- [ ] **T-0012-01 — Entidades, migration, seed dos tipos, `splitCents` e `businessToday`**
+- [ ] **T-0012-01 — Entidades, migration, seed dos tipos, `splitCents` e `businessToday`** · #53
     - What: entidades com os enums sob CHECK, migration com os dez tipos, `splitCents` e
       `businessToday`/`BUSINESS_TIME_ZONE` exportados pela interface da plataforma
     - Where: `src/expenses/`, `src/platform/money.ts`, `src/platform/business-date.ts`, `src/platform/index.ts`, `src/platform/database/migrations/`
     - Done when: `AC-0012-01` e `AC-0012-20` cobertos; `INV-0012-01`, `INV-0012-02`, `INV-0012-07`
       e `INV-0012-14` verificados pelas constraints; `INV-0012-16` coberto por teste unitário
-- [ ] **T-0012-02 — Tipos de despesa**
+- [ ] **T-0012-02 — Tipos de despesa** · #54
     - What: as rotas de `/expense-types` com unicidade case-insensitive, arquivamento idempotente e
       guardas de perfil, registradas em `api.config.ts`
     - Where: `src/expenses/`, `src/api.config.ts`
     - Done when: `AC-0012-02` coberto; `ERR-0012-01`, `ERR-0012-02` e `ERR-0012-16`
-- [ ] **T-0012-03 — Movimentos de saldo e limite no `accounts`**
+- [ ] **T-0012-03 — Movimentos de saldo e limite no `accounts`** · #55
     - What: `BankAccountService.applyBalanceDelta` e `CreditCardService.applyAvailableLimitDelta`,
       com lock de escrita pelo `EntityManager` recebido, sem abrir transação, aceitando arquivados
     - Where: `src/accounts/bank-account.service.ts`, `src/accounts/credit-card.service.ts`, `tests/integration/accounts/`
     - Done when: `AC-0012-10` coberto; `INV-0012-10` e `INV-0004-03` verificados
-- [ ] **T-0012-04 — Criação de despesa simples e evento `ExpenseCreated`**
+- [ ] **T-0012-04 — Criação de despesa simples e evento `ExpenseCreated`** · #56
     - What: `POST /expenses` para `FIXED` e `VARIABLE` dentro de `TransactionRunner.run`, com a
       validação conta-ou-cartão, recusa de arquivados, reflexo no limite do cartão e o evento no
       catálogo `src/events/expenses.events.ts`
     - Where: `src/expenses/`, `src/events/expenses.events.ts`, `src/api.config.ts`
     - Done when: `AC-0012-03`, `AC-0012-04`, `AC-0012-15`, `AC-0012-17`, `AC-0012-19` e
       `AC-0012-21` cobertos; `INV-0012-03` e `INV-0012-09` verificados
-- [ ] **T-0012-05 — Parcelamento**
+- [ ] **T-0012-05 — Parcelamento** · #57
     - What: `kind: INSTALLMENT` gerando as parcelas na mesma transação, com rateio por `splitCents`,
       datas mensais com dia preservado e limite abatido pelo total
     - Where: `src/expenses/`
     - Done when: `AC-0012-07`, `AC-0012-08` e `AC-0012-09` cobertos; `INV-0012-06` verificado
-- [ ] **T-0012-06 — Máquina de status, pagamento e varredura de vencidas**
+- [ ] **T-0012-06 — Máquina de status, pagamento e varredura de vencidas** · #58
     - What: `PATCH /expenses/:id/status` com a tabela de transições, pagamento e desfazer movendo
       o saldo da conta, recusa para cartão, `ExpensePaid` e `ExpenseService.markOverdue`
     - Where: `src/expenses/`, `src/events/expenses.events.ts`
     - Done when: `AC-0012-05`, `AC-0012-06`, `AC-0012-11` e `AC-0012-12` cobertos; `INV-0012-04`,
       `INV-0012-05`, `INV-0012-07` e `INV-0012-08` verificados
-- [ ] **T-0012-07 — Consulta, alteração, exclusão, autorização e OpenAPI**
+- [ ] **T-0012-07 — Consulta, alteração, exclusão, autorização e OpenAPI** · #59
     - What: `GET /expenses` com filtros, `GET /expenses/:id`, `PATCH /expenses/:id`, `DELETE`
       com a regra do grupo, `listByCreditCard`, as guardas de perfil e o contrato no `openapi.yaml`
     - Where: `src/expenses/`, `docs/openapi.yaml`
     - Done when: `AC-0012-13`, `AC-0012-14`, `AC-0012-16` e `AC-0012-18` cobertos; `INV-0012-11`,
       `INV-0012-12` e `INV-0012-13`
-- [ ] **T-0012-08 — Troca de forma de pagamento**
+- [ ] **T-0012-08 — Troca de forma de pagamento** · #60
     - What: `PATCH /expenses/:id/payment-method`, movendo o limite de origem e destino na mesma
       transação, com a regra do grupo de parcelas e o `postedOn` no cartão de destino
     - Where: `src/expenses/`, `docs/openapi.yaml`
@@ -220,45 +220,45 @@ Tarefas da [spec 0013](../specs/0013-statements.md), que fecha a issue de entreg
 da spec 0012 implementadas. Ordem por dependência: schema e encadeamento antes do fechamento; a
 janela fechada antes de qualquer leitura que dependa dela; consulta antes do pagamento.
 
-- [ ] **T-0013-01 — Entidades, migration e encadeamento dos ciclos**
+- [ ] **T-0013-01 — Entidades, migration e encadeamento dos ciclos** · #61
     - What: `CreditCardStatement`, `CreditCardStatementPayment` e `CreditCardRefund` com as
       constraints nomeadas, a migration das três tabelas, e a função pura que encadeia os ciclos a
       partir da última fatura fechada usando `cycleFor` do `accounts`
     - Where: `src/statements/`, `src/platform/database/migrations/`
     - Done when: `AC-0013-01` a `AC-0013-04` cobertos; `INV-0013-03` e `INV-0013-04` verificados
-- [ ] **T-0013-02 — Fechamento, rolagem e evento `StatementClosed`**
+- [ ] **T-0013-02 — Fechamento, rolagem e evento `StatementClosed`** · #62
     - What: `StatementService.closeDue` sob o lock consultivo do cartão, com `previous_balance_cents`,
       a passagem da anterior a `ROLLED_OVER`, a fatura que nasce `PAID` com devido `<= 0`, e os
       eventos no catálogo `src/events/statements.events.ts`
     - Where: `src/statements/`, `src/events/statements.events.ts`
     - Done when: `AC-0013-05` e `AC-0013-16` cobertos; `INV-0013-07`, `INV-0013-09` e `INV-0013-10`
       verificados
-- [ ] **T-0013-03 — Janela fechada e data de lançamento**
+- [ ] **T-0013-03 — Janela fechada e data de lançamento** · #63
     - What: porta `StatementPeriodGuard` e default de `postedOn` no `expenses`, implementação no
       `statements` registrada na composição, e as regras da janela fechada da spec
     - Where: `src/expenses/`, `src/statements/`, `src/container.ts`
     - Done when: `AC-0013-07`, `AC-0013-08`, `AC-0013-10`, `AC-0013-11` e `AC-0013-21` cobertos;
       `INV-0013-05` e `INV-0013-12` verificados
-- [ ] **T-0013-04 — Estornos**
+- [ ] **T-0013-04 — Estornos** · #64
     - What: as rotas de `/credit-card-refunds`, com o limite devolvido e consumido na mesma
       transação, a validação da despesa estornada e o evento `CreditCardRefundRegistered`
     - Where: `src/statements/`, `src/expenses/`, `src/api.config.ts`
     - Done when: `AC-0013-12` coberto; `INV-0013-11` verificado
-- [ ] **T-0013-05 — Consulta e resumo de faturas**
+- [ ] **T-0013-05 — Consulta e resumo de faturas** · #65
     - What: `GET /statements`, `/statements/current` e `/statements/:id`, com projeção das abertas,
       fechamento de recuperação antes de responder, valores e `byExpenseType` derivados, `overdue`,
       e `listByCreditCard` por `postedOn`
     - Where: `src/statements/`, `src/expenses/`, `src/api.config.ts`
     - Done when: `AC-0013-06`, `AC-0013-09`, `AC-0013-17` e `AC-0013-22` cobertos; `INV-0013-01`,
       `INV-0013-02` e `INV-0013-08` verificados
-- [ ] **T-0013-06 — Pagamentos, quitação, mínimo e desfazer**
+- [ ] **T-0013-06 — Pagamentos, quitação, mínimo e desfazer** · #66
     - What: `POST /statements/:id/payments`, `DELETE /statements/:id/payments/:paymentId` e
       `PATCH /statements/:id`, com os deltas de saldo e limite pelo `accounts`, a quitação da
       cadeia por `markPaidByStatement`/`markUnpaidByStatement` e os eventos de pagamento
     - Where: `src/statements/`, `src/expenses/`, `src/events/statements.events.ts`
     - Done when: `AC-0013-13`, `AC-0013-14`, `AC-0013-15`, `AC-0013-18`, `AC-0013-19` e
       `AC-0013-20` cobertos; `INV-0013-06` verificado
-- [ ] **T-0013-07 — Autorização e OpenAPI**
+- [ ] **T-0013-07 — Autorização e OpenAPI** · #67
     - What: as guardas de perfil nas rotas e o contrato no `openapi.yaml`
     - Where: `src/statements/`, `docs/openapi.yaml`
     - Done when: `AC-0013-23` coberto; `INV-0013-13` verificado; última tarefa da spec: fecha
