@@ -313,28 +313,28 @@ Tarefas da [spec 0017](../specs/0017-jobs-and-recurrence.md), que fecha a issue 
 rotinas existentes dependem das specs 0012 a 0014 implementadas; a série de despesas antes da de
 receitas, que a espelha.
 
-- [ ] **T-0017-01 — Porta de jobs, adaptador `pg-boss` e readiness**
+- [ ] **T-0017-01 — Porta de jobs, adaptador `pg-boss` e readiness** · #86
     - What: `JobQueue`, `PgBossJobQueue` com retentativa e log, `JOBS_ENABLED`, `jobs:migrate`,
       a regra de fronteira do pacote e `checks.jobs` no readiness
     - Where: `src/platform/jobs/`, `src/platform/health/`, `.dependency-cruiser.cjs`, `package.json`
     - Done when: `AC-0017-01` a `AC-0017-05` cobertos; `INV-0017-03`, `INV-0017-08` e `INV-0017-09`
       verificados
-- [ ] **T-0017-02 — Registro pela composição e rotinas diárias**
+- [ ] **T-0017-02 — Registro pela composição e rotinas diárias** · #87
     - What: `JobRegistrar`, o campo `jobs` de `ApiModule`, e os jobs de fechamento de fatura e de
       varredura de vencidas de despesas e receitas
     - Where: `src/platform/api/`, `src/statements/`, `src/expenses/`, `src/earnings/`
     - Done when: `AC-0017-13` coberto; `INV-0017-01` e `INV-0017-02` verificados
-- [ ] **T-0017-03 — Série de despesas: criação, extensão e promoção**
+- [ ] **T-0017-03 — Série de despesas: criação, extensão e promoção** · #88
     - What: `expense_recurrences`, `recurrence_id` nas despesas, a criação `FIXED` até o horizonte,
       `extend` e `promote` com os seus jobs
     - Where: `src/expenses/`, `src/platform/database/migrations/`
     - Done when: `AC-0017-06` a `AC-0017-08` cobertos; `INV-0017-04` e `INV-0017-05` verificados
-- [ ] **T-0017-04 — Série de despesas: alteração, encerramento e rotas**
+- [ ] **T-0017-04 — Série de despesas: alteração, encerramento e rotas** · #89
     - What: `?scope=following`, a exclusão dos futuros não pagos com `ends_on`, e as rotas de
       `/expense-recurrences`
     - Where: `src/expenses/`, `docs/openapi.yaml`
     - Done when: `AC-0017-09` a `AC-0017-11` cobertos; `INV-0017-06` e `INV-0017-07` verificados
-- [ ] **T-0017-05 — Série de receitas e schema `pgboss` no cluster**
+- [ ] **T-0017-05 — Série de receitas e schema `pgboss` no cluster** · #90
     - What: as mesmas regras de série para receitas, as rotas de `/earning-recurrences`, e o
       `jobs:migrate` no initContainer com o schema provisionado, evidência colada no PR
     - Where: `src/earnings/`, `docs/openapi.yaml`, `homelab-gitops`
