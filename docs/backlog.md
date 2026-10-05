@@ -347,19 +347,19 @@ Tarefas da [spec 0018](../specs/0018-transfers.md), que fecha a issue de entrega
 [FCB-018](https://github.com/bhenriq-souza/finances-control-backend/issues/93). O cadastro depende
 da spec 0004 implementada; a parte de relatórios, da spec 0015.
 
-- [ ] **T-0018-01 — Transferência: entidade, migration, criação e status**
+- [ ] **T-0018-01 — Transferência: entidade, migration, criação e status** · #94
     - What: `bank_transfers` com as constraints nomeadas, `POST` e `PATCH …/status` movendo as duas
       contas na mesma transação com lock em ordem de `id`, e o evento `TransferCompleted`
     - Where: `src/accounts/`, `src/events/accounts.events.ts`, `src/platform/database/migrations/`
     - Done when: `AC-0018-01` a `AC-0018-05` e `AC-0018-07` cobertos; `INV-0018-01` a `INV-0018-05`
       verificados
-- [ ] **T-0018-02 — Consulta, alteração, exclusão, autorização e OpenAPI**
+- [ ] **T-0018-02 — Consulta, alteração, exclusão, autorização e OpenAPI** · #95
     - What: `GET` com filtros, `PATCH /:id` e `DELETE` com as regras da concluída, as guardas de
       perfil e o contrato no `openapi.yaml`
     - Where: `src/accounts/`, `docs/openapi.yaml`
     - Done when: `AC-0018-06`, `AC-0018-11` e `AC-0018-12` cobertos; `INV-0018-06` e `INV-0018-08`
       verificados
-- [ ] **T-0018-03 — Transferências nos relatórios**
+- [ ] **T-0018-03 — Transferências nos relatórios** · #96
     - What: o quarto caminho no saldo realizado, as agendadas no previsto e as colunas de
       transferência no fluxo de caixa da spec 0015
     - Where: `src/reporting/`, `docs/openapi.yaml`
