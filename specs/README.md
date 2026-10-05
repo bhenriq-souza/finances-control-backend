@@ -13,7 +13,8 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0004](0004-domain-events.md)        | Eventos de domínio — dispatcher in-process e publicação pós-commit | draft       |
 | [0010](0010-identity.md)             | Identity — usuários, autenticação e RBAC                           | implemented |
 | [0011](0011-accounts.md)             | Accounts — bancos, contas bancárias e cartões de crédito           | implemented |
+| [0012](0012-expenses.md)             | Expenses — despesas, tipos, parcelamento e status                  | draft       |
 
-Specs de domínio planejadas (ainda não escritas): `0012` expenses (F003) · `0013` statements (F004) · `0014` earnings (F005) · `0015` reporting · `0016` imports.
+Specs de domínio planejadas (ainda não escritas): `0013` statements (F004) · `0014` earnings (F005) · `0015` reporting · `0016` imports.
 
 Decisões de arquitetura: as de **produto** vivem em [`docs/adr/` do hub](https://github.com/bhenriq-souza/finances-control/tree/main/docs/adr); as **locais do backend**, em [`adr/`](adr/).
