@@ -15,7 +15,8 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0011](0011-accounts.md)             | Accounts — bancos, contas bancárias e cartões de crédito           | implemented |
 | [0012](0012-expenses.md)             | Expenses — despesas, tipos, parcelamento e status                  | draft       |
 | [0013](0013-statements.md)           | Statements — faturas de cartão, estornos, fechamento e pagamento   | draft       |
+| [0014](0014-earnings.md)             | Earnings — receitas, tipos e status                                | draft       |
 
-Specs de domínio planejadas (ainda não escritas): `0014` earnings (F005) · `0015` reporting · `0016` imports.
+Specs de domínio planejadas (ainda não escritas): `0015` reporting · `0016` imports.
 
 Decisões de arquitetura: as de **produto** vivem em [`docs/adr/` do hub](https://github.com/bhenriq-souza/finances-control/tree/main/docs/adr); as **locais do backend**, em [`adr/`](adr/).
