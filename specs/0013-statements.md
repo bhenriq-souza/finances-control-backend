@@ -23,13 +23,13 @@ de saldo e de limite acontece na mesma transação que o causou.
   o encadeamento dos ciclos a partir das faturas já fechadas; o fechamento, inclusive o de
   recuperação quando nenhum job rodou; a imutabilidade da janela fechada, que o módulo `expenses`
   passa a respeitar; o estorno de cartão; o resumo da fatura, por tipo de despesa; o pagamento
-  total, parcial ou mínimo a partir de uma conta bancária, a quitação, o saldo que rola para a
-  fatura seguinte e o desfazer de um pagamento; o valor mínimo informado; os eventos de fatura e de
+  total, parcial ou mínimo a partir de uma conta bancária, inclusive o pagamento antecipado da
+  fatura ainda aberta, a quitação, o saldo que rola para a fatura seguinte e o desfazer de um
+  pagamento; o valor mínimo informado; os eventos de fatura e de
   estorno; autorização por perfil; o contrato no `openapi.yaml`.
 - **Fora de escopo:** o **cálculo** de juros, multa, IOF e mínimo — o sistema não conhece as regras
   de cada emissor; os encargos entram como despesa de cartão, lançados como aparecem no app do
-  banco, e o mínimo é informado; pagamento antecipado de fatura ainda aberta (ver _Open
-  questions_); saldo credor devolvido em conta — o crédito só abate faturas seguintes; o
+  banco, e o mínimo é informado; saldo credor devolvido em conta — o crédito só abate faturas seguintes; o
   agendamento do fechamento (FCB-015), que esta spec torna opcional; saldo previsto e relatórios
   (spec `0015`); importação de faturas históricas (spec `0016`); conciliação com o extrato do
   emissor.
@@ -125,13 +125,18 @@ Só a fatura **fechada** é persistida; a aberta é projetada.
 | Coluna                    | Tipo            | Regra                                                          |
 | ------------------------- | --------------- | -------------------------------------------------------------- |
 | `id`                      | `uuid`          | PK                                                             |
-| `statement_id`            | `uuid`          | not null, FK `credit_card_statements(id)` `on delete restrict` |
+| `credit_card_id`          | `uuid`          | not null, FK `credit_cards(id)` `on delete restrict`           |
+| `statement_id`            | `uuid`          | nullable, FK `credit_card_statements(id)` `on delete restrict` |
 | `bank_account_id`         | `uuid`          | not null, FK `bank_accounts(id)` `on delete restrict`          |
 | `amount_cents`            | `numeric(14,2)` | not null, `ck_credit_card_statement_payments_amount` > 0       |
 | `paid_on`                 | `date`          | not null                                                       |
 | `created_at`/`updated_at` | `timestamptz`   | convenções da spec 0003                                        |
 
-Índice `idx_credit_card_statement_payments_statement_id`.
+Índices `idx_credit_card_statement_payments_statement_id` e
+`idx_credit_card_statement_payments_credit_card_id`.
+
+`statement_id` nulo é o **pagamento antecipado**: feito enquanto a fatura ainda está aberta e, por
+isso, ainda sem linha a que apontar. O registro do fechamento o preenche (ver _Fechamento_).
 
 #### `credit_card_refunds`
 
@@ -174,7 +179,8 @@ constraints de banco, não acesso de código (ADR-0003, regra 2).
   depois por `name`. A soma dos grupos é igual a `purchasesCents`, sempre.
 - Na fatura aberta corrente, `previousBalanceCents` é o restante **atual** da última fatura
   fechada, se ela ainda está `CLOSED` — um valor provisório, que só se congela quando a corrente
-  fecha. Nas faturas futuras projetadas, é `0`.
+  fecha — e `paidCents` soma os pagamentos antecipados do cartão. Nas faturas futuras projetadas,
+  os dois são `0`.
 
 ### Fechamento
 
@@ -193,7 +199,12 @@ em `credit_card_statements` e o evento `StatementClosed`:
     - `P` em `CLOSED` passa a `ROLLED_OVER`: deixa de aceitar pagamento, e o seu restante agora é
       cobrado em `N`. É o rotativo — os juros que o banco cobra sobre ele entram como despesa de
       cartão, lançada pelo usuário.
-    - `N` nasce `PAID` se `amountDueCents <= 0` — nada a pagar —, e `CLOSED` caso contrário.
+    - Os pagamentos antecipados do cartão (`statement_id` nulo) passam a apontar para `N`.
+    - `N` nasce `PAID` se `remainingCents <= 0` — nada mais a pagar, porque o devido era zero ou
+      negativo ou porque os pagamentos antecipados o cobriram —, e `CLOSED` caso contrário. Nascendo
+      `PAID`, a quitação acontece no próprio registro, como no passo 6 do _Pagamento_: as despesas
+      da cadeia passam a `PAID`, com o `paidOn` do último pagamento antecipado ou, sem nenhum, com
+      o `closesOn` de `N`, e `StatementPaid` é publicado.
 - Cada cartão é registrado numa transação própria (`TransactionRunner.run`, spec 0004), sob
   `pg_advisory_xact_lock` sobre o id do cartão — o mesmo lock que toda escrita deste módulo num
   cartão toma. Duas chamadas concorrentes nunca registram o mesmo ciclo duas vezes.
@@ -303,9 +314,32 @@ O saldo da conta pode ficar negativo e o pagamento é aceito mesmo assim (INV-00
 arquivado não impede o pagamento. Pagamento parcial não marca despesa como paga: uma despesa só é
 `PAID` quando a dívida que a contém foi quitada.
 
-**Mínimo.** `PATCH /statements/:id` com `{ minimumPaymentCents }` grava o mínimo que o app do banco
-mostra, numa fatura `CLOSED`; ele não pode passar de `amountDueCents`. O sistema não o calcula —
-cada emissor tem a sua regra. O mínimo só serve à resposta e ao cálculo de vencida.
+**Pagamento antecipado.** Como no app do banco, a fatura **aberta** também se paga, antes do
+fechamento: `POST /statements/current/payments` com
+`{ creditCardId, bankAccountId, amountCents, paidOn? }`. Mesma transação, mesmo lock e mesmos
+passos 2 a 5 do pagamento acima — a conta é debitada e o limite liberado na hora —, com três
+diferenças:
+
+- Só é aceito se o cartão não tem fatura `CLOSED` em aberto (`ERR-0013-17`): a dívida já fechada
+  se paga primeiro, na rota da fatura fechada. É o que o banco faz ao abater o pagamento.
+- `amountCents` vai de 1 ao `remainingCents` **atual** da fatura aberta — o que já foi gasto no
+  ciclo, menos estornos e pagamentos antecipados (`ERR-0013-04`). `paidOn` é opcional, default
+  hoje, entre o `startsOn` da fatura aberta e hoje (`ERR-0013-07`).
+- O pagamento grava `statement_id` nulo, `StatementPaymentRegistered` sai com `statementId` nulo,
+  e **nenhuma despesa é marcada como paga**: a fatura aberta ainda recebe lançamentos, então a
+  quitação só se decide no registro do fechamento.
+
+Compras feitas depois do pagamento antecipado voltam a aumentar o restante, e estornos podem
+deixá-lo negativo — o crédito rola para a fatura seguinte, como qualquer crédito.
+`DELETE /statements/current/payments/:paymentId?creditCardId=…` desfaz o último pagamento
+antecipado do cartão enquanto a fatura não fecha, com os mesmos efeitos do desfazer abaixo; depois
+do fechamento, o pagamento pertence à fatura registrada e segue a regra dela.
+
+**Mínimo.** `PATCH /statements/:id` com `{ minimumPaymentCents }` grava o mínimo que o cliente
+quiser — o do app do banco ou outro —, **sem restrição do sistema** quanto ao valor: só o formato
+de dinheiro (inteiro de centavos, não negativo) é validado, e `null` o apaga. Vale para qualquer
+fatura persistida. O sistema não calcula mínimo; o informado só serve à resposta e ao cálculo de
+vencida.
 
 **Desfazer.** `DELETE /statements/:id/payments/:paymentId` desfaz **o último pagamento** da fatura,
 e só enquanto a fatura seguinte não foi registrada — depois disso o restante já foi congelado nela
@@ -381,7 +415,7 @@ export const STATEMENT_PAYMENT_REGISTERED = 'StatementPaymentRegistered' as cons
 export type StatementPaymentRegistered = DomainEvent<
     typeof STATEMENT_PAYMENT_REGISTERED,
     {
-        statementId: string;
+        statementId: string | null; // nulo no pagamento antecipado
         paymentId: string;
         creditCardId: string;
         bankAccountId: string;
@@ -430,19 +464,21 @@ Fechar não tem operação: é a passagem do tempo.
 
 ### Endpoints
 
-| Método   | Rota                                  | Perfil            |
-| -------- | ------------------------------------- | ----------------- |
-| `GET`    | `/statements`                         | qualquer          |
-| `GET`    | `/statements/current`                 | qualquer          |
-| `GET`    | `/statements/:id`                     | qualquer          |
-| `PATCH`  | `/statements/:id`                     | `ADMIN`, `BILLER` |
-| `POST`   | `/statements/:id/payments`            | `ADMIN`, `BILLER` |
-| `DELETE` | `/statements/:id/payments/:paymentId` | `ADMIN`, `BILLER` |
-| `POST`   | `/credit-card-refunds`                | `ADMIN`, `BILLER` |
-| `GET`    | `/credit-card-refunds`                | qualquer          |
-| `GET`    | `/credit-card-refunds/:id`            | qualquer          |
-| `PATCH`  | `/credit-card-refunds/:id`            | `ADMIN`, `BILLER` |
-| `DELETE` | `/credit-card-refunds/:id`            | `ADMIN`, `BILLER` |
+| Método   | Rota                                      | Perfil            |
+| -------- | ----------------------------------------- | ----------------- |
+| `GET`    | `/statements`                             | qualquer          |
+| `GET`    | `/statements/current`                     | qualquer          |
+| `GET`    | `/statements/:id`                         | qualquer          |
+| `PATCH`  | `/statements/:id`                         | `ADMIN`, `BILLER` |
+| `POST`   | `/statements/:id/payments`                | `ADMIN`, `BILLER` |
+| `DELETE` | `/statements/:id/payments/:paymentId`     | `ADMIN`, `BILLER` |
+| `POST`   | `/statements/current/payments`            | `ADMIN`, `BILLER` |
+| `DELETE` | `/statements/current/payments/:paymentId` | `ADMIN`, `BILLER` |
+| `POST`   | `/credit-card-refunds`                    | `ADMIN`, `BILLER` |
+| `GET`    | `/credit-card-refunds`                    | qualquer          |
+| `GET`    | `/credit-card-refunds/:id`                | qualquer          |
+| `PATCH`  | `/credit-card-refunds/:id`                | `ADMIN`, `BILLER` |
+| `DELETE` | `/credit-card-refunds/:id`                | `ADMIN`, `BILLER` |
 
 - **`GET /statements?creditCardId=…&from=…&to=…`** devolve as faturas do cartão com `closesOn`
   entre `from` e `to` (`YYYY-MM-DD`, inclusivos), fechadas e projetadas, em ordem de `closesOn`.
@@ -514,8 +550,8 @@ que o saldo previsto precisa enxergar.
   está fechada para a regra da janela e é registrada na primeira operação do módulo sobre o
   cartão.
 - **INV-0013-09:** `amountDueCents = totalCents + previousBalanceCents`; `previous_balance_cents`
-  é o restante da fatura anterior no registro, escrito só pelo sistema; nenhum pagamento leva
-  `remainingCents` abaixo de zero.
+  é o restante da fatura anterior no registro, escrito só pelo sistema; nenhum pagamento, no
+  momento em que é feito, leva `remainingCents` abaixo de zero.
 - **INV-0013-10:** fatura `ROLLED_OVER` não aceita pagamento nem desfazer, e o seu restante está
   inteiro, e uma vez só, no `previousBalanceCents` da fatura seguinte.
 - **INV-0013-11:** o estorno devolve limite na mesma transação em que é lançado e o consome de novo
@@ -525,27 +561,31 @@ que o saldo previsto precisa enxergar.
   senão pela interface pública dos módulos donos; `expenses` não importa `statements` (ADR-0003,
   regras 1–3). Verificado pelo gate `boundaries`.
 - **INV-0013-13:** escrita exige `ADMIN` ou `BILLER`; leitura, qualquer perfil (spec 0010).
+- **INV-0013-14:** pagamento antecipado só existe sem fatura `CLOSED` pendente no cartão, debita a
+  conta e libera o limite na mesma transação, nunca marca despesa como paga, e passa a pertencer à
+  fatura no registro do fechamento dela.
 
 ## Error cases
 
-| Situação                                                                                                                    | Comportamento exigido                                                                         |
-| --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **ERR-0013-01** `:id` ou `:paymentId` inexistente                                                                           | `404`, `STATEMENT_NOT_FOUND`, `STATEMENT_PAYMENT_NOT_FOUND` ou `CREDIT_CARD_REFUND_NOT_FOUND` |
-| **ERR-0013-02** `creditCardId` ausente na listagem de faturas ou na corrente                                                | `400`, `VALIDATION_ERROR` citando o campo                                                     |
-| **ERR-0013-03** Pagar, ou informar mínimo, em fatura `PAID`                                                                 | `409`, `STATEMENT_ALREADY_PAID`                                                               |
-| **ERR-0013-04** `amountCents` maior que `remainingCents`                                                                    | `409`, `STATEMENT_PAYMENT_EXCEEDS_REMAINING`, mensagem com o restante                         |
-| **ERR-0013-05** `bankAccountId`, `creditCardId` ou `expenseId` inexistente                                                  | `404`, `BANK_ACCOUNT_NOT_FOUND`, `CREDIT_CARD_NOT_FOUND` ou `EXPENSE_NOT_FOUND`               |
-| **ERR-0013-06** Pagar com conta arquivada                                                                                   | `409`, `BANK_ACCOUNT_ARCHIVED`                                                                |
-| **ERR-0013-07** `paidOn` igual ou anterior a `closesOn`, ou posterior a hoje                                                | `400`, `VALIDATION_ERROR` citando o campo                                                     |
-| **ERR-0013-08** Escrita que mudaria o total de uma janela fechada                                                           | `409`, `STATEMENT_CLOSED`, mensagem com o último dia fechado                                  |
-| **ERR-0013-09** `from` > `to` em listagem                                                                                   | `400`, `VALIDATION_ERROR`                                                                     |
-| **ERR-0013-10** Janela da listagem com mais de 120 faturas                                                                  | `400`, `VALIDATION_ERROR`                                                                     |
-| **ERR-0013-11** Pagar, ou informar mínimo, em fatura `ROLLED_OVER`                                                          | `409`, `STATEMENT_ROLLED_OVER`                                                                |
-| **ERR-0013-12** Desfazer pagamento que não é o último, ou depois de a seguinte ser registrada                               | `409`, `STATEMENT_PAYMENT_LOCKED`                                                             |
-| **ERR-0013-13** Estorno apontando despesa de conta ou de outro cartão                                                       | `409`, `REFUND_EXPENSE_MISMATCH`                                                              |
-| **ERR-0013-14** Estornos de uma despesa somando mais que ela                                                                | `409`, `REFUND_EXCEEDS_EXPENSE`, mensagem com o valor ainda estornável                        |
-| **ERR-0013-15** `amountCents` ≤ 0 ou não inteiro; `postedOn` anterior a `occurredOn`; mínimo negativo ou maior que o devido | `400`, `VALIDATION_ERROR` citando o campo                                                     |
-| **ERR-0013-16** `PATCH` de estorno com campo além de `description` e `notes`                                                | `400`, `VALIDATION_ERROR` citando o campo recusado                                            |
+| Situação                                                                                                                                                 | Comportamento exigido                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **ERR-0013-01** `:id` ou `:paymentId` inexistente                                                                                                        | `404`, `STATEMENT_NOT_FOUND`, `STATEMENT_PAYMENT_NOT_FOUND` ou `CREDIT_CARD_REFUND_NOT_FOUND` |
+| **ERR-0013-02** `creditCardId` ausente na listagem de faturas ou na corrente                                                                             | `400`, `VALIDATION_ERROR` citando o campo                                                     |
+| **ERR-0013-03** Pagar fatura `PAID`                                                                                                                      | `409`, `STATEMENT_ALREADY_PAID`                                                               |
+| **ERR-0013-04** `amountCents` maior que `remainingCents`                                                                                                 | `409`, `STATEMENT_PAYMENT_EXCEEDS_REMAINING`, mensagem com o restante                         |
+| **ERR-0013-05** `bankAccountId`, `creditCardId` ou `expenseId` inexistente                                                                               | `404`, `BANK_ACCOUNT_NOT_FOUND`, `CREDIT_CARD_NOT_FOUND` ou `EXPENSE_NOT_FOUND`               |
+| **ERR-0013-06** Pagar com conta arquivada                                                                                                                | `409`, `BANK_ACCOUNT_ARCHIVED`                                                                |
+| **ERR-0013-07** `paidOn` fora da janela: na fatura fechada, igual ou anterior a `closesOn`; na aberta, anterior a `startsOn`; nos dois, posterior a hoje | `400`, `VALIDATION_ERROR` citando o campo                                                     |
+| **ERR-0013-08** Escrita que mudaria o total de uma janela fechada                                                                                        | `409`, `STATEMENT_CLOSED`, mensagem com o último dia fechado                                  |
+| **ERR-0013-09** `from` > `to` em listagem                                                                                                                | `400`, `VALIDATION_ERROR`                                                                     |
+| **ERR-0013-10** Janela da listagem com mais de 120 faturas                                                                                               | `400`, `VALIDATION_ERROR`                                                                     |
+| **ERR-0013-11** Pagar fatura `ROLLED_OVER`                                                                                                               | `409`, `STATEMENT_ROLLED_OVER`                                                                |
+| **ERR-0013-12** Desfazer pagamento que não é o último, ou depois de a seguinte ser registrada                                                            | `409`, `STATEMENT_PAYMENT_LOCKED`                                                             |
+| **ERR-0013-13** Estorno apontando despesa de conta ou de outro cartão                                                                                    | `409`, `REFUND_EXPENSE_MISMATCH`                                                              |
+| **ERR-0013-14** Estornos de uma despesa somando mais que ela                                                                                             | `409`, `REFUND_EXCEEDS_EXPENSE`, mensagem com o valor ainda estornável                        |
+| **ERR-0013-15** `amountCents` ≤ 0 ou não inteiro; `postedOn` anterior a `occurredOn`; mínimo negativo ou não inteiro                                     | `400`, `VALIDATION_ERROR` citando o campo                                                     |
+| **ERR-0013-16** `PATCH` de estorno com campo além de `description` e `notes`                                                                             | `400`, `VALIDATION_ERROR` citando o campo recusado                                            |
+| **ERR-0013-17** Pagamento antecipado com fatura `CLOSED` pendente no cartão                                                                              | `409`, `STATEMENT_PREVIOUS_UNPAID`, mensagem com o id da fatura pendente                      |
 
 ## Acceptance criteria
 
@@ -598,7 +638,8 @@ que o saldo previsto precisa enxergar.
   `StatementPaid`, e a seguinte nasce com `previousBalanceCents` −200.
 - **AC-0013-17:** com `minimumPaymentCents` 300 informado e vencimento passado, a fatura está
   `overdue` com 200 pagos e deixa de estar com 300; sem mínimo, só sai do atraso quitada; a fatura
-  quitada nunca está `overdue`; mínimo maior que o devido recebe `400`.
+  quitada nunca está `overdue`; um mínimo maior que o devido é aceito como informado, e mínimo
+  negativo recebe `400`.
 - **AC-0013-18:** se qualquer passo de um pagamento falhar, nem a conta, nem o cartão, nem as
   despesas, nem a fatura mudam, e nenhum evento é publicado (INV-0013-06).
 - **AC-0013-19:** desfazer o último pagamento da fatura quitada devolve o valor à conta, consome o
@@ -613,6 +654,18 @@ que o saldo previsto precisa enxergar.
   três meses adiante — a corrente e duas projetadas, cada uma com a sua parcela.
 - **AC-0013-23:** `VIEWER` lista e consulta faturas e estornos e recebe `403 FORBIDDEN` em toda
   escrita; `BILLER` paga e estorna; sem perfil, `403 PROFILE_PENDING` (INV-0013-13).
+- **AC-0013-24:** com compras de 1500 na fatura aberta e nenhuma fechada pendente, um pagamento
+  antecipado de 500 debita 500 da conta, libera 500 de limite e a fatura aberta mostra `paidCents`
+  500 e `remainingCents` 1000, sem despesa marcada como paga; no fechamento, a fatura nasce
+  `CLOSED` com o pagamento apontando para ela e `remainingCents` 1000 (INV-0013-14).
+- **AC-0013-25:** um pagamento antecipado de 1500 cobrindo a fatura aberta inteira faz a fatura
+  nascer `PAID` no fechamento, com as despesas `PAID` no `paidOn` do pagamento e `StatementPaid`
+  publicado; uma compra de 200 feita depois do pagamento faz a fatura nascer `CLOSED` com 200 de
+  restante.
+- **AC-0013-26:** pagamento antecipado com uma fatura `CLOSED` pendente recebe
+  `409 STATEMENT_PREVIOUS_UNPAID`; acima do restante atual recebe
+  `409 STATEMENT_PAYMENT_EXCEEDS_REMAINING`; desfazer o último antecipado antes do fechamento
+  devolve o valor à conta e consome o limite.
 
 ## Test mapping
 
@@ -626,16 +679,10 @@ que o saldo previsto precisa enxergar.
 | AC-0013-09, AC-0013-17, AC-0013-22, INV-0013-02, ERR-0013-01, ERR-0013-02, ERR-0013-09, ERR-0013-10 | `tests/integration/statements/listing.spec.ts`                      |
 | AC-0013-13, AC-0013-14, AC-0013-18, AC-0013-20, INV-0013-06, ERR-0013-03 a ERR-0013-07, ERR-0013-15 | `tests/integration/statements/payment.spec.ts`                      |
 | AC-0013-15, AC-0013-16, AC-0013-19, INV-0013-09, INV-0013-10, ERR-0013-11, ERR-0013-12              | `tests/integration/statements/rollover.spec.ts`                     |
+| AC-0013-24, AC-0013-25, AC-0013-26, INV-0013-14, ERR-0013-17                                        | `tests/integration/statements/advance-payment.spec.ts`              |
 | AC-0013-23, INV-0013-13                                                                             | `tests/integration/statements/authorization.spec.ts`                |
 | INV-0013-12                                                                                         | gate `boundaries`                                                   |
 
 ## Open questions
 
-1. **Pagamento antecipado:** os apps de banco deixam pagar a fatura aberta antes do fechamento,
-   liberando limite na hora. Esta spec só aceita pagamento de fatura fechada. Entra agora — o
-   pagamento passaria a abater a fatura aberta e a rolar como crédito no fechamento — ou fica para
-   depois?
-2. **Mínimo informado:** o mínimo é digitado pelo usuário a partir do app do banco, porque cada
-   emissor tem a sua regra. A alternativa é um percentual configurável por cartão (o mercado usa
-   15%), calculado pelo sistema, o que exigiria campo novo no `accounts` (spec 0011, já
-   implementada). Confirmar o informado.
+Nenhuma.

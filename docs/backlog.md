@@ -251,13 +251,12 @@ janela fechada antes de qualquer leitura que dependa dela; consulta antes do pag
     - Where: `src/statements/`, `src/expenses/`, `src/api.config.ts`
     - Done when: `AC-0013-06`, `AC-0013-09`, `AC-0013-17` e `AC-0013-22` cobertos; `INV-0013-01`,
       `INV-0013-02` e `INV-0013-08` verificados
-- [ ] **T-0013-06 — Pagamentos, quitação, mínimo e desfazer** · #66
-    - What: `POST /statements/:id/payments`, `DELETE /statements/:id/payments/:paymentId` e
-      `PATCH /statements/:id`, com os deltas de saldo e limite pelo `accounts`, a quitação da
-      cadeia por `markPaidByStatement`/`markUnpaidByStatement` e os eventos de pagamento
+- [ ] **T-0013-06 — Pagamentos, antecipado, quitação, mínimo e desfazer** · #66
+    - What: pagamentos da fatura fechada e da aberta, desfazer e mínimo livre, com
+      deltas de saldo e limite, quitação da cadeia e eventos de pagamento
     - Where: `src/statements/`, `src/expenses/`, `src/events/statements.events.ts`
-    - Done when: `AC-0013-13`, `AC-0013-14`, `AC-0013-15`, `AC-0013-18`, `AC-0013-19` e
-      `AC-0013-20` cobertos; `INV-0013-06` verificado
+    - Done when: `AC-0013-13` a `AC-0013-15`, `AC-0013-18` a `AC-0013-20` e
+      `AC-0013-24` a `AC-0013-26` cobertos; `INV-0013-06` e `INV-0013-14` verificados
 - [ ] **T-0013-07 — Autorização e OpenAPI** · #67
     - What: as guardas de perfil nas rotas e o contrato no `openapi.yaml`
     - Where: `src/statements/`, `docs/openapi.yaml`
