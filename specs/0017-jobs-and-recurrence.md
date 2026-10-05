@@ -334,8 +334,13 @@ As tabelas de série são migrations TypeORM comuns, uma por módulo.
 
 ## Open questions
 
-1. **Horizonte de 12 meses:** as séries geram previstos até o fim do 12º mês à frente. É o bastante
-   para o saldo previsto que você costuma olhar, ou o horizonte deve ser outro?
-2. **Momento da promoção:** a ocorrência prevista vira aberta **no dia** dela (`occurredOn`). A
-   alternativa é no primeiro dia do mês, para que o mês corrente já mostre tudo como aberto. Qual
-   reflete melhor o uso?
+1. **Momento da promoção.** Exemplo: aluguel de R$ 1.500 que vence todo dia 10, e a ocorrência de
+   abril, gerada como `FORECAST`. A pergunta é **em que dia ela passa a `OPEN`**:
+    - **No dia dela (10/04)** — o que esta spec diz hoje. De 01/04 a 09/04 ela aparece como
+      "Previsto"; no dia 10 vira "Aberto"; não paga, vira "Vencido" no dia 11.
+    - **No primeiro dia do mês (01/04)** — o mês começa com tudo dele já "Aberto", e o "Previsto"
+      fica só para os meses futuros.
+
+    O saldo previsto é o mesmo nos dois casos: os dois status contam nele (spec 0015). Muda o que se
+    vê na listagem do mês e, num lançamento de cartão (uma assinatura), o dia em que o limite é
+    consumido — no dia 10 ou já no dia 1.
