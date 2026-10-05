@@ -25,7 +25,7 @@ com o saldo corrente de cada conta.
 - **Fora de escopo:** o resumo de uma fatura, que é da spec `0013`; orçamento e metas por
   categoria — citados na descrição do produto, mas sem requisito; alertas e notificações (saldo
   negativo, fatura vencida); exportação em PDF ou planilha; gráficos, que são do frontend;
-  transferência entre contas próprias, que a spec `0018` modela e acrescenta a estes cálculos;
+  o cadastro de transferências entre contas próprias, que é da spec `0018` — esta spec as soma;
   cache ou tabela materializada — o volume real (centenas de lançamentos por ano) cabe em consulta
   direta, e uma tabela derivada seria um segundo lugar onde o saldo pode divergir.
 
@@ -36,7 +36,8 @@ com o saldo corrente de cada conta.
 `reporting` é o único módulo que lê de vários contextos (ADR-0003, regra 5), e **só lê**:
 
 - Lê `bank_accounts`, `credit_cards`, `expenses`, `expense_types`, `earnings`, `earning_types`,
-  `credit_card_statements`, `credit_card_statement_payments` e `credit_card_refunds` por consulta
+  `credit_card_statements`, `credit_card_statement_payments`, `credit_card_refunds` e
+  `bank_transfers` (spec 0018) por consulta
   própria, com o `DataSource` da plataforma, sem entidade nem repositório dos outros módulos.
 - Para as faturas futuras de um cartão — que não são persistidas e dependem do encadeamento da
   spec 0013 —, chama a interface pública do `statements`: `StatementService.list(creditCardId,
@@ -64,8 +65,9 @@ Todo relatório desta spec os usa, e nenhum outro módulo os redefine.
 
 ### Saldo realizado de uma conta
 
-O saldo corrente (spec 0011) só se move por três caminhos: receita recebida (spec 0014), despesa
-de conta paga (spec 0012) e pagamento de fatura (spec 0013). Por isso o saldo em qualquer data `D`
+O saldo corrente (spec 0011) só se move por quatro caminhos: receita recebida (spec 0014), despesa
+de conta paga (spec 0012), pagamento de fatura (spec 0013) e transferência concluída (spec 0018).
+Por isso o saldo em qualquer data `D`
 é reconstruível:
 
 ```
@@ -73,6 +75,8 @@ realizado(conta, D) = opening_balance_cents
                     + Σ earnings.amount_cents         com status RECEIVED e received_on ≤ D
                     − Σ expenses.amount_cents         de conta, status PAID e paid_on ≤ D
                     − Σ statement_payments.amount_cents  da conta e paid_on ≤ D
+                    + Σ bank_transfers.amount_cents   COMPLETED, destino na conta, completed_on ≤ D
+                    − Σ bank_transfers.amount_cents   COMPLETED, origem na conta, completed_on ≤ D
 ```
 
 **Consistência:** `realizado(conta, D)` para `D` a partir da maior data registrada nos três
@@ -87,6 +91,7 @@ Para `D` igual ou posterior a hoje (`businessToday()`, spec 0012):
 previsto(conta, D) = current_balance_cents
                    + Σ receitas pendentes da conta  com occurred_on ≤ D
                    − Σ despesas pendentes da conta  com occurred_on ≤ D
+                   ± Σ transferências SCHEDULED     com occurred_on ≤ D — + no destino, − na origem
 ```
 
 - Pendências com `occurred_on` no passado — vencidas, ou abertas com data já passada — entram no
@@ -158,7 +163,10 @@ dinheiro que **de fato** se moveu — só o realizado:
 - `inflowsCents`: receitas `RECEIVED` com `received_on` no mês.
 - `expensesPaidCents`: despesas de conta `PAID` com `paid_on` no mês.
 - `statementPaymentsCents`: pagamentos de fatura com `paid_on` no mês.
-- `netCents = inflowsCents − expensesPaidCents − statementPaymentsCents`.
+- `transfersInCents` e `transfersOutCents`: transferências `COMPLETED` que entram e que saem da
+  conta, com `completed_on` no mês (spec 0018).
+- `netCents = inflowsCents + transfersInCents − expensesPaidCents − statementPaymentsCents −
+transfersOutCents`. Somadas todas as contas, as transferências se anulam.
 
 Somado mês a mês desde o primeiro movimento, o `netCents` de uma conta mais o
 `opening_balance_cents` é o seu saldo realizado.
@@ -190,7 +198,8 @@ CashFlowReport {
     from, to,
     months: [{ month,
                accounts: [{ bankAccountId, inflowsCents, expensesPaidCents,
-                            statementPaymentsCents, netCents }],
+                            statementPaymentsCents, transfersInCents,
+                            transfersOutCents, netCents }],
                netCents }]
 }
 ```
