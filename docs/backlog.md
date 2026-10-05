@@ -318,7 +318,7 @@ do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma reg
       lugar só, e o saldo realizado de uma conta em qualquer data
     - Where: `src/reporting/`, `.dependency-cruiser.cjs`
     - Done when: `AC-0015-01` e `AC-0015-12` cobertos; `INV-0015-01` a `INV-0015-04` verificados
-- [ ] **T-0015-05 — Conta pagadora do cartão**
+- [ ] **T-0015-05 — Conta pagadora do cartão** · #92
     - What: `payment_bank_account_id` em `credit_cards` com migration, aceito na criação e no `PATCH`
       do cartão (emenda à spec 0011) e default de conta no pagamento de fatura (spec 0013)
     - Where: `src/accounts/`, `src/statements/`, `src/platform/database/migrations/`
