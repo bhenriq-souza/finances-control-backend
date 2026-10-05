@@ -10,7 +10,7 @@ Este arquivo é a camada de **execução**. A camada de **entrega** são as issu
     - What: concluída a ativação faseada, exigir o check verde para merge (regra 3 da proteção de branch)
     - Where: configurações do repositório no GitHub
     - Done when: `AC-0001-03` verificado — a proteção lista `check` como obrigatório e um PR vermelho fica bloqueado
-- [ ] **T-0002-01 — Testes do orquestrador de gates**
+- [ ] **T-0002-01 — Testes do orquestrador de gates** · #70
     - What: cobrir `scripts/check.mjs` — classificação PASS/FAIL/SKIP, código de saída e modo `--require-tools`
     - Where: `tests/unit/scripts/check.spec.ts`
     - Done when: `AC-0002-01`, `AC-0002-02` e `AC-0002-03` cobertos por teste automatizado
@@ -264,12 +264,48 @@ janela fechada antes de qualquer leitura que dependa dela; consulta antes do pag
     - Done when: `AC-0013-23` coberto; `INV-0013-13` verificado; última tarefa da spec: fecha
       FCB-010 e muda o `status` para `implemented`
 
+## Earnings (F005)
+
+Tarefas da [spec 0014](../specs/0014-earnings.md), que fecha a issue de entrega
+[FCB-011](https://github.com/bhenriq-souza/finances-control-backend/issues/11). Depende de
+`businessToday` e `applyBalanceDelta`, entregues pelas tarefas da spec 0012, e da spec 0004 implementada.
+Ordem por dependência: schema antes de tudo; criação antes de status; consulta, alteração e
+OpenAPI por último.
+
+- [ ] **T-0014-01 — Entidades, migration e seed dos tipos** · #71
+    - What: `EarningType` e `Earning` com os enums sob CHECK e as constraints nomeadas, e a
+      migration com as nove linhas pré-definidas
+    - Where: `src/earnings/`, `src/platform/database/migrations/`
+    - Done when: `AC-0014-01` e `AC-0014-13` cobertos; `INV-0014-01`, `INV-0014-02` e `INV-0014-04`
+      verificados pelas constraints
+- [ ] **T-0014-02 — Tipos de receita** · #72
+    - What: as rotas de `/earning-types` com unicidade case-insensitive, arquivamento idempotente e
+      guardas de perfil, registradas em `api.config.ts`
+    - Where: `src/earnings/`, `src/api.config.ts`
+    - Done when: `AC-0014-02` coberto; `ERR-0014-01`, `ERR-0014-06` e `ERR-0014-14`
+- [ ] **T-0014-03 — Criação de receita e evento `EarningCreated`** · #73
+    - What: `POST /earnings` dentro de `TransactionRunner.run`, com a recusa de conta e tipo
+      arquivados e o evento no catálogo `src/events/earnings.events.ts`
+    - Where: `src/earnings/`, `src/events/earnings.events.ts`, `src/api.config.ts`
+    - Done when: `AC-0014-03`, `AC-0014-08` e `AC-0014-11` cobertos; `INV-0014-03` verificado
+- [ ] **T-0014-04 — Máquina de status, recebimento e varredura de vencidas** · #74
+    - What: `PATCH /earnings/:id/status` com a tabela de transições, recebimento e desfazer movendo
+      o saldo pela interface do `accounts`, `EarningReceived` e `EarningService.markOverdue`
+    - Where: `src/earnings/`, `src/events/earnings.events.ts`
+    - Done when: `AC-0014-04` a `AC-0014-07` cobertos; `INV-0014-03`, `INV-0014-05` e `INV-0014-06`
+      verificados
+- [ ] **T-0014-05 — Consulta, alteração, exclusão, autorização e OpenAPI** · #75
+    - What: `GET /earnings` com filtros, `GET /earnings/:id`, `PATCH /earnings/:id`, `DELETE`, as
+      guardas de perfil e o contrato no `openapi.yaml`
+    - Where: `src/earnings/`, `docs/openapi.yaml`
+    - Done when: `AC-0014-09`, `AC-0014-10` e `AC-0014-12` cobertos; `INV-0014-07` e `INV-0014-08`;
+      última tarefa: fecha FCB-011 e muda o `status` para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
 
 | Issue   | Spec prevista    | Requisito                   |
 | ------- | ---------------- | --------------------------- |
-| FCB-011 | `0014` earnings  | F005 — receitas             |
 | FCB-012 | `0015` reporting | saldo previsto e relatórios |
 | FCB-013 | `0016` imports   | importação CSV              |
