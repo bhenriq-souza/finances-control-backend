@@ -149,11 +149,11 @@ módulo `expenses` só toca essas tabelas pela interface pública do `accounts` 
 
 ### Tipos de ocorrência
 
-| `kind`        | O que é                               | Regra                                                                                             |
-| ------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `FIXED`       | Ocorre todo mês (aluguel, assinatura) | Uma linha por ocorrência. A geração dos meses seguintes é do FCB-015, que os cria como `FORECAST` |
-| `VARIABLE`    | Ocorre uma vez                        | Uma linha                                                                                         |
-| `INSTALLMENT` | Compra dividida em parcelas mensais   | `n` linhas criadas de uma vez, ver _Parcelamento_                                                 |
+| `kind`        | O que é                               | Regra                                                                                               |
+| ------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `FIXED`       | Ocorre todo mês (aluguel, assinatura) | Uma linha por ocorrência, numa **série** mensal; os meses seguintes nascem `FORECAST` (spec `0017`) |
+| `VARIABLE`    | Ocorre uma vez                        | Uma linha                                                                                           |
+| `INSTALLMENT` | Compra dividida em parcelas mensais   | `n` linhas criadas de uma vez, ver _Parcelamento_                                                   |
 
 ### Parcelamento
 

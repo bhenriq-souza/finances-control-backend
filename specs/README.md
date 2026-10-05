@@ -16,6 +16,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0012](0012-expenses.md)             | Expenses — despesas, tipos, parcelamento e status                  | draft       |
 | [0013](0013-statements.md)           | Statements — faturas de cartão, estornos, fechamento e pagamento   | draft       |
 | [0014](0014-earnings.md)             | Earnings — receitas, tipos e status                                | draft       |
+| [0017](0017-jobs-and-recurrence.md)  | Jobs e recorrência — pg-boss, rotinas diárias e lançamentos fixos  | draft       |
 
 Specs de domínio planejadas (ainda não escritas): `0015` reporting · `0016` imports.
 
