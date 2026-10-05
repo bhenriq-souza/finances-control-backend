@@ -84,6 +84,10 @@ normalizado (`lower(trim(name))`), por índice único funcional
 arquiváveis e renomeáveis como qualquer outra, sem coluna que as distinga: a lista abaixo é o
 ponto de partida, não uma categoria protegida.
 
+A lista é deliberadamente curta. As demais categorias — inclusive os 19 tipos em uso na planilha
+legada — nascem pelas rotas de `/expense-types`, que a página de administração do frontend
+consome, ou pela importação CSV (spec `0016`). Nenhuma categoria exige migration nova.
+
 `Moradia` · `Alimentação` · `Transporte` · `Saúde` · `Educação` · `Lazer` · `Vestuário` ·
 `Assinaturas` · `Impostos e taxas` · `Outros`
 
@@ -310,8 +314,12 @@ não é histórico, é engano — e a alternativa, editar até ficar igual a out
 
 - Só despesa **não paga** (`FORECAST`, `OPEN`, `OVERDUE`, `VERIFYING`); `PAID` recebe
   `ERR-0012-10` — desfaça o pagamento antes, para que o saldo seja devolvido explicitamente.
-- Excluir uma **parcela** exclui o **grupo inteiro**, e só se nenhuma parcela estiver paga. Metade
-  de um parcelamento não é um parcelamento; quem quer mudar o valor de uma parcela usa `PATCH`.
+- Excluir uma **parcela** exclui, na mesma transação, **todas as parcelas não pagas do grupo**; as
+  pagas permanecem intactas. Cancelar um parcelamento encerra o que ainda vai sair e nunca apaga
+  o que já saiu: o saldo absorvido por uma parcela paga é histórico. Excluir a própria parcela
+  paga continua recusado (`ERR-0012-10`). Quem quer mudar o valor de uma parcela usa `PATCH`.
+- Depois de uma exclusão parcial, o total do grupo continua sendo a soma das parcelas que
+  restam, derivado como sempre; INV-0012-06 fala do total na **criação**.
 - A spec `0013` acrescenta uma condição: despesa de cartão em fatura **fechada** não se exclui.
 - Despesa de cartão excluída devolve o limite, na mesma transação.
 
@@ -397,8 +405,8 @@ consomem — leitura, sempre:
 - **INV-0012-11:** despesa paga não se altera em valor nem se exclui sem antes desfazer o
   pagamento.
 - **INV-0012-12:** escrita exige `ADMIN` ou `BILLER`; leitura, qualquer perfil (spec 0010).
-- **INV-0012-13:** a exclusão de uma parcela exclui o grupo inteiro, e nunca um grupo com parcela
-  paga.
+- **INV-0012-13:** a exclusão de uma parcela exclui, na mesma transação, todas as parcelas não
+  pagas do grupo, e nunca uma parcela paga.
 
 ## Error cases
 
@@ -416,7 +424,7 @@ consomem — leitura, sempre:
 | **ERR-0012-10** Alterar valor ou excluir despesa paga                                              | `409`, `EXPENSE_ALREADY_PAID`                                                        |
 | **ERR-0012-11** `PATCH` com campo imutável                                                         | `400`, `VALIDATION_ERROR` citando o campo recusado                                   |
 | **ERR-0012-12** `amountCents` ≤ 0 ou não inteiro                                                   | `400`, `VALIDATION_ERROR` — nunca arredondar em silêncio                             |
-| **ERR-0012-13** Excluir parcela de grupo com parcela paga                                          | `409`, `INSTALLMENT_GROUP_HAS_PAID_EXPENSE`                                          |
+| **ERR-0012-13** _retirado na revisão: a exclusão parcial do grupo passou a ser permitida_          | _o ID não é reutilizado_                                                             |
 | **ERR-0012-14** `status` na criação fora de `OPEN`/`FORECAST`/`VERIFYING`                          | `400`, `VALIDATION_ERROR`                                                            |
 | **ERR-0012-15** `from` > `to` na listagem                                                          | `400`, `VALIDATION_ERROR`                                                            |
 | **ERR-0012-16** Arquivar tipo já arquivado                                                         | `200`, sem efeito — idempotente                                                      |
@@ -457,9 +465,9 @@ consomem — leitura, sempre:
   500 do limite; de despesa paga recebe `409 EXPENSE_ALREADY_PAID`; `PATCH` com `bankAccountId`,
   `status` ou `installmentTotal` recebe `400` citando o campo (INV-0012-11).
 - **AC-0012-14:** excluir despesa de cartão `OPEN` devolve o valor ao limite; excluir uma parcela
-  exclui todas as do grupo e devolve a soma; excluir parcela de grupo com uma paga recebe
-  `409 INSTALLMENT_GROUP_HAS_PAID_EXPENSE`; excluir despesa paga recebe `409 EXPENSE_ALREADY_PAID`
-  (INV-0012-13).
+  de cartão em 3× exclui as três e devolve a soma; num grupo de conta em 3× com a parcela 1 paga,
+  excluir a parcela 3 exclui as parcelas 2 e 3, mantém a 1 e não move o saldo; excluir despesa
+  paga recebe `409 EXPENSE_ALREADY_PAID` (INV-0012-13).
 - **AC-0012-15:** conta, cartão ou tipo arquivado recebe `409` com o código próprio; pagar despesa
   antiga numa conta arquivada é aceito.
 - **AC-0012-16:** `GET /expenses?from=2026-03-01&to=2026-03-31&creditCardId=…` devolve só as
@@ -487,7 +495,7 @@ consomem — leitura, sempre:
 | AC-0012-07, AC-0012-08, AC-0012-09, INV-0012-06                                          | `tests/expenses/installments.spec.ts` (datas e rateio) e `tests/integration/expenses/installments.spec.ts` |
 | AC-0012-20                                                                               | `tests/platform/money.spec.ts`                                                                             |
 | AC-0012-10                                                                               | `tests/integration/accounts/apply-delta.spec.ts`                                                           |
-| AC-0012-13, AC-0012-14, INV-0012-11, INV-0012-13, ERR-0012-10, ERR-0012-11, ERR-0012-13  | `tests/integration/expenses/update-and-delete.spec.ts`                                                     |
+| AC-0012-13, AC-0012-14, INV-0012-11, INV-0012-13, ERR-0012-10, ERR-0012-11               | `tests/integration/expenses/update-and-delete.spec.ts`                                                     |
 | AC-0012-15, ERR-0012-03, ERR-0012-04, ERR-0012-05, ERR-0012-07, ERR-0012-12, ERR-0012-14 | `tests/integration/expenses/creation.spec.ts`                                                              |
 | AC-0012-16, ERR-0012-15                                                                  | `tests/integration/expenses/listing.spec.ts`                                                               |
 | AC-0012-18, INV-0012-12                                                                  | `tests/integration/expenses/authorization.spec.ts`                                                         |
@@ -497,11 +505,4 @@ consomem — leitura, sempre:
 
 ## Open questions
 
-1. **Tipos pré-definidos:** a lista de dez é provisória. A planilha legada tem 19 tipos em uso;
-   se forem esses os pré-definidos, a lista é substituída antes da aprovação.
-2. **Quem escreve:** `ADMIN` e `BILLER`. A tabela de perfis do produto dá "pagamentos" só ao
-   `BILLER`; a leitura aqui segue o precedente da spec 0011. Confirmar.
-3. **Exclusão de despesa:** permitida para não pagas, com exclusão do grupo inteiro de parcelas.
-   A alternativa é não excluir nunca, como conta e cartão. Confirmar.
-4. **Limite e saldo não barram lançamento:** o disponível e o saldo ficam negativos. A alternativa
-   é recusar com `409`. Confirmar.
+Nenhuma.
