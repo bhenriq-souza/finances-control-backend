@@ -218,13 +218,13 @@ CreditCardService.applyAvailableLimitDelta(manager: EntityManager, id: string, d
 
 `PATCH /expenses/:id/status` com `{ status, paidOn? }` aplica uma transição. As permitidas:
 
-| De                             | Para        | Condição                                                       |
-| ------------------------------ | ----------- | -------------------------------------------------------------- |
-| `FORECAST`                     | `OPEN`      | —                                                              |
-| `OPEN`, `OVERDUE`              | `VERIFYING` | —                                                              |
-| `VERIFYING`                    | `OPEN`      | —                                                              |
-| `OPEN`, `OVERDUE`, `VERIFYING` | `PAID`      | só despesa de **conta**; `paidOn` opcional, default hoje (UTC) |
-| `PAID`                         | `OPEN`      | desfaz o pagamento: `paid_on` volta a nulo, saldo devolvido    |
+| De                             | Para        | Condição                                                         |
+| ------------------------------ | ----------- | ---------------------------------------------------------------- |
+| `FORECAST`                     | `OPEN`      | —                                                                |
+| `OPEN`, `OVERDUE`              | `VERIFYING` | —                                                                |
+| `VERIFYING`                    | `OPEN`      | —                                                                |
+| `OPEN`, `OVERDUE`, `VERIFYING` | `PAID`      | só despesa de **conta**; `paidOn` opcional, default hoje (UTC)   |
+| `PAID`                         | `OPEN`      | só despesa de **conta**: `paid_on` volta a nulo, saldo devolvido |
 
 - `FORECAST` só se atribui na **criação**; `OVERDUE` só pela **varredura**. Qualquer outro par é
   `ERR-0012-08`.
@@ -312,7 +312,8 @@ não é histórico, é engano — e a alternativa, editar até ficar igual a out
   `ERR-0012-10` — desfaça o pagamento antes, para que o saldo seja devolvido explicitamente.
 - Excluir uma **parcela** exclui o **grupo inteiro**, e só se nenhuma parcela estiver paga. Metade
   de um parcelamento não é um parcelamento; quem quer mudar o valor de uma parcela usa `PATCH`.
-- A spec `0013` acrescenta uma condição: despesa de cartão em fatura **fechada** não se exclui.
+- A spec `0013` acrescenta a regra da **janela fechada**: despesa de cartão em fatura fechada não se
+  exclui, e a parcela de cartão em fatura fechada é mantida na exclusão do grupo, como a paga.
 - Despesa de cartão excluída devolve o limite, na mesma transação.
 
 **`GET /expenses`** aceita os filtros `from` e `to` (`occurredOn`, inclusivos, `YYYY-MM-DD`),
@@ -412,7 +413,7 @@ consomem — leitura, sempre:
 | **ERR-0012-06** Tipo de despesa arquivado                                                          | `409`, `EXPENSE_TYPE_ARCHIVED`                                                       |
 | **ERR-0012-07** `installmentTotal` fora de 2..120, ausente em `INSTALLMENT` ou presente nos demais | `400`, `VALIDATION_ERROR` citando o campo                                            |
 | **ERR-0012-08** Transição de status não permitida                                                  | `409`, `EXPENSE_STATUS_TRANSITION_NOT_ALLOWED`, mensagem com `from` e `to`           |
-| **ERR-0012-09** Pagar despesa de cartão                                                            | `409`, `CREDIT_CARD_EXPENSE_PAID_BY_STATEMENT`                                       |
+| **ERR-0012-09** Pagar ou despagar despesa de cartão                                                | `409`, `CREDIT_CARD_EXPENSE_PAID_BY_STATEMENT`                                       |
 | **ERR-0012-10** Alterar valor ou excluir despesa paga                                              | `409`, `EXPENSE_ALREADY_PAID`                                                        |
 | **ERR-0012-11** `PATCH` com campo imutável                                                         | `400`, `VALIDATION_ERROR` citando o campo recusado                                   |
 | **ERR-0012-12** `amountCents` ≤ 0 ou não inteiro                                                   | `400`, `VALIDATION_ERROR` — nunca arredondar em silêncio                             |

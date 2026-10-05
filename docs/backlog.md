@@ -208,13 +208,58 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
     - Done when: `AC-0012-13`, `AC-0012-14`, `AC-0012-16` e `AC-0012-18` cobertos; `INV-0012-11`,
       `INV-0012-12` e `INV-0012-13`; última tarefa: fecha FCB-009 e muda o `status` para `implemented`
 
+## Statements (F004)
+
+Tarefas da [spec 0013](../specs/0013-statements.md), que fecha a issue de entrega
+[FCB-010](https://github.com/bhenriq-souza/finances-control-backend/issues/10). Depende das tarefas
+da spec 0012 implementadas. Ordem por dependência: schema e encadeamento antes do fechamento; a
+janela fechada antes de qualquer leitura que dependa dela; consulta antes do pagamento.
+
+- [ ] **T-0013-01 — Entidade, migration e encadeamento dos ciclos**
+    - What: `CreditCardStatement` com o status sob CHECK e as constraints nomeadas, a migration, e
+      a função pura que encadeia os ciclos a partir da última fatura fechada usando `cycleFor` do
+      `accounts`
+    - Where: `src/statements/`, `src/platform/database/migrations/`
+    - Done when: `AC-0013-01` a `AC-0013-04` cobertos; `INV-0013-03`, `INV-0013-04` e `INV-0013-09`
+      verificados
+- [ ] **T-0013-02 — Fechamento e evento `StatementClosed`**
+    - What: `StatementService.closeDue` com o lock consultivo por cartão, registro em ordem
+      cronológica dentro de `TransactionRunner.run` e o evento no catálogo
+      `src/events/statements.events.ts`
+    - Where: `src/statements/`, `src/events/statements.events.ts`
+    - Done when: `AC-0013-05` e `AC-0013-06` cobertos; `INV-0013-07` verificado
+- [ ] **T-0013-03 — Janela fechada**
+    - What: a porta `StatementPeriodGuard`, o `OpenPeriodGuard` padrão e as recusas no `expenses`;
+      `StatementPeriodGuardService` no `statements` e o registro na composição; parcela em janela
+      fechada mantida na exclusão do grupo; `PAID → OPEN` recusado para despesa de cartão
+    - Where: `src/expenses/`, `src/statements/`, `src/container.ts`
+    - Done when: `AC-0013-09`, `AC-0013-10`, `AC-0013-11` e `AC-0013-16` cobertos; `INV-0013-05` e
+      `INV-0013-10` verificados
+- [ ] **T-0013-04 — Consulta e resumo de faturas**
+    - What: `GET /statements`, `/statements/current` e `/statements/:id`, com projeção das abertas,
+      fechamento de recuperação antes de responder, total e `byExpenseType` derivados, `overdue`, e
+      o retorno de `listByCreditCard` fixado
+    - Where: `src/statements/`, `src/expenses/`, `src/api.config.ts`
+    - Done when: `AC-0013-07`, `AC-0013-08`, `AC-0013-17` e `AC-0013-18` cobertos; `INV-0013-01`,
+      `INV-0013-02` e `INV-0013-08` verificados
+- [ ] **T-0013-05 — Pagamento e desfazer**
+    - What: `POST` e `DELETE /statements/:id/payment` numa transação com lock na fatura,
+      `markPaidByStatement`/`markUnpaidByStatement` no `expenses`, os deltas de saldo e limite pelo
+      `accounts` e o evento `StatementPaid`
+    - Where: `src/statements/`, `src/expenses/`, `src/events/statements.events.ts`
+    - Done when: `AC-0013-12` a `AC-0013-15` cobertos; `INV-0013-06` verificado
+- [ ] **T-0013-06 — Autorização e OpenAPI**
+    - What: as guardas de perfil nas rotas e o contrato no `openapi.yaml`
+    - Where: `src/statements/`, `docs/openapi.yaml`
+    - Done when: `AC-0013-19` coberto; `INV-0013-11` verificado; última tarefa da spec: fecha
+      FCB-010 e muda o `status` para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
 
-| Issue   | Spec prevista     | Requisito                   |
-| ------- | ----------------- | --------------------------- |
-| FCB-010 | `0013` statements | F004 — faturas              |
-| FCB-011 | `0014` earnings   | F005 — receitas             |
-| FCB-012 | `0015` reporting  | saldo previsto e relatórios |
-| FCB-013 | `0016` imports    | importação CSV              |
+| Issue   | Spec prevista    | Requisito                   |
+| ------- | ---------------- | --------------------------- |
+| FCB-011 | `0014` earnings  | F005 — receitas             |
+| FCB-012 | `0015` reporting | saldo previsto e relatórios |
+| FCB-013 | `0016` imports   | importação CSV              |
