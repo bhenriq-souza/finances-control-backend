@@ -5,7 +5,15 @@ import prettierPlugin from 'eslint-plugin-prettier';
 import globals from 'globals';
 
 export default [
-    { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'scripts/**'] },
+    {
+        ignores: [
+            'dist/**',
+            'coverage/**',
+            'node_modules/**',
+            'scripts/**',
+            '.claude/worktrees/**',
+        ],
+    },
     js.configs.recommended,
     {
         // Configuração de ferramenta na raiz: CommonJS, fora do escopo de tipagem.

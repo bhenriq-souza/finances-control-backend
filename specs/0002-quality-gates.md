@@ -30,6 +30,8 @@ Definir os portões de qualidade do repositório e o **orquestrador único** que
 | `audit`      | `npm audit --audit-level=high --omit=dev` | vulnerabilidades em dependências de runtime  |
 | `specs`      | `node scripts/check-specs.mjs`            | estrutura das specs e do backlog (spec 0000) |
 
+Cópias de trabalho de agentes em `.claude/worktrees/` ficam fora dos gates `format` e `lint` (ignoradas pelo Git, pelo Prettier e pelo ESLint): não são código deste working tree, e sim de outras branches ([execução paralela](../docs/parallel-execution.md)).
+
 O gate `boundaries` é o enforcement automatizado das regras de fronteira do ADR-0003; sua configuração declara quais módulos podem depender de quais, com `reporting` autorizado a ler múltiplos contextos e `platform` acessível a todos.
 
 ### Orquestrador único

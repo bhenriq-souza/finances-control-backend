@@ -6,3 +6,6 @@ coverage/
 .env.*
 !.env.example
 .DS_Store
+
+# Worktrees de subagentes (docs/parallel-execution.md)
+.claude/worktrees/
