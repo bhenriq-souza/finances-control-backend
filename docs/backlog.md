@@ -405,6 +405,10 @@ da spec 0004 implementada; a parte de relatórios, da spec 0015.
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
 
-| Issue   | Spec prevista  | Requisito      |
-| ------- | -------------- | -------------- |
-| FCB-013 | `0016` imports | importação CSV |
+| Issue   | Spec prevista  | Requisito      | Situação                                  |
+| ------- | -------------- | -------------- | ----------------------------------------- |
+| FCB-013 | `0016` imports | importação CSV | **adiada** pelo responsável em 2026-10-06 |
+
+A importação de CSV não tem utilidade imediata e fica para um segundo momento. Não escreva a spec
+`0016` nem crie tarefas para ela até o responsável retomá-la; as specs que a citam continuam
+válidas como estão.

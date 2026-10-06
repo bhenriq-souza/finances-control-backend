@@ -10,7 +10,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0001](0001-development-workflow.md) | Fluxo de desenvolvimento (branches, commits, pull requests)        | approved    |
 | [0002](0002-quality-gates.md)        | Portões de qualidade e orquestrador único                          | approved    |
 | [0003](0003-persistence.md)          | Persistência — PostgreSQL, TypeORM e migrations                    | implemented |
-| [0004](0004-domain-events.md)        | Eventos de domínio — dispatcher in-process e publicação pós-commit | draft       |
+| [0004](0004-domain-events.md)        | Eventos de domínio — dispatcher in-process e publicação pós-commit | approved    |
 | [0010](0010-identity.md)             | Identity — usuários, autenticação e RBAC                           | implemented |
 | [0011](0011-accounts.md)             | Accounts — bancos, contas bancárias e cartões de crédito           | implemented |
 | [0012](0012-expenses.md)             | Expenses — despesas, tipos, parcelamento e status                  | draft       |
@@ -20,6 +20,6 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0017](0017-jobs-and-recurrence.md)  | Jobs e recorrência — pg-boss, rotinas diárias e lançamentos fixos  | draft       |
 | [0018](0018-transfers.md)            | Transfers — transferências entre contas próprias                   | draft       |
 
-Specs de domínio planejadas (ainda não escritas): `0016` imports.
+Specs de domínio planejadas (ainda não escritas): `0016` imports — **adiada** (FCB-013).
 
 Decisões de arquitetura: as de **produto** vivem em [`docs/adr/` do hub](https://github.com/bhenriq-souza/finances-control/tree/main/docs/adr); as **locais do backend**, em [`adr/`](adr/).

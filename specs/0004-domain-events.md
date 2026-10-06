@@ -1,7 +1,7 @@
 ---
 id: '0004'
 title: Eventos de domínio — dispatcher in-process e publicação pós-commit
-status: draft
+status: approved
 depends_on: ['0000', '0002', '0003']
 ---
 
