@@ -45,6 +45,14 @@ import {
     ExpenseTypeService,
     ExpenseTypeServiceSymbol,
 } from './expenses';
+import {
+    EarningTypeController,
+    EarningTypeControllerSymbol,
+    EarningTypeRoutes,
+    EarningTypeRoutesSymbol,
+    EarningTypeService,
+    EarningTypeServiceSymbol,
+} from './earnings';
 
 /**
  * Módulos publicados pela API. Cada módulo de domínio (ADR-0003) entra aqui com
@@ -123,6 +131,22 @@ export const apiModules: ApiModule[] = [
             {
                 token: ExpenseTypeControllerSymbol,
                 clazz: ExpenseTypeController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
+    },
+    {
+        path: '/earning-types',
+        route: { token: EarningTypeRoutesSymbol, clazz: EarningTypeRoutes },
+        provides: [
+            {
+                token: EarningTypeServiceSymbol,
+                clazz: EarningTypeService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: EarningTypeControllerSymbol,
+                clazz: EarningTypeController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],
