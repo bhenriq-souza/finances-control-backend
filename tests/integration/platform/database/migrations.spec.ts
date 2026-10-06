@@ -249,4 +249,70 @@ describe('migrations no banco real', () => {
             await runner.release();
         }
     });
+
+    it('cria as tabelas de faturas, pagamentos e estornos, e reverte (AC-0013-01)', async () => {
+        const { CreateStatementsTables1791400000000 } =
+            await import('../../../../src/platform/database/migrations/1791400000000-CreateStatementsTables');
+
+        const constraintsOf = async (table: string): Promise<string[]> => {
+            const rows = await dataSource.query<{ conname: string }[]>(
+                `SELECT con.conname
+                 FROM pg_constraint con
+                 JOIN pg_class c ON c.oid = con.conrelid
+                 JOIN pg_namespace n ON n.oid = c.relnamespace
+                 WHERE c.relname = $1 AND n.nspname = current_schema()
+                 ORDER BY con.conname`,
+                [table],
+            );
+            return rows.map((row) => row.conname);
+        };
+
+        expect(await constraintsOf('credit_card_statements')).toEqual([
+            'ck_credit_card_statements_dates',
+            'ck_credit_card_statements_minimum_payment',
+            'ck_credit_card_statements_status',
+            'fk_credit_card_statements_credit_card_id',
+            'pk_credit_card_statements',
+            'uq_credit_card_statements_credit_card_id_closes_on',
+            'uq_credit_card_statements_credit_card_id_starts_on',
+        ]);
+        expect(await constraintsOf('credit_card_statement_payments')).toEqual([
+            'ck_credit_card_statement_payments_amount',
+            'fk_credit_card_statement_payments_bank_account_id',
+            'fk_credit_card_statement_payments_credit_card_id',
+            'fk_credit_card_statement_payments_statement_id',
+            'pk_credit_card_statement_payments',
+        ]);
+        expect(await constraintsOf('credit_card_refunds')).toEqual([
+            'ck_credit_card_refunds_amount',
+            'ck_credit_card_refunds_posted_on',
+            'fk_credit_card_refunds_credit_card_id',
+            'fk_credit_card_refunds_expense_id',
+            'pk_credit_card_refunds',
+        ]);
+
+        const tableCount = async (): Promise<number> => {
+            const rows = await dataSource.query<{ count: string }[]>(
+                `SELECT count(*) FROM information_schema.tables
+                 WHERE table_schema = current_schema()
+                   AND table_name IN ('credit_card_statements',
+                                      'credit_card_statement_payments',
+                                      'credit_card_refunds')`,
+            );
+            return Number(rows[0]!.count);
+        };
+
+        const runner = dataSource.createQueryRunner();
+        try {
+            const migration = new CreateStatementsTables1791400000000();
+
+            await migration.down(runner);
+            expect(await tableCount()).toBe(0);
+
+            await migration.up(runner);
+            expect(await tableCount()).toBe(3);
+        } finally {
+            await runner.release();
+        }
+    });
 });
