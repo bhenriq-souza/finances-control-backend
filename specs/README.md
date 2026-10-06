@@ -17,6 +17,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0013](0013-statements.md)           | Statements — faturas de cartão, estornos, fechamento e pagamento   | draft       |
 | [0014](0014-earnings.md)             | Earnings — receitas, tipos e status                                | draft       |
 | [0015](0015-reporting.md)            | Reporting — saldo realizado, saldo previsto e relatórios           | draft       |
+| [0017](0017-jobs-and-recurrence.md)  | Jobs e recorrência — pg-boss, rotinas diárias e lançamentos fixos  | draft       |
 | [0018](0018-transfers.md)            | Transfers — transferências entre contas próprias                   | draft       |
 
 Specs de domínio planejadas (ainda não escritas): `0016` imports.

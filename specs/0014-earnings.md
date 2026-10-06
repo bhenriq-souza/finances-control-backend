@@ -141,11 +141,11 @@ a conta pela interface pública do `accounts` (ADR-0003, regra 2).
 
 ### Tipos de ocorrência
 
-| `kind`        | O que é                                                                       | Regra                                                                                             |
-| ------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `FIXED`       | Ocorre todo mês (salário, aluguel)                                            | Uma linha por ocorrência. A geração dos meses seguintes é do FCB-015, que os cria como `FORECAST` |
-| `VARIABLE`    | Ocorre uma vez                                                                | Uma linha                                                                                         |
-| `INSTALLMENT` | Recebimento dividido em parcelas mensais (reembolso, devolução de empréstimo) | `n` linhas criadas de uma vez, ver _Parcelamento_                                                 |
+| `kind`        | O que é                                                                       | Regra                                                                                               |
+| ------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `FIXED`       | Ocorre todo mês (salário, aluguel)                                            | Uma linha por ocorrência, numa **série** mensal; os meses seguintes nascem `FORECAST` (spec `0017`) |
+| `VARIABLE`    | Ocorre uma vez                                                                | Uma linha                                                                                           |
+| `INSTALLMENT` | Recebimento dividido em parcelas mensais (reembolso, devolução de empréstimo) | `n` linhas criadas de uma vez, ver _Parcelamento_                                                   |
 
 ### Parcelamento
 
