@@ -1,7 +1,7 @@
 ---
 id: '0013'
 title: Statements — faturas de cartão, estornos, fechamento e pagamento
-status: draft
+status: approved
 depends_on: ['0000', '0003', '0004', '0010', '0011', '0012']
 ---
 

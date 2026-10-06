@@ -14,7 +14,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0010](0010-identity.md)             | Identity — usuários, autenticação e RBAC                           | implemented |
 | [0011](0011-accounts.md)             | Accounts — bancos, contas bancárias e cartões de crédito           | implemented |
 | [0012](0012-expenses.md)             | Expenses — despesas, tipos, parcelamento e status                  | approved    |
-| [0013](0013-statements.md)           | Statements — faturas de cartão, estornos, fechamento e pagamento   | draft       |
+| [0013](0013-statements.md)           | Statements — faturas de cartão, estornos, fechamento e pagamento   | approved    |
 | [0014](0014-earnings.md)             | Earnings — receitas, tipos e status                                | draft       |
 | [0015](0015-reporting.md)            | Reporting — saldo realizado, saldo previsto e relatórios           | draft       |
 | [0017](0017-jobs-and-recurrence.md)  | Jobs e recorrência — pg-boss, rotinas diárias e lançamentos fixos  | draft       |
