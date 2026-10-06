@@ -17,9 +17,12 @@ import { envList } from './platform/config/env.list';
 import { AppDataSource } from './platform/database/data-source';
 import { RequestContext } from './platform/context/request-context';
 import { HttpResponses } from './platform/http/http-responses';
+import { InProcessDomainEventDispatcher } from './platform/events/in-process-domain-event-dispatcher';
+import { DataSourceTransactionRunner } from './platform/events/transaction-runner';
 import { LoggerService } from './platform/logging/logger.service';
 import {
     DatabaseConnectionSymbol,
+    DomainEventDispatcherSymbol,
     EnvListSymbol,
     RequireAuthenticationSymbol,
     RequireProfileSymbol,
@@ -28,6 +31,7 @@ import {
     LoggerServiceSymbol,
     ProcessEnvSymbol,
     RequestContextSymbol,
+    TransactionRunnerSymbol,
 } from './platform/symbols';
 
 /* ambiente — resolvido primeiro: o boot falha aqui se faltar variável obrigatória */
@@ -41,6 +45,10 @@ container.registerInstance(DatabaseConnectionSymbol, AppDataSource);
 /* observabilidade */
 container.registerSingleton(LoggerServiceSymbol, LoggerService);
 container.registerSingleton(RequestContextSymbol, RequestContext);
+
+/* eventos de domínio — dispatcher e runner são singletons (spec 0004, INV-0004-09) */
+container.registerSingleton(DomainEventDispatcherSymbol, InProcessDomainEventDispatcher);
+container.registerSingleton(TransactionRunnerSymbol, DataSourceTransactionRunner);
 
 /* helpers de resposta */
 container.register(HttpResponsesSymbol, { useValue: HttpResponses });

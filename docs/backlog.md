@@ -66,7 +66,7 @@ dependência: o envelope e o dispatcher antes do escopo de transação, e os doi
     - Where: `src/platform/events/`, `src/platform/symbols/index.ts`, `src/platform/index.ts`
     - Done when: `AC-0004-01` a `AC-0004-04` cobertos; `INV-0004-04`, `INV-0004-05` e `INV-0004-09`
       verificados
-- [ ] **T-0004-02 — `TransactionRunner` e publicação pós-commit** · #51
+- [x] **T-0004-02 — `TransactionRunner` e publicação pós-commit** · #51
     - What: `TransactionScope` e `TransactionRunner` sobre `dataSource.transaction`, acumulando
       eventos e despachando só após o commit, descartando no rollback e fechando o escopo ao fim;
       registro dos dois singletons no container
