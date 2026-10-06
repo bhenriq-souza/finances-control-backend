@@ -24,4 +24,6 @@ export {
     type UserProfile,
     type RequireProfile,
 } from './authorization';
+export type { DomainEvent, JsonObject } from './events/domain-event';
+export type { DomainEventDispatcher, DomainEventHandler } from './events/domain-event-dispatcher';
 export * from './symbols';

@@ -59,7 +59,7 @@ Tarefas da [spec 0004](../specs/0004-domain-events.md), que fecha a issue de ent
 [FCB-014](https://github.com/bhenriq-souza/finances-control-backend/issues/14). Ordem por
 dependência: o envelope e o dispatcher antes do escopo de transação, e os dois antes da composição.
 
-- [ ] **T-0004-01 — Envelope do evento e dispatcher in-process** · #50
+- [x] **T-0004-01 — Envelope do evento e dispatcher in-process** · #50
     - What: tipos `DomainEvent`, `JsonObject` e `DomainEventHandler`, a porta `DomainEventDispatcher`
       e a `InProcessDomainEventDispatcher` (inscrição idempotente, entrega em ordem, falha isolada e
       logada), com símbolos e exportações na interface pública da plataforma
