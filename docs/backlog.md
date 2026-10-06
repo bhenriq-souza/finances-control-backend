@@ -220,7 +220,7 @@ Tarefas da [spec 0013](../specs/0013-statements.md), que fecha a issue de entreg
 da spec 0012 implementadas. Ordem por dependência: schema e encadeamento antes do fechamento; a
 janela fechada antes de qualquer leitura que dependa dela; consulta antes do pagamento.
 
-- [ ] **T-0013-01 — Entidades, migration e encadeamento dos ciclos** · #61
+- [x] **T-0013-01 — Entidades, migration e encadeamento dos ciclos** · #61
     - What: `CreditCardStatement`, `CreditCardStatementPayment` e `CreditCardRefund` com as
       constraints nomeadas, a migration das três tabelas, e a função pura que encadeia os ciclos a
       partir da última fatura fechada usando `cycleFor` do `accounts`
