@@ -181,7 +181,8 @@ primeiro nasce igual ao saldo de abertura e o segundo igual ao limite total.
 ### Quem move saldo e limite
 
 `current_balance_cents` e `available_limit_cents` **não são informados por ninguém**: `PATCH` não os
-aceita, e mandá-los é `400`. Quem os move é despesa ou receita, nas specs `0012` e `0014`, sempre na
+aceita, e mandá-los é `400`. Quem os move é despesa ou receita, nas specs `0012` e `0014`, o
+pagamento de fatura, na `0013`, e a transferência entre contas próprias, na `0018`, sempre na
 mesma transação do lançamento
 ([ADR-0003](https://github.com/bhenriq-souza/finances-control/blob/main/docs/adr/ADR-0003-architecture-style.md),
 regra 4).
