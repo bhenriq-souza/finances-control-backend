@@ -122,4 +122,63 @@ describe('migrations no banco real', () => {
 
         await dataSource.query('DROP TABLE money_probe;');
     });
+
+    it('cria expense_types e expenses com as constraints nomeadas e os dez tipos (AC-0012-01)', async () => {
+        const constraints = await dataSource.query<{ conname: string }[]>(`
+            SELECT c.conname
+            FROM pg_constraint c
+            JOIN pg_class t ON t.oid = c.conrelid
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            WHERE n.nspname = current_schema() AND t.relname IN ('expenses', 'expense_types');
+        `);
+
+        expect(constraints.map((row) => row.conname)).toEqual(
+            expect.arrayContaining([
+                'ck_expenses_kind',
+                'ck_expenses_status',
+                'ck_expenses_amount',
+                'ck_expenses_paid_on',
+                'ck_expenses_owner',
+                'ck_expenses_installment',
+                'ck_expenses_posted_on',
+                'uq_expenses_installment_group_id_installment_number',
+                'fk_expenses_expense_type_id',
+                'fk_expenses_bank_account_id',
+                'fk_expenses_credit_card_id',
+            ]),
+        );
+
+        const indexes = await dataSource.query<{ indexname: string }[]>(`
+            SELECT indexname FROM pg_indexes
+            WHERE schemaname = current_schema() AND tablename IN ('expenses', 'expense_types');
+        `);
+
+        expect(indexes.map((row) => row.indexname)).toEqual(
+            expect.arrayContaining([
+                'uq_expense_types_name',
+                'idx_expenses_occurred_on',
+                'idx_expenses_bank_account_id',
+                'idx_expenses_credit_card_id',
+                'idx_expenses_status',
+                'idx_expenses_credit_card_id_posted_on',
+            ]),
+        );
+
+        const types = await dataSource.query<{ name: string }[]>('SELECT name FROM expense_types;');
+
+        expect(types.map((row) => row.name).sort()).toEqual(
+            [
+                'Moradia',
+                'Alimentação',
+                'Transporte',
+                'Saúde',
+                'Educação',
+                'Lazer',
+                'Vestuário',
+                'Assinaturas',
+                'Impostos e taxas',
+                'Outros',
+            ].sort(),
+        );
+    });
 });

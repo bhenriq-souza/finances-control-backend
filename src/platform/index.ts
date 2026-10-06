@@ -28,3 +28,5 @@ export type { DomainEvent, JsonObject } from './events/domain-event';
 export type { DomainEventDispatcher, DomainEventHandler } from './events/domain-event-dispatcher';
 export * from './symbols';
 export type { TransactionScope, TransactionRunner } from './events/transaction-runner';
+export { splitCents } from './money';
+export { BUSINESS_TIME_ZONE, businessToday } from './business-date';

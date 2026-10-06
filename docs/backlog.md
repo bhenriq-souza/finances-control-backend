@@ -166,7 +166,7 @@ Tarefas da [spec 0012](../specs/0012-expenses.md), que fecha a issue de entrega
 dependência: schema e helper antes de tudo; o `accounts` ganha os movimentos antes de a despesa os
 usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI por último.
 
-- [ ] **T-0012-01 — Entidades, migration, seed dos tipos, `splitCents` e `businessToday`** · #53
+- [x] **T-0012-01 — Entidades, migration, seed dos tipos, `splitCents` e `businessToday`** · #53
     - What: entidades com os enums sob CHECK, migration com os dez tipos, `splitCents` e
       `businessToday`/`BUSINESS_TIME_ZONE` exportados pela interface da plataforma
     - Where: `src/expenses/`, `src/platform/money.ts`, `src/platform/business-date.ts`, `src/platform/index.ts`, `src/platform/database/migrations/`
