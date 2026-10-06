@@ -177,7 +177,7 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
       guardas de perfil, registradas em `api.config.ts`
     - Where: `src/expenses/`, `src/api.config.ts`
     - Done when: `AC-0012-02` coberto; `ERR-0012-01`, `ERR-0012-02` e `ERR-0012-16`
-- [ ] **T-0012-03 — Movimentos de saldo e limite no `accounts`** · #55
+- [x] **T-0012-03 — Movimentos de saldo e limite no `accounts`** · #55
     - What: `BankAccountService.applyBalanceDelta` e `CreditCardService.applyAvailableLimitDelta`,
       com lock de escrita pelo `EntityManager` recebido, sem abrir transação, aceitando arquivados
     - Where: `src/accounts/bank-account.service.ts`, `src/accounts/credit-card.service.ts`, `tests/integration/accounts/`

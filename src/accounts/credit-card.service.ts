@@ -99,6 +99,36 @@ export class CreditCardService {
     }
 
     /**
+     * Soma `deltaCents` (positivo ou negativo, nunca zero) ao limite disponível, na
+     * transação de quem chamou: lê a linha com lock de escrita pelo `manager`
+     * recebido, o que serializa despesas concorrentes no mesmo cartão (ADR-0003,
+     * regra 4). Não abre transação (INV-0004-03). Cartão arquivado aceita delta, e o
+     * disponível pode ficar negativo: nem ele barra o lançamento (INV-0012-09).
+     */
+    async applyAvailableLimitDelta(
+        manager: EntityManager,
+        id: string,
+        deltaCents: number,
+    ): Promise<void> {
+        if (!Number.isSafeInteger(deltaCents) || deltaCents === 0) {
+            throw new RangeError('deltaCents must be a non-zero integer');
+        }
+
+        const repository = manager.getRepository(CreditCard);
+        const card = await repository.findOne({
+            where: { id },
+            lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!card) throw cardNotFound();
+
+        await repository.update(
+            { id },
+            { availableLimitCents: card.availableLimitCents + deltaCents },
+        );
+    }
+
+    /**
      * Alterar o limite total move o disponível na mesma medida, e na mesma
      * transação: o que não muda é o quanto já foi gasto. Sem isso, subir o limite
      * de 5.000 para 8.000 deixaria o disponível parado, e o cartão passaria a
