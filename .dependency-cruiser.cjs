@@ -4,6 +4,12 @@
 
 const DOMAIN = 'identity|accounts|expenses|statements|earnings|reporting|imports';
 
+/**
+ * Módulos autorizados a chamar a interface pública do `accounts` (spec 0002, `boundaries`):
+ * invariantes de saldo e limite e a derivação de ciclo vivem no módulo dono do número.
+ */
+const ACCOUNTS_API_CLIENTS = 'expenses|statements';
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
     forbidden: [
@@ -46,11 +52,25 @@ module.exports = {
                 'única exceção (regra 5), e apenas para leitura.',
             from: {
                 path: `^src/(${DOMAIN})/`,
-                pathNot: '^src/reporting/',
+                pathNot: ['^src/reporting/', `^src/(?:${ACCOUNTS_API_CLIENTS})/`],
             },
             to: {
                 path: `^src/(?:${DOMAIN})/`,
                 pathNot: '^src/$1/',
+            },
+        },
+        {
+            name: 'only-accounts-public-api-across-domain',
+            severity: 'error',
+            comment:
+                'ADR-0003 regra 4 e INV-0004-03: invariante financeira entre módulos é chamada ' +
+                'síncrona à interface pública do módulo dono do número, nunca evento. ' +
+                '`expenses` (spec 0012, INV-0012-10) e `statements` (spec 0013, `cycleFor`) ' +
+                'podem importar `src/accounts/index.ts` e nenhum outro módulo de domínio.',
+            from: { path: `^src/(${ACCOUNTS_API_CLIENTS})/` },
+            to: {
+                path: `^src/(?:${DOMAIN})/`,
+                pathNot: ['^src/$1/', '^src/accounts/index\\.ts$'],
             },
         },
         {
