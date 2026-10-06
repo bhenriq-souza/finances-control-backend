@@ -34,6 +34,12 @@ export const envList: EnvList = [
         description: 'Conexões máximas do pool',
     },
     {
+        key: 'JOBS_ENABLED',
+        required: false,
+        default: 'true',
+        description: 'Liga o worker de jobs (pg-boss); `false` não registra nem inicia nada',
+    },
+    {
         key: 'IDENTITY_BOOTSTRAP_ADMIN_EMAIL',
         required: false,
         description: 'Email promovido a ADMIN no primeiro acesso; ausente desliga o bootstrap',

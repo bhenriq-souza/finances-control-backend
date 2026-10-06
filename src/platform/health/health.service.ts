@@ -4,9 +4,11 @@ import type { IEnvService, ILogger } from '@bhs-dev/typescript-common-types';
 
 import { RequestContext } from '../context/request-context';
 import { initializeDataSource } from '../database/data-source';
+import type { JobsLifecycle, JobsStatus } from '../jobs/job-queue';
 import {
     DatabaseConnectionSymbol,
     EnvServiceSymbol,
+    JobQueueSymbol,
     LoggerServiceSymbol,
     RequestContextSymbol,
 } from '../symbols';
@@ -21,7 +23,7 @@ export type HealthReport = {
 
 export type ReadinessReport = {
     status: 'ready' | 'not-ready';
-    checks: { database: 'up' | 'down' };
+    checks: { database: 'up' | 'down'; jobs: JobsStatus };
 };
 
 /**
@@ -37,6 +39,7 @@ export class HealthService {
         @inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource,
         @inject(LoggerServiceSymbol) private readonly logger: ILogger,
         @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
+        @inject(JobQueueSymbol) private readonly jobs: JobsLifecycle,
     ) {}
 
     /**
@@ -54,13 +57,18 @@ export class HealthService {
         };
     }
 
-    /** Readiness: sem cache, cada chamada sonda o banco de novo (spec 0003). */
+    /**
+     * Readiness: sem cache, cada chamada sonda o banco de novo (spec 0003). Os jobs
+     * entram como `up`, `down` ou `disabled`; só `down` tira a aplicação do ar
+     * (spec 0017): sem worker nada vence nem fecha.
+     */
     async getReadiness(): Promise<ReadinessReport> {
         const database = (await this.isDatabaseUp()) ? 'up' : 'down';
+        const jobs = this.jobs.getStatus();
 
         return {
-            status: database === 'up' ? 'ready' : 'not-ready',
-            checks: { database },
+            status: database === 'up' && jobs !== 'down' ? 'ready' : 'not-ready',
+            checks: { database, jobs },
         };
     }
 
