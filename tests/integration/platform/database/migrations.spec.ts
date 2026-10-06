@@ -181,4 +181,72 @@ describe('migrations no banco real', () => {
             ].sort(),
         );
     });
+
+    it('cria as tabelas de receitas, com os oito tipos, e reverte (AC-0014-01)', async () => {
+        const { CreateEarningsTables1791306866742 } =
+            await import('../../../../src/platform/database/migrations/1791306866742-CreateEarningsTables');
+
+        const constraintsOf = async (table: string): Promise<string[]> => {
+            const rows = await dataSource.query<{ conname: string }[]>(
+                `SELECT con.conname FROM pg_constraint con
+                 JOIN pg_class c ON c.oid = con.conrelid
+                 JOIN pg_namespace n ON n.oid = c.relnamespace
+                 WHERE c.relname = $1 AND n.nspname = current_schema()
+                 ORDER BY con.conname`,
+                [table],
+            );
+            return rows.map((row) => row.conname);
+        };
+
+        expect(await constraintsOf('earning_types')).toEqual(['pk_earning_types']);
+        expect(await constraintsOf('earnings')).toEqual([
+            'ck_earnings_amount',
+            'ck_earnings_installment',
+            'ck_earnings_kind',
+            'ck_earnings_received_on',
+            'ck_earnings_status',
+            'fk_earnings_bank_account_id',
+            'fk_earnings_earning_type_id',
+            'pk_earnings',
+            'uq_earnings_installment_group_id_installment_number',
+        ]);
+
+        const types = await dataSource.query<{ name: string }[]>(
+            'SELECT name FROM earning_types ORDER BY name;',
+        );
+        expect(types.map((row) => row.name).sort()).toEqual(
+            [
+                'Salário',
+                'Férias, 13º e verbas rescisórias',
+                'Rendimento de investimento',
+                'Restituição de imposto',
+                'Reembolso',
+                'Devolução de empréstimo',
+                'Rateio de despesa',
+                'Outros',
+            ].sort(),
+        );
+
+        // Reverte e reaplica a própria migration, sem depender de qual é a última.
+        const runner = dataSource.createQueryRunner();
+        try {
+            const migration = new CreateEarningsTables1791306866742();
+
+            await migration.down(runner);
+            const gone = await dataSource.query<{ count: string }[]>(
+                `SELECT count(*) FROM information_schema.tables
+                 WHERE table_schema = current_schema()
+                   AND table_name IN ('earnings', 'earning_types')`,
+            );
+            expect(Number(gone[0]!.count)).toBe(0);
+
+            await migration.up(runner);
+            const back = await dataSource.query<{ count: string }[]>(
+                'SELECT count(*) FROM earning_types;',
+            );
+            expect(Number(back[0]!.count)).toBe(8);
+        } finally {
+            await runner.release();
+        }
+    });
 });

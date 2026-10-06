@@ -271,7 +271,7 @@ Tarefas da [spec 0014](../specs/0014-earnings.md), que fecha a issue de entrega
 Ordem por dependência: schema antes de tudo; criação antes de status; consulta, alteração e
 OpenAPI por último.
 
-- [ ] **T-0014-01 — Entidades, migration e seed dos tipos** · #71
+- [x] **T-0014-01 — Entidades, migration e seed dos tipos** · #71
     - What: `EarningType` e `Earning` com os enums sob CHECK e as constraints nomeadas, e a
       migration com as oito linhas pré-definidas
     - Where: `src/earnings/`, `src/platform/database/migrations/`
