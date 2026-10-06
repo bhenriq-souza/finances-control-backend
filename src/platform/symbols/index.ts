@@ -31,3 +31,6 @@ export const HealthRoutesSymbol = Symbol.for('HealthRoutes');
 /** Eventos de domínio (spec 0004). */
 export const DomainEventDispatcherSymbol = Symbol.for('DomainEventDispatcher');
 export const TransactionRunnerSymbol = Symbol.for('TransactionRunner');
+
+/** Jobs em segundo plano (spec 0017). */
+export const JobQueueSymbol = Symbol.for('JobQueue');

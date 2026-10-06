@@ -1,3 +1,6 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
 import { DataSource } from 'typeorm';
 
 import { buildDataSourceOptions } from '../../src/platform/database/data-source';
@@ -66,4 +69,24 @@ export async function dropIsolatedDataSource(
 
     await dataSource.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     await dataSource.destroy();
+}
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Aplica `jobs:migrate` no banco de teste, como o initContainer faz (spec 0017). O
+ * schema `pgboss` é compartilhado entre as suítes, então a migração é idempotente
+ * e tenta de novo uma vez se outra suíte estiver migrando ao mesmo tempo.
+ */
+export async function migrateJobsSchema(databaseUrl = process.env.DATABASE_URL): Promise<void> {
+    const run = () =>
+        execFileAsync('npm', ['run', '--silent', 'jobs:migrate'], {
+            env: { ...process.env, DATABASE_URL: databaseUrl },
+        });
+
+    try {
+        await run();
+    } catch {
+        await run();
+    }
 }

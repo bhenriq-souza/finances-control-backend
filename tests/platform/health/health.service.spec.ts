@@ -3,6 +3,7 @@ import type { DataSource } from 'typeorm';
 import type { IEnvService, ILogger } from '@bhs-dev/typescript-common-types';
 
 import type { RequestContext } from '../../../src/platform/context/request-context';
+import type { JobsStatus } from '../../../src/platform/jobs/job-queue';
 import { HealthService } from '../../../src/platform/health/health.service';
 
 describe('HealthService', () => {
@@ -27,8 +28,12 @@ describe('HealthService', () => {
         getCorrelationId: () => 'correlation-id-from-context',
     } as unknown as RequestContext;
 
-    const buildService = (dataSource: Partial<DataSource>) =>
-        new HealthService(env, dataSource as DataSource, logger, requestContext);
+    const buildService = (dataSource: Partial<DataSource>, jobs: JobsStatus = 'disabled') =>
+        new HealthService(env, dataSource as DataSource, logger, requestContext, {
+            start: jest.fn(),
+            stop: jest.fn(),
+            getStatus: () => jobs,
+        });
 
     describe('getReport (liveness)', () => {
         it('reporta status, identificação da aplicação e uptime', () => {
@@ -61,8 +66,23 @@ describe('HealthService', () => {
 
             const report = await buildService({ isInitialized: true, query }).getReadiness();
 
-            expect(report).toEqual({ status: 'ready', checks: { database: 'up' } });
+            expect(report).toEqual({
+                status: 'ready',
+                checks: { database: 'up', jobs: 'disabled' },
+            });
             expect(query).toHaveBeenCalledWith('SELECT 1');
+        });
+
+        it.each([
+            ['up', 'ready'],
+            ['disabled', 'ready'],
+            ['down', 'not-ready'],
+        ] as const)('com jobs `%s` e banco no ar, reporta %s (spec 0017)', async (jobs, status) => {
+            const query = jest.fn().mockResolvedValue([]);
+
+            const report = await buildService({ isInitialized: true, query }, jobs).getReadiness();
+
+            expect(report).toEqual({ status, checks: { database: 'up', jobs } });
         });
 
         it('conecta quando ainda não há conexão (ERR-0003-02)', async () => {
@@ -84,7 +104,10 @@ describe('HealthService', () => {
 
             const report = await buildService({ isInitialized: true, query }).getReadiness();
 
-            expect(report).toEqual({ status: 'not-ready', checks: { database: 'down' } });
+            expect(report).toEqual({
+                status: 'not-ready',
+                checks: { database: 'down', jobs: 'disabled' },
+            });
         });
 
         it('reporta não pronto quando a conexão não pode ser aberta', async () => {
@@ -132,7 +155,7 @@ describe('HealthService', () => {
 
             await expect(pending).resolves.toEqual({
                 status: 'not-ready',
-                checks: { database: 'down' },
+                checks: { database: 'down', jobs: 'disabled' },
             });
 
             jest.useRealTimers();

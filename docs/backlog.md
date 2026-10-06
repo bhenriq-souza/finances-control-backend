@@ -348,7 +348,7 @@ Tarefas da [spec 0017](../specs/0017-jobs-and-recurrence.md), que fecha a issue 
 rotinas existentes dependem das specs 0012 a 0014 implementadas; a série de despesas antes da de
 receitas, que a espelha.
 
-- [ ] **T-0017-01 — Porta de jobs, adaptador `pg-boss` e readiness** · #86
+- [x] **T-0017-01 — Porta de jobs, adaptador `pg-boss` e readiness** · #86
     - What: `JobQueue`, `PgBossJobQueue` com retentativa e log, `JOBS_ENABLED`, `jobs:migrate`,
       a regra de fronteira do pacote e `checks.jobs` no readiness
     - Where: `src/platform/jobs/`, `src/platform/health/`, `.dependency-cruiser.cjs`, `package.json`

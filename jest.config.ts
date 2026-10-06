@@ -12,6 +12,28 @@ const config: Config = {
     moduleNameMapper: {
         '^firebase-admin/(.*)$': '<rootDir>/tests/mocks/firebase-admin-$1.ts',
     },
+    // `pg-boss` e as dependências dele (cron-parser, serialize-error, non-error,
+    // is-network-error, rrule-temporal, type-fest, luxon) são só ESM: o Jest em CJS
+    // precisa transpilá-las. A lista é exatamente essa; acrescente aqui se uma
+    // atualização do `pg-boss` trouxer outra.
+    transform: {
+        '^.+\\.ts$': 'ts-jest',
+        '^.+\\.js$': [
+            'ts-jest',
+            {
+                tsconfig: {
+                    allowJs: true,
+                    module: 'commonjs',
+                    target: 'es2022',
+                    esModuleInterop: true,
+                },
+                diagnostics: false,
+            },
+        ],
+    },
+    transformIgnorePatterns: [
+        '/node_modules/(?!(pg-boss|cron-parser|serialize-error|non-error|is-network-error|rrule-temporal|type-fest|luxon)/)',
+    ],
     clearMocks: true,
     collectCoverageFrom: [
         'src/**/*.ts',

@@ -41,7 +41,10 @@ describe('HealthController', () => {
         };
 
         it('responde 200 quando a aplicação está pronta (AC-0003-04)', async () => {
-            const report: ReadinessReport = { status: 'ready', checks: { database: 'up' } };
+            const report: ReadinessReport = {
+                status: 'ready',
+                checks: { database: 'up', jobs: 'up' },
+            };
             const service = {
                 getReadiness: jest.fn().mockResolvedValue(report),
             } as unknown as HealthService;
@@ -54,7 +57,10 @@ describe('HealthController', () => {
         });
 
         it('responde 503 com NOT_READY quando o banco está fora (AC-0003-04)', async () => {
-            const report: ReadinessReport = { status: 'not-ready', checks: { database: 'down' } };
+            const report: ReadinessReport = {
+                status: 'not-ready',
+                checks: { database: 'down', jobs: 'up' },
+            };
             const service = {
                 getReadiness: jest.fn().mockResolvedValue(report),
             } as unknown as HealthService;
@@ -67,7 +73,7 @@ describe('HealthController', () => {
                 error: {
                     message: 'Service not ready',
                     code: 'NOT_READY',
-                    details: { checks: { database: 'down' } },
+                    details: { checks: { database: 'down', jobs: 'up' } },
                 },
             });
         });

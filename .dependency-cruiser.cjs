@@ -103,6 +103,15 @@ module.exports = {
             to: { path: '^src/events/' },
         },
         {
+            name: 'pg-boss-only-in-platform-jobs',
+            severity: 'error',
+            comment:
+                'INV-0017-03: `pg-boss` é detalhe do adaptador de jobs. Quem precisa de um job ' +
+                'depende da porta `JobQueue` e do `JobQueueSymbol`.',
+            from: { pathNot: '^src/platform/jobs/' },
+            to: { path: '^node_modules/pg-boss/' },
+        },
+        {
             name: 'no-orphans',
             severity: 'warn',
             comment: 'Arquivo que ninguém importa costuma ser resto de refatoração.',

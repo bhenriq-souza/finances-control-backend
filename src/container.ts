@@ -19,11 +19,13 @@ import { RequestContext } from './platform/context/request-context';
 import { HttpResponses } from './platform/http/http-responses';
 import { InProcessDomainEventDispatcher } from './platform/events/in-process-domain-event-dispatcher';
 import { DataSourceTransactionRunner } from './platform/events/transaction-runner';
+import { PgBossJobQueue } from './platform/jobs/pg-boss-job-queue';
 import { LoggerService } from './platform/logging/logger.service';
 import {
     DatabaseConnectionSymbol,
     DomainEventDispatcherSymbol,
     EnvListSymbol,
+    JobQueueSymbol,
     RequireAuthenticationSymbol,
     RequireProfileSymbol,
     EnvServiceSymbol,
@@ -49,6 +51,9 @@ container.registerSingleton(RequestContextSymbol, RequestContext);
 /* eventos de domínio — dispatcher e runner são singletons (spec 0004, INV-0004-09) */
 container.registerSingleton(DomainEventDispatcherSymbol, InProcessDomainEventDispatcher);
 container.registerSingleton(TransactionRunnerSymbol, DataSourceTransactionRunner);
+
+/* jobs — worker no mesmo processo; só `platform/jobs` conhece o pg-boss (spec 0017) */
+container.registerSingleton(JobQueueSymbol, PgBossJobQueue);
 
 /* helpers de resposta */
 container.register(HttpResponsesSymbol, { useValue: HttpResponses });

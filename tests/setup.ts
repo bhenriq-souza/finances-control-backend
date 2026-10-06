@@ -12,3 +12,5 @@ process.env.DATABASE_URL =
 // existe justamente para isso (INV-0010-07).
 process.env.FIREBASE_PROJECT_ID = 'finances-test';
 process.env.FIREBASE_SERVICE_ACCOUNT = '{}';
+// Testes que não exercitam jobs não sobem o pg-boss; os que exercitam o instanciam à mão.
+process.env.JOBS_ENABLED = 'false';
