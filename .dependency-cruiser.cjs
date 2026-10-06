@@ -64,6 +64,25 @@ module.exports = {
             to: { path: '^firebase-admin' },
         },
         {
+            name: 'events-catalog-only-imports-platform',
+            severity: 'error',
+            comment:
+                'INV-0004-07: `src/events/` contém apenas tipos e constantes e importa só de ' +
+                '`src/platform`. Importar de módulo de domínio reabriria o acoplamento que o ' +
+                'catálogo existe para evitar.',
+            from: { path: '^src/events/' },
+            to: { path: `^src/(${DOMAIN})/` },
+        },
+        {
+            name: 'platform-must-not-depend-on-events-catalog',
+            severity: 'error',
+            comment:
+                'INV-0004-07 e INV-0004-10: `platform` não conhece os eventos que existem; o ' +
+                'dispatcher é agnóstico e os handlers são registrados pela composição em `src/`.',
+            from: { path: '^src/platform/' },
+            to: { path: '^src/events/' },
+        },
+        {
             name: 'no-orphans',
             severity: 'warn',
             comment: 'Arquivo que ninguém importa costuma ser resto de refatoração.',

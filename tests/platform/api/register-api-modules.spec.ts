@@ -3,6 +3,7 @@ import type { Express } from 'express';
 import { container as rootContainer } from 'tsyringe';
 import { ScopeTypes } from '@bhs-dev/typescript-common-types';
 
+import { DomainEventDispatcherSymbol } from '../../../src/platform/symbols';
 import { registerApiModules, type ApiModule } from '../../../src/platform/api/register-api-modules';
 
 class FakeRoutes {
@@ -101,5 +102,41 @@ describe('registerApiModules', () => {
                 container,
             ),
         ).toThrow();
+    });
+
+    describe('subscribers', () => {
+        it('chama subscribe(dispatcher) uma vez, antes de publicar o router', () => {
+            const app = buildApp();
+            const dispatcher = { subscribe: jest.fn(), dispatch: jest.fn() };
+            container.registerInstance(DomainEventDispatcherSymbol, dispatcher);
+            const calls: string[] = [];
+            const subscribe = jest.fn(() => calls.push('subscribe'));
+            (app.use as jest.Mock).mockImplementation(() => calls.push('use'));
+            class FakeSubscriber {
+                subscribe = subscribe;
+            }
+            const token = Symbol.for('FakeSubscriber');
+
+            registerApiModules(
+                app,
+                [moduleWith({ subscribers: [{ token, clazz: FakeSubscriber }] })],
+                process.env,
+                container,
+            );
+
+            expect(subscribe).toHaveBeenCalledTimes(1);
+            expect(subscribe).toHaveBeenCalledWith(dispatcher);
+            expect(calls).toEqual(['subscribe', 'use']);
+            expect(container.resolve(token)).toBe(container.resolve(token));
+        });
+
+        it('módulo sem subscribers não resolve o dispatcher', () => {
+            const app = buildApp();
+
+            registerApiModules(app, [moduleWith()], process.env, container);
+
+            expect(app.use).toHaveBeenCalledWith('/fake', 'router');
+            expect(container.isRegistered(DomainEventDispatcherSymbol)).toBe(false);
+        });
     });
 });

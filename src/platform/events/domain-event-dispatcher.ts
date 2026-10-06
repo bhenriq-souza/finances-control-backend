@@ -14,3 +14,11 @@ export interface DomainEventDispatcher {
     ): Unsubscribe;
     dispatch(events: readonly DomainEvent[]): Promise<void>;
 }
+
+/**
+ * Contrato de um consumidor de eventos: o módulo exporta uma classe que o implementa e a declara
+ * em `ApiModule.subscribers`; a composição chama `subscribe` uma vez (spec 0004).
+ */
+export interface DomainEventSubscriber {
+    subscribe(dispatcher: DomainEventDispatcher): void;
+}

@@ -25,7 +25,11 @@ export {
     type RequireProfile,
 } from './authorization';
 export type { DomainEvent, JsonObject } from './events/domain-event';
-export type { DomainEventDispatcher, DomainEventHandler } from './events/domain-event-dispatcher';
+export type {
+    DomainEventDispatcher,
+    DomainEventHandler,
+    DomainEventSubscriber,
+} from './events/domain-event-dispatcher';
 export * from './symbols';
 export type { TransactionScope, TransactionRunner } from './events/transaction-runner';
 export { splitCents } from './money';

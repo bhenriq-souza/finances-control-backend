@@ -3,6 +3,12 @@ import { container as rootContainer, type InjectionToken } from 'tsyringe';
 import { ScopeTypes, type IBaseRoute } from '@bhs-dev/typescript-common-types';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 
+import type {
+    DomainEventDispatcher,
+    DomainEventSubscriber,
+} from '../events/domain-event-dispatcher';
+import { DomainEventDispatcherSymbol } from '../symbols';
+
 export type ApiProvider = {
     token: InjectionToken;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,6 +20,8 @@ export type ApiModule = {
     path: string;
     route: Omit<ApiProvider, 'scope'>;
     provides?: ApiProvider[];
+    /** Consumidores de eventos de domínio; `subscribe` é chamado uma vez, antes do router. */
+    subscribers?: Array<Omit<ApiProvider, 'scope'>>;
     enableIf?: (env: NodeJS.ProcessEnv) => boolean;
 };
 
@@ -42,6 +50,13 @@ export function registerApiModules(
                 default:
                     throw CustomError.apiModuleNotRecognized();
             }
+        }
+
+        for (const subscriber of module.subscribers ?? []) {
+            container.registerSingleton(subscriber.token, subscriber.clazz);
+            container
+                .resolve<DomainEventSubscriber>(subscriber.token)
+                .subscribe(container.resolve<DomainEventDispatcher>(DomainEventDispatcherSymbol));
         }
 
         container.registerSingleton(module.route.token, module.route.clazz);
