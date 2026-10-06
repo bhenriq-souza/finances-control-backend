@@ -73,7 +73,7 @@ dependência: o envelope e o dispatcher antes do escopo de transação, e os doi
     - Where: `src/platform/events/transaction-runner.ts`, `src/container.ts`, `tests/integration/platform/events/`
     - Done when: `AC-0004-05` a `AC-0004-09` e `AC-0004-12` cobertos; `INV-0004-01` e `INV-0004-02`
       verificados
-- [ ] **T-0004-03 — Catálogo `src/events/`, subscribers na composição e regras de fronteira** · #52
+- [x] **T-0004-03 — Catálogo `src/events/`, subscribers na composição e regras de fronteira** · #52
     - What: `src/events/index.ts` com o contrato documentado, a interface `DomainEventSubscriber`,
       o campo `subscribers` de `ApiModule` tratado por `registerApiModules`, as duas regras novas no
       `.dependency-cruiser.cjs` e o parágrafo em `AGENTS.md` (regra 8) sobre publicar e consumir
