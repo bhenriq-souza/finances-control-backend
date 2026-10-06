@@ -1,16 +1,18 @@
 # PostgreSQL efêmero para os testes de integração e para rodar migrations local.
 # Mesma major do cluster (spec 0003). Sem volume: cada `db:up` nasce limpo.
+# Execução paralela: TEST_DB_PORT e TEST_DB_SUFFIX sobem uma instância por worktree
+# (docs/parallel-execution.md). Sem elas, o padrão continua `finances-test-db` na 5433.
 services:
     postgres:
         image: postgres:16-alpine
-        container_name: finances-test-db
+        container_name: finances-test-db${TEST_DB_SUFFIX:-}
         environment:
             POSTGRES_USER: finances_test
             # Container efêmero e local: `trust` evita versionar qualquer senha (INV-0003-07).
             POSTGRES_HOST_AUTH_METHOD: trust
             POSTGRES_DB: finances_test
         ports:
-            - '5433:5432'
+            - '${TEST_DB_PORT:-5433}:5432'
         healthcheck:
             test: ['CMD-SHELL', 'pg_isready -U finances_test -d finances_test']
             interval: 2s
