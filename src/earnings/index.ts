@@ -6,3 +6,8 @@ export { EARNING_KINDS, type EarningKind } from './earning-kind';
 export { EARNING_STATUSES, type EarningStatus } from './earning-status';
 export { Earning } from './earning.entity';
 export { EarningType } from './earning-type.entity';
+export { EarningTypeService } from './earning-type.service';
+export { EarningTypeController } from './earning-type.controller';
+export { EarningTypeRoutes } from './earning-type.routes';
+export { toEarningTypeResponse, type EarningTypeResponse } from './earning-type.response';
+export * from './earnings.symbols';

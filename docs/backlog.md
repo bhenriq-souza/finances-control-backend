@@ -277,7 +277,7 @@ OpenAPI por último.
     - Where: `src/earnings/`, `src/platform/database/migrations/`
     - Done when: `AC-0014-01` e `AC-0014-13` cobertos; `INV-0014-01`, `INV-0014-02` e `INV-0014-04`
       verificados pelas constraints
-- [ ] **T-0014-02 — Tipos de receita** · #72
+- [x] **T-0014-02 — Tipos de receita** · #72
     - What: as rotas de `/earning-types` com unicidade case-insensitive, arquivamento idempotente e
       guardas de perfil, registradas em `api.config.ts`
     - Where: `src/earnings/`, `src/api.config.ts`
