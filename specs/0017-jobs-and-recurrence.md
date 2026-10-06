@@ -190,7 +190,9 @@ transação própria, com `ExpenseCreated` por linha.
 com `occurredOn <= asOf`: o planejado do mês chegou e virou compromisso — "nascem como Previsto e
 são promovidas a Aberto no vencimento" (análise, 3.3). A transição é a `FORECAST → OPEN` da spec
 0012, com os mesmos efeitos: a de cartão consome limite na mesma transação. `FORECAST` lançado à mão,
-sem série, não é promovido: quem o planejou é quem o confirma.
+sem série, não é promovido: quem o planejou é quem o confirma. A promoção é no **dia da
+ocorrência**, e não no primeiro dia do mês: até lá ela é "Previsto", e a assinatura no cartão
+consome limite no dia em que é cobrada, como no cartão real.
 
 #### Alteração
 
@@ -334,13 +336,4 @@ As tabelas de série são migrations TypeORM comuns, uma por módulo.
 
 ## Open questions
 
-1. **Momento da promoção.** Exemplo: aluguel de R$ 1.500 que vence todo dia 10, e a ocorrência de
-   abril, gerada como `FORECAST`. A pergunta é **em que dia ela passa a `OPEN`**:
-    - **No dia dela (10/04)** — o que esta spec diz hoje. De 01/04 a 09/04 ela aparece como
-      "Previsto"; no dia 10 vira "Aberto"; não paga, vira "Vencido" no dia 11.
-    - **No primeiro dia do mês (01/04)** — o mês começa com tudo dele já "Aberto", e o "Previsto"
-      fica só para os meses futuros.
-
-    O saldo previsto é o mesmo nos dois casos: os dois status contam nele (spec 0015). Muda o que se
-    vê na listagem do mês e, num lançamento de cartão (uma assinatura), o dia em que o limite é
-    consumido — no dia 10 ou já no dia 1.
+Nenhuma.
