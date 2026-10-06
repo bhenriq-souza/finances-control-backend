@@ -32,7 +32,7 @@ Definir os portões de qualidade do repositório e o **orquestrador único** que
 
 Cópias de trabalho de agentes em `.claude/worktrees/` ficam fora dos gates `format` e `lint` (ignoradas pelo Git, pelo Prettier e pelo ESLint): não são código deste working tree, e sim de outras branches ([execução paralela](../docs/parallel-execution.md)).
 
-O gate `boundaries` é o enforcement automatizado das regras de fronteira do ADR-0003; sua configuração declara quais módulos podem depender de quais, com `reporting` autorizado a ler múltiplos contextos e `platform` acessível a todos.
+O gate `boundaries` é o enforcement automatizado das regras de fronteira do ADR-0003; sua configuração declara quais módulos podem depender de quais, com `reporting` autorizado a ler múltiplos contextos e `platform` acessível a todos. A única outra dependência entre módulos de domínio permitida é `expenses` e `statements` → `src/accounts/index.ts` (regra `only-accounts-public-api-across-domain`): invariante financeira entre módulos é chamada síncrona à interface pública do dono do número (ADR-0003, regra 4; INV-0004-03; specs 0012 e 0013), e nenhum outro módulo de domínio pode ser importado por eles.
 
 ### Orquestrador único
 
