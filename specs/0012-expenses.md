@@ -1,7 +1,7 @@
 ---
 id: '0012'
 title: Expenses — despesas, tipos, parcelamento e status
-status: draft
+status: approved
 depends_on: ['0000', '0003', '0004', '0010', '0011']
 ---
 
