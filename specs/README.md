@@ -20,6 +20,6 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0017](0017-jobs-and-recurrence.md)  | Jobs e recorrência — pg-boss, rotinas diárias e lançamentos fixos  | draft       |
 | [0018](0018-transfers.md)            | Transfers — transferências entre contas próprias                   | draft       |
 
-Specs de domínio planejadas (ainda não escritas): `0016` imports.
+Specs de domínio planejadas (ainda não escritas): `0016` imports — **adiada** (FCB-013).
 
 Decisões de arquitetura: as de **produto** vivem em [`docs/adr/` do hub](https://github.com/bhenriq-souza/finances-control/tree/main/docs/adr); as **locais do backend**, em [`adr/`](adr/).
