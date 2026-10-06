@@ -172,7 +172,7 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
     - Where: `src/expenses/`, `src/platform/money.ts`, `src/platform/business-date.ts`, `src/platform/index.ts`, `src/platform/database/migrations/`
     - Done when: `AC-0012-01` e `AC-0012-20` cobertos; `INV-0012-01`, `INV-0012-02`, `INV-0012-07`
       e `INV-0012-14` verificados pelas constraints; `INV-0012-16` coberto por teste unitário
-- [ ] **T-0012-02 — Tipos de despesa** · #54
+- [x] **T-0012-02 — Tipos de despesa** · #54
     - What: as rotas de `/expense-types` com unicidade case-insensitive, arquivamento idempotente e
       guardas de perfil, registradas em `api.config.ts`
     - Where: `src/expenses/`, `src/api.config.ts`

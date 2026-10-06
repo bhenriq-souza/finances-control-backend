@@ -37,6 +37,14 @@ import {
     UserService,
     UserServiceSymbol,
 } from './identity';
+import {
+    ExpenseTypeController,
+    ExpenseTypeControllerSymbol,
+    ExpenseTypeRoutes,
+    ExpenseTypeRoutesSymbol,
+    ExpenseTypeService,
+    ExpenseTypeServiceSymbol,
+} from './expenses';
 
 /**
  * Módulos publicados pela API. Cada módulo de domínio (ADR-0003) entra aqui com
@@ -99,6 +107,22 @@ export const apiModules: ApiModule[] = [
             {
                 token: CreditCardControllerSymbol,
                 clazz: CreditCardController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
+    },
+    {
+        path: '/expense-types',
+        route: { token: ExpenseTypeRoutesSymbol, clazz: ExpenseTypeRoutes },
+        provides: [
+            {
+                token: ExpenseTypeServiceSymbol,
+                clazz: ExpenseTypeService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: ExpenseTypeControllerSymbol,
+                clazz: ExpenseTypeController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],
