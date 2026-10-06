@@ -291,7 +291,9 @@ Como no app do banco, a fatura fechada se paga com o **valor total**, com o **m�
 **valor livre** — para o backend, os três são um `amountCents` entre 1 e `remainingCents`; a
 escolha é do cliente, que tem os dois números na resposta. Uma fatura aceita vários pagamentos.
 
-`POST /statements/:id/payments` com `{ bankAccountId, amountCents, paidOn? }`. `paidOn` é opcional,
+`POST /statements/:id/payments` com `{ bankAccountId?, amountCents, paidOn? }`. `bankAccountId` é
+opcional quando o cartão tem conta pagadora (spec 0011), que é o default; sem os dois, `400`
+citando o campo. `paidOn` é opcional,
 default hoje, posterior a `closesOn` e não posterior a hoje. Numa única transação, sob o lock do
 cartão e com lock de escrita na linha da fatura:
 
@@ -316,7 +318,7 @@ arquivado não impede o pagamento. Pagamento parcial não marca despesa como pag
 
 **Pagamento antecipado.** Como no app do banco, a fatura **aberta** também se paga, antes do
 fechamento: `POST /statements/current/payments` com
-`{ creditCardId, bankAccountId, amountCents, paidOn? }`. Mesma transação, mesmo lock e mesmos
+`{ creditCardId, bankAccountId?, amountCents, paidOn? }`, com o mesmo default de conta. Mesma transação, mesmo lock e mesmos
 passos 2 a 5 do pagamento acima — a conta é debitada e o limite liberado na hora —, com três
 diferenças:
 
@@ -523,7 +525,8 @@ CreditCardRefundResponse { id, creditCardId, expenseId, description, amountCents
 ### Interface pública do módulo
 
 `src/statements/index.ts` exporta as classes de rota e controller, `StatementService.closeDue` para
-o job do FCB-015 e `StatementPeriodGuardService` para a composição. `reporting` (spec `0015`) lê as
+o job do FCB-015, `StatementPeriodGuardService` para a composição e `StatementService.list`, o
+serviço de `GET /statements`, que a spec `0015` usa para as faturas projetadas. `reporting` (spec `0015`) lê as
 três tabelas por consulta própria (ADR-0003, regra 5) — o pagamento de fatura é a saída de caixa
 que o saldo previsto precisa enxergar.
 
