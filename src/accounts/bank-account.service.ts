@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
-import type { DataSource, Repository } from 'typeorm';
+import type { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { DatabaseConnectionSymbol } from '../platform';
 import { archivedFilter, needsArchiveChange } from './archiving';
@@ -93,6 +93,32 @@ export class BankAccountService {
         }
 
         return this.findById(id);
+    }
+
+    /**
+     * Soma `deltaCents` (positivo ou negativo, nunca zero) ao saldo, na transação
+     * de quem chamou: lê a linha com lock de escrita pelo `manager` recebido, o que
+     * serializa movimentos concorrentes na mesma conta (ADR-0003, regra 4). Não abre
+     * transação (INV-0004-03). Conta arquivada aceita delta, e o saldo pode ficar
+     * negativo: nem ele barra o lançamento (INV-0012-09).
+     */
+    async applyBalanceDelta(manager: EntityManager, id: string, deltaCents: number): Promise<void> {
+        if (!Number.isSafeInteger(deltaCents) || deltaCents === 0) {
+            throw new RangeError('deltaCents must be a non-zero integer');
+        }
+
+        const repository = manager.getRepository(BankAccount);
+        const account = await repository.findOne({
+            where: { id },
+            lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!account) throw accountNotFound();
+
+        await repository.update(
+            { id },
+            { currentBalanceCents: account.currentBalanceCents + deltaCents },
+        );
     }
 
     /**
