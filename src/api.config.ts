@@ -38,6 +38,12 @@ import {
     UserServiceSymbol,
 } from './identity';
 import {
+    ExpenseController,
+    ExpenseControllerSymbol,
+    ExpenseRoutes,
+    ExpenseRoutesSymbol,
+    ExpenseService,
+    ExpenseServiceSymbol,
     ExpenseTypeController,
     ExpenseTypeControllerSymbol,
     ExpenseTypeRoutes,
@@ -147,6 +153,18 @@ export const apiModules: ApiModule[] = [
             {
                 token: EarningTypeControllerSymbol,
                 clazz: EarningTypeController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
+    },
+    {
+        path: '/expenses',
+        route: { token: ExpenseRoutesSymbol, clazz: ExpenseRoutes },
+        provides: [
+            { token: ExpenseServiceSymbol, clazz: ExpenseService, scope: ScopeTypes.SINGLETON },
+            {
+                token: ExpenseControllerSymbol,
+                clazz: ExpenseController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],
