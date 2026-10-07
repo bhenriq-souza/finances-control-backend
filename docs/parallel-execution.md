@@ -55,6 +55,13 @@ implementação: ele relê o contexto inteiro (rodada 1, abaixo).
     ln -s <repo>/node_modules node_modules
     ```
 
+- **Tarefa que acrescenta dependência** não pode instalar pelo symlink: o `npm install` alteraria o
+  `node_modules` do working tree principal, compartilhado por todos. O subagente remove o symlink,
+  roda `npm ci` e então `npm install <pacote>` no próprio worktree. Depois do merge, o líder roda
+  `npm ci` no working tree principal antes da rodada seguinte.
+- Pelo symlink, o dependency-cruiser resolve pacotes como `../../../node_modules/<pacote>/...`.
+  Regra de fronteira sobre pacote usa `(^|/)node_modules/<pacote>/`, nunca `^<pacote>` nem
+  `^node_modules/`, e é verificada com uma violação temporária num worktree.
 - `.claude/worktrees/` é ignorado pelo Git, pelo ESLint e pelo Prettier. Sem isso, o `npm run check`
   do working tree principal reprovava o gate `lint` com os arquivos dos worktrees.
 - **Limpeza é obrigatória** assim que o worktree deixa de ser necessário (PR mergeado ou tarefa
@@ -99,6 +106,11 @@ Curto e com caminhos exatos, para que o subagente não explore o repositório à
 - caminho da spec e as seções relevantes **com o número das linhas**, mais o que fica fora (tarefas
   vizinhas);
 - o que já foi mergeado e deve ser reaproveitado;
+- quando duas tarefas da rodada constroem peças irmãs (os tipos de despesa e de receita, por
+  exemplo), o **arquivo de referência** cuja convenção as duas seguem, para os detalhes que a spec
+  não fixa (tamanho de campo, corpo de `PATCH`);
+- os **pontos de parada previstos**: o que, se acontecer, faz o subagente parar e reportar em vez
+  de contornar (arquivo fora da lista, mudança de gate, CI);
 - arquivos que **pode** tocar, com a regra de só-acréscimo para os compartilhados;
 - arquivos **proibidos**;
 - o ritual de branch e o `node_modules` do worktree;
@@ -112,16 +124,40 @@ Curto e com caminhos exatos, para que o subagente não explore o repositório à
 Modelo: `sonnet` para tarefa com spec fechada (o padrão). `haiku` só para levantamento read-only.
 Tarefa que exige decisão de design não deveria estar paralelizada.
 
+**Tarefa que é a primeira do seu tipo** costuma esbarrar no ferramental, mesmo com spec fechada: o
+primeiro import entre módulos de domínio, a primeira dependência nova, o primeiro pacote só ESM.
+Antes de lançar, o líder confere o caminho mais curto (um import de teste no `depcruise`, o `type`
+do pacote no `package.json`). Se a conferência falhar, ele resolve antes ou avisa no briefing que o
+subagente vai parar ali.
+
 ## Rodadas medidas
 
-| Rodada | Data       | Tarefas                         | Modelo | Tokens por subagente                                                      | Duração do subagente |
-| ------ | ---------- | ------------------------------- | ------ | ------------------------------------------------------------------------- | -------------------- |
-| 1      | 2026-10-06 | T-0004-01, T-0012-03            | sonnet | ~51 mil e ~57 mil na implementação, mais ~55 mil e ~61 mil para push e PR | ~1–1,5 min           |
-| 2      | 2026-10-06 | T-0004-02, T-0012-01, T-0014-01 | sonnet | ~59 mil, ~74 mil e ~72 mil                                                | ~1,5–2,5 min         |
+| Rodada | Data       | Tarefas                                               | Modelo | Tokens por subagente                                                                                                                                                | Duração do subagente                                        |
+| ------ | ---------- | ----------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 1      | 2026-10-06 | T-0004-01, T-0012-03                                  | sonnet | ~51 mil e ~57 mil na implementação, mais ~55 mil e ~61 mil para push e PR                                                                                           | ~1–1,5 min                                                  |
+| 2      | 2026-10-06 | T-0004-02, T-0012-01, T-0014-01                       | sonnet | ~59 mil, ~74 mil e ~72 mil                                                                                                                                          | ~1,5–2,5 min                                                |
+| 3      | 2026-10-06 | T-0004-03, T-0012-02, T-0014-02, T-0013-01, T-0017-01 | sonnet | ~53 mil, ~81 mil, ~77 mil, ~88 mil e ~136 mil na primeira entrega; acumulado depois das retomadas: ~83 mil (T-0012-02), ~108 mil (T-0013-01) e ~149 mil (T-0017-01) | ~1,7–8,1 min na primeira entrega; ~0,8–3,6 min por retomada |
 
-Em ambas, nenhum subagente parou com dúvida sobre a spec e todos os `npm run check` saíram verdes na
-primeira tentativa. Os subagentes tomaram decisões dentro da spec (proteção com `RangeError`,
-formato de retorno de `businessToday`, FK só na migration), e o líder as conferiu antes do PR.
+Nas rodadas 1 e 2, nenhum subagente parou com dúvida sobre a spec e todos os `npm run check` saíram
+verdes na primeira tentativa. Os subagentes tomaram decisões dentro da spec (proteção com
+`RangeError`, formato de retorno de `businessToday`, FK só na migration), e o líder as conferiu
+antes do PR.
+
+Na rodada 3, a primeira com cinco subagentes e um banco por worktree, três das cinco tarefas
+voltaram ao subagente:
+
+- **T-0012-02**, uma vez, por revisão do líder: o subagente escolheu limites diferentes da tarefa
+  irmã T-0014-02 e da convenção do `accounts`.
+- **T-0013-01**, parada no gate `boundaries`: a regra proibia o import de `accounts` que a spec
+  0013 exige. O responsável decidiu por uma allowlist num PR de gate próprio (#110) e por uma suíte
+  de schema por módulo para a cobertura.
+- **T-0017-01**, parada em arquivos fora da lista: o `pg-boss` é só ESM, o que pediu
+  `jest.config.ts`, e o boot pedia `server.ts`. O responsável decidiu os dois.
+
+Nenhuma parada foi improviso: todas chegaram ao líder com as leituras possíveis. O custo da rodada,
+medido no `/usage`, foi de US$ 9,32: US$ 5,52 nos cinco subagentes (Sonnet) e US$ 3,80 no líder
+(Opus). Foram ~35 min de relógio, 2% → 8% da janela de sessão do plano Max. O contexto do líder
+terminou em ~190 mil tokens.
 
 O que cada rodada ensinou:
 
@@ -134,6 +170,22 @@ O que cada rodada ensinou:
       `tests/integration/<módulo>/schema.spec.ts`.
     - Os worktrees dentro do repositório quebravam o gate `lint` do working tree principal
       (corrigido acima).
+- **Rodada 3.**
+    - Cinco bancos e cinco Jest ao mesmo tempo não deram timeout. O `/check` levou 24–35 s sozinho,
+      57 s com outros três bancos ativos e 69–70 s com quatro em paralelo depois do rebase. Rodar
+      em paralelo continua compensando: os quatro terminaram em 70 s de relógio.
+    - As duas paradas vieram de tarefas que eram as primeiras do seu tipo, não de ambiguidade de
+      spec (ver _Briefing do subagente_).
+    - Spec aprovada e gate podem divergir. As specs 0012 e 0013 mandavam chamar o `accounts`, e o
+      gate proibia; a correção é um PR de gate do líder, nunca o subagente mexendo no gate.
+    - Duas regras de fronteira sobre pacote nunca disparavam (`firebase-admin` sempre, `pg-boss`
+      a partir de worktree), por causa do caminho resolvido. Corrigido no #113 (ver _Worktrees_).
+    - Tarefas irmãs divergem no que a spec não fixa. O briefing passa a apontar o arquivo de
+      referência.
+    - Os conflitos de só-acréscimo (`api.config.ts`, `.dependency-cruiser.cjs`) se resolveram no
+      rebase em minutos, como previsto. `src/platform/index.ts` mesclou sozinho.
+    - Rodar o `/check` no líder antes do PR não pegou falha nenhuma nesta rodada, mas custa menos
+      de um minuto e é a única saída que vai para o PR sem depender do relato do subagente.
 - **Gargalo real.** O limite não é o custo de tokens. É o grafo de dependências do backlog e a
   revisão humana dos PRs. Com mais subagentes, a quantidade de tarefas realmente independentes
   cai rápido, e a ordem de merge passa a ditar os rebases.
