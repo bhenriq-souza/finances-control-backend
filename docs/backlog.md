@@ -282,7 +282,7 @@ OpenAPI por último.
       guardas de perfil, registradas em `api.config.ts`
     - Where: `src/earnings/`, `src/api.config.ts`
     - Done when: `AC-0014-02` coberto; `ERR-0014-01`, `ERR-0014-06` e `ERR-0014-14`
-- [ ] **T-0014-03 — Criação de receita e evento `EarningCreated`** · #73
+- [x] **T-0014-03 — Criação de receita e evento `EarningCreated`** · #73
     - What: `POST /earnings` dentro de `TransactionRunner.run`, com a recusa de conta e tipo
       arquivados e o evento no catálogo `src/events/earnings.events.ts`
     - Where: `src/earnings/`, `src/events/earnings.events.ts`, `src/api.config.ts`

@@ -11,3 +11,7 @@ export { EarningTypeController } from './earning-type.controller';
 export { EarningTypeRoutes } from './earning-type.routes';
 export { toEarningTypeResponse, type EarningTypeResponse } from './earning-type.response';
 export * from './earnings.symbols';
+export { EarningService } from './earning.service';
+export { EarningController } from './earning.controller';
+export { EarningRoutes } from './earning.routes';
+export { toEarningResponse, type EarningResponse } from './earning.response';

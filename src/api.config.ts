@@ -58,6 +58,12 @@ import {
     EarningTypeRoutesSymbol,
     EarningTypeService,
     EarningTypeServiceSymbol,
+    EarningController,
+    EarningControllerSymbol,
+    EarningRoutes,
+    EarningRoutesSymbol,
+    EarningService,
+    EarningServiceSymbol,
 } from './earnings';
 
 /**
@@ -165,6 +171,18 @@ export const apiModules: ApiModule[] = [
             {
                 token: ExpenseControllerSymbol,
                 clazz: ExpenseController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
+    },
+    {
+        path: '/earnings',
+        route: { token: EarningRoutesSymbol, clazz: EarningRoutes },
+        provides: [
+            { token: EarningServiceSymbol, clazz: EarningService, scope: ScopeTypes.SINGLETON },
+            {
+                token: EarningControllerSymbol,
+                clazz: EarningController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],
