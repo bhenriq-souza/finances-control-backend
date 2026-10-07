@@ -64,7 +64,7 @@ Ele orquestra: formatação, lint, tipos, contratos de fronteira entre módulos,
 
 `identity` (F001) · `accounts` (F002) · `expenses` (F003) · `statements` (F004) · `earnings` (F005) · `reporting` · `imports` · `platform`
 
-`reporting` é o único autorizado a ler múltiplos contextos, e apenas para leitura. A outra dependência entre módulos de domínio permitida é `expenses` e `statements` → `src/accounts/index.ts`, para as invariantes financeiras (spec 0002, regra `only-accounts-public-api-across-domain`).
+`reporting` é o único autorizado a ler múltiplos contextos, e apenas para leitura. A outra dependência entre módulos de domínio permitida é `expenses`, `statements` e `earnings` → `src/accounts/index.ts`, para as invariantes financeiras (spec 0002, regra `only-accounts-public-api-across-domain`).
 
 ## Idioma
 
