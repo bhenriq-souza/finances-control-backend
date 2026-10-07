@@ -10,4 +10,8 @@ export { ExpenseTypeService } from './expense-type.service';
 export { ExpenseTypeController } from './expense-type.controller';
 export { ExpenseTypeRoutes } from './expense-type.routes';
 export { toExpenseTypeResponse, type ExpenseTypeResponse } from './expense-type.response';
+export { ExpenseService } from './expense.service';
+export { ExpenseController } from './expense.controller';
+export { ExpenseRoutes } from './expense.routes';
+export { toExpenseResponse, type ExpenseResponse } from './expense.response';
 export * from './expenses.symbols';

@@ -182,7 +182,7 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
       com lock de escrita pelo `EntityManager` recebido, sem abrir transação, aceitando arquivados
     - Where: `src/accounts/bank-account.service.ts`, `src/accounts/credit-card.service.ts`, `tests/integration/accounts/`
     - Done when: `AC-0012-10` coberto; `INV-0012-10` e `INV-0004-03` verificados
-- [ ] **T-0012-04 — Criação de despesa simples e evento `ExpenseCreated`** · #56
+- [x] **T-0012-04 — Criação de despesa simples e evento `ExpenseCreated`** · #56
     - What: `POST /expenses` para `FIXED` e `VARIABLE` dentro de `TransactionRunner.run`, com a
       validação conta-ou-cartão, recusa de arquivados, reflexo no limite do cartão e o evento no
       catálogo `src/events/expenses.events.ts`
