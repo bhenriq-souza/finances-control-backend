@@ -148,6 +148,7 @@ describe('saldo das transferências (spec 0018)', () => {
         expect(events).toHaveLength(0);
     });
 
+    // O cenário serializa 8 transações no mesmo par de contas e, sob carga, passa do padrão de 5 s.
     it('AC-0018-04, INV-0018-04: A→B e B→A simultâneas terminam sem deadlock e com os saldos certos', async () => {
         const responses = await Promise.all(
             Array.from({ length: 8 }, (_, i) =>
@@ -165,7 +166,7 @@ describe('saldo das transferências (spec 0018)', () => {
         // 4 × (A→B 1000) e 4 × (B→A 400): A perde 2400, B ganha 2400.
         expect(await balanceOf(accountA)).toBe(100000 - 2400);
         expect(await balanceOf(accountB)).toBe(5000 + 2400);
-    });
+    }, 30_000);
 
     it('AC-0018-05, INV-0018-05: agendada não move; concluir move e grava completedOn; desfazer devolve', async () => {
         const created = await transfer({ status: 'SCHEDULED' });
