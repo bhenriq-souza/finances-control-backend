@@ -98,7 +98,11 @@ export class BankAccountService {
     /**
      * Soma `deltaCents` (positivo ou negativo, nunca zero) ao saldo, na transação
      * de quem chamou: lê a linha com lock de escrita pelo `manager` recebido, o que
-     * serializa movimentos concorrentes na mesma conta (ADR-0003, regra 4). Não abre
+     * serializa movimentos concorrentes na mesma conta (ADR-0003, regra 4). O lock é
+     * `FOR NO KEY UPDATE`, o mesmo do UPDATE de coluna não-chave: `FOR UPDATE`
+     * conflitaria com o `FOR KEY SHARE` que a FK toma quando quem chamou já inseriu
+     * uma linha filha (despesa, transferência), e duas dessas transações em paralelo
+     * entrariam em deadlock. Não abre
      * transação (INV-0004-03). Conta arquivada aceita delta, e o saldo pode ficar
      * negativo: nem ele barra o lançamento (INV-0012-09).
      */
@@ -110,7 +114,7 @@ export class BankAccountService {
         const repository = manager.getRepository(BankAccount);
         const account = await repository.findOne({
             where: { id },
-            lock: { mode: 'pessimistic_write' },
+            lock: { mode: 'for_no_key_update' },
         });
 
         if (!account) throw accountNotFound();
