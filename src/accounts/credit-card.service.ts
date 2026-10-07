@@ -102,7 +102,9 @@ export class CreditCardService {
      * Soma `deltaCents` (positivo ou negativo, nunca zero) ao limite disponível, na
      * transação de quem chamou: lê a linha com lock de escrita pelo `manager`
      * recebido, o que serializa despesas concorrentes no mesmo cartão (ADR-0003,
-     * regra 4). Não abre transação (INV-0004-03). Cartão arquivado aceita delta, e o
+     * regra 4). O lock é `FOR NO KEY UPDATE` pelo mesmo motivo de
+     * `BankAccountService.applyBalanceDelta`: não conflita com o `FOR KEY SHARE` da
+     * FK de uma despesa recém-inserida. Não abre transação (INV-0004-03). Cartão arquivado aceita delta, e o
      * disponível pode ficar negativo: nem ele barra o lançamento (INV-0012-09).
      */
     async applyAvailableLimitDelta(
@@ -117,7 +119,7 @@ export class CreditCardService {
         const repository = manager.getRepository(CreditCard);
         const card = await repository.findOne({
             where: { id },
-            lock: { mode: 'pessimistic_write' },
+            lock: { mode: 'for_no_key_update' },
         });
 
         if (!card) throw cardNotFound();

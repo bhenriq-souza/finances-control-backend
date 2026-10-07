@@ -1,4 +1,4 @@
-import type { DataSource } from 'typeorm';
+import type { DataSource, EntityManager } from 'typeorm';
 
 import {
     BankAccount,
@@ -24,6 +24,15 @@ describe('movimentos de saldo e limite (spec 0012, AC-0012-10)', () => {
         dataSource = ctx.dataSource;
         accounts = new BankAccountService(dataSource);
         cards = new CreditCardService(dataSource);
+        // Linha filha com FK para conta e cartão, como as despesas e as transferências:
+        // o INSERT toma `FOR KEY SHARE` na linha referenciada.
+        await dataSource.query(`
+            CREATE TABLE "${SCHEMA}"."delta_children" (
+                "id" serial PRIMARY KEY,
+                "bank_account_id" uuid REFERENCES "${SCHEMA}"."bank_accounts"("id") ON DELETE CASCADE,
+                "credit_card_id" uuid REFERENCES "${SCHEMA}"."credit_cards"("id") ON DELETE CASCADE
+            )
+        `);
     });
 
     afterAll(async () => {
@@ -97,6 +106,51 @@ describe('movimentos de saldo e limite (spec 0012, AC-0012-10)', () => {
 
         expect(await balance()).toBe(100000 - 7000 - 12345 + 500);
     });
+
+    /** Libera todos os participantes de uma vez, quando o último chega. */
+    const barrier = (parties: number): (() => Promise<void>) => {
+        let arrived = 0;
+        let release!: () => void;
+        const opened = new Promise<void>((resolve) => (release = resolve));
+
+        return async () => {
+            arrived += 1;
+            if (arrived === parties) release();
+            await opened;
+        };
+    };
+
+    it.each([
+        [
+            'bank_account_id',
+            (manager: EntityManager) => accounts.applyBalanceDelta(manager, accountId, -100),
+        ],
+        [
+            'credit_card_id',
+            (manager: EntityManager) => cards.applyAvailableLimitDelta(manager, cardId, -100),
+        ],
+    ] as const)(
+        'inserir linha filha (%s) e depois mover, em paralelo, não entra em deadlock',
+        async (column, move) => {
+            const bothInserted = barrier(2);
+            const target = column === 'bank_account_id' ? accountId : cardId;
+
+            const insertThenMove = () =>
+                dataSource.transaction(async (manager) => {
+                    await manager.query(
+                        `INSERT INTO "${SCHEMA}"."delta_children" ("${column}") VALUES ($1)`,
+                        [target],
+                    );
+                    await bothInserted();
+                    await move(manager);
+                });
+
+            await Promise.all([insertThenMove(), insertThenMove()]);
+
+            if (column === 'bank_account_id') expect(await balance()).toBe(100000 - 200);
+            else expect(await limit()).toBe(500000 - 200);
+        },
+    );
 
     it('aceita delta positivo e deixa saldo e limite negativos (INV-0012-09)', async () => {
         await onCard(-600000);
