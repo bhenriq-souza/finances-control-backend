@@ -81,7 +81,7 @@ module.exports = {
                 'tornaria autenticação e autorização intestáveis sem rede e sem projeto Firebase. ' +
                 'Quem precisa verificar um token depende da porta `TokenVerifier`.',
             from: { pathNot: '^src/identity/firebase-token-verifier\\.ts$' },
-            to: { path: '^firebase-admin' },
+            to: { path: '(^|/)node_modules/firebase-admin/' },
         },
         {
             name: 'events-catalog-only-imports-platform',
@@ -109,7 +109,7 @@ module.exports = {
                 'INV-0017-03: `pg-boss` é detalhe do adaptador de jobs. Quem precisa de um job ' +
                 'depende da porta `JobQueue` e do `JobQueueSymbol`.',
             from: { pathNot: '^src/platform/jobs/' },
-            to: { path: '^node_modules/pg-boss/' },
+            to: { path: '(^|/)node_modules/pg-boss/' },
         },
         {
             name: 'no-orphans',
