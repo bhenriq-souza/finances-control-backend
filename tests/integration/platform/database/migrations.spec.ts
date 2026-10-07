@@ -315,4 +315,103 @@ describe('migrations no banco real', () => {
             await runner.release();
         }
     });
+
+    it('cria bank_transfers com as constraints nomeadas, recusa origem igual ao destino e reverte (AC-0018-01)', async () => {
+        const { CreateBankTransfersTable1791500000000 } =
+            await import('../../../../src/platform/database/migrations/1791500000000-CreateBankTransfersTable');
+
+        const constraintsOf = async (): Promise<string[]> => {
+            const rows = await dataSource.query<{ conname: string }[]>(
+                `SELECT con.conname
+                 FROM pg_constraint con
+                 JOIN pg_class c ON c.oid = con.conrelid
+                 JOIN pg_namespace n ON n.oid = c.relnamespace
+                 WHERE c.relname = 'bank_transfers' AND n.nspname = current_schema()
+                 ORDER BY con.conname`,
+            );
+            return rows.map((row) => row.conname);
+        };
+
+        expect(await constraintsOf()).toEqual([
+            'ck_bank_transfers_accounts',
+            'ck_bank_transfers_amount',
+            'ck_bank_transfers_completed_on',
+            'ck_bank_transfers_status',
+            'fk_bank_transfers_from_bank_account_id',
+            'fk_bank_transfers_to_bank_account_id',
+            'pk_bank_transfers',
+        ]);
+
+        const [bank] = await dataSource.query<{ id: string }[]>(
+            "INSERT INTO banks (febraban_code, name) VALUES ('260', 'Nu') RETURNING id",
+        );
+        const [account] = await dataSource.query<{ id: string }[]>(
+            `INSERT INTO bank_accounts
+                (bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
+             VALUES ($1, 'CHECKING', '1-1', 'Conta', 0, 0) RETURNING id`,
+            [bank!.id],
+        );
+        const [other] = await dataSource.query<{ id: string }[]>(
+            `INSERT INTO bank_accounts
+                (bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
+             VALUES ($1, 'SAVINGS', '2-2', 'Poupança', 0, 0) RETURNING id`,
+            [bank!.id],
+        );
+
+        const insert = (
+            from: string,
+            to: string,
+            amount: number,
+            status: string,
+            completedOn: string | null,
+        ) =>
+            dataSource.query(
+                `INSERT INTO bank_transfers
+                    (from_bank_account_id, to_bank_account_id, amount_cents, occurred_on, status, completed_on, description)
+                 VALUES ($1, $2, $3, '2026-03-10', $4, $5, 'x')`,
+                [from, to, amount, status, completedOn],
+            );
+
+        await expect(
+            insert(account!.id, account!.id, 100, 'SCHEDULED', null),
+        ).rejects.toMatchObject({ constraint: 'ck_bank_transfers_accounts' });
+        await expect(insert(account!.id, other!.id, 0, 'SCHEDULED', null)).rejects.toMatchObject({
+            constraint: 'ck_bank_transfers_amount',
+        });
+        await expect(
+            insert(account!.id, other!.id, 100, 'SCHEDULED', '2026-03-10'),
+        ).rejects.toMatchObject({ constraint: 'ck_bank_transfers_completed_on' });
+        await expect(insert(account!.id, other!.id, 100, 'COMPLETED', null)).rejects.toMatchObject({
+            constraint: 'ck_bank_transfers_completed_on',
+        });
+        await expect(insert(account!.id, other!.id, 100, 'PENDING', null)).rejects.toMatchObject({
+            constraint: 'ck_bank_transfers_status',
+        });
+        await insert(account!.id, other!.id, 100, 'COMPLETED', '2026-03-10');
+
+        await dataSource.query('DELETE FROM bank_transfers');
+        await dataSource.query('DELETE FROM bank_accounts');
+        await dataSource.query('DELETE FROM banks');
+
+        const tableExists = async (): Promise<boolean> => {
+            const rows = await dataSource.query<{ count: string }[]>(
+                `SELECT count(*) FROM information_schema.tables
+                 WHERE table_schema = current_schema() AND table_name = 'bank_transfers'`,
+            );
+            return Number(rows[0]!.count) === 1;
+        };
+
+        const runner = dataSource.createQueryRunner();
+        try {
+            const migration = new CreateBankTransfersTable1791500000000();
+
+            await migration.down(runner);
+            expect(await tableExists()).toBe(false);
+
+            await migration.up(runner);
+            expect(await tableExists()).toBe(true);
+        } finally {
+            await runner.release();
+        }
+    });
 });

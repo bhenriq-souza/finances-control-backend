@@ -382,7 +382,7 @@ Tarefas da [spec 0018](../specs/0018-transfers.md), que fecha a issue de entrega
 [FCB-018](https://github.com/bhenriq-souza/finances-control-backend/issues/93). O cadastro depende
 da spec 0004 implementada; a parte de relatórios, da spec 0015.
 
-- [ ] **T-0018-01 — Transferência: entidade, migration, criação e status** · #94
+- [x] **T-0018-01 — Transferência: entidade, migration, criação e status** · #94
     - What: `bank_transfers` com as constraints nomeadas, `POST` e `PATCH …/status` movendo as duas
       contas na mesma transação com lock em ordem de `id`, e o evento `TransferCompleted`
     - Where: `src/accounts/`, `src/events/accounts.events.ts`, `src/platform/database/migrations/`
