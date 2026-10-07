@@ -8,3 +8,6 @@ export const BankAccountRoutesSymbol = Symbol.for('BankAccountRoutes');
 export const CreditCardServiceSymbol = Symbol.for('CreditCardService');
 export const CreditCardControllerSymbol = Symbol.for('CreditCardController');
 export const CreditCardRoutesSymbol = Symbol.for('CreditCardRoutes');
+export const BankTransferServiceSymbol = Symbol.for('BankTransferService');
+export const BankTransferControllerSymbol = Symbol.for('BankTransferController');
+export const BankTransferRoutesSymbol = Symbol.for('BankTransferRoutes');

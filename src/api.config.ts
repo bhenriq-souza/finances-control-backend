@@ -28,6 +28,12 @@ import {
     BankRoutesSymbol,
     BankService,
     BankServiceSymbol,
+    BankTransferController,
+    BankTransferControllerSymbol,
+    BankTransferRoutes,
+    BankTransferRoutesSymbol,
+    BankTransferService,
+    BankTransferServiceSymbol,
 } from './accounts';
 import {
     UserController,
@@ -183,6 +189,22 @@ export const apiModules: ApiModule[] = [
             {
                 token: EarningControllerSymbol,
                 clazz: EarningController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
+    },
+    {
+        path: '/bank-transfers',
+        route: { token: BankTransferRoutesSymbol, clazz: BankTransferRoutes },
+        provides: [
+            {
+                token: BankTransferServiceSymbol,
+                clazz: BankTransferService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: BankTransferControllerSymbol,
+                clazz: BankTransferController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],

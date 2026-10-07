@@ -11,3 +11,4 @@
  */
 export * from './expenses.events';
 export * from './earnings.events';
+export * from './accounts.events';
