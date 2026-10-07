@@ -10,3 +10,4 @@
  * Os arquivos por módulo nascem com as specs que publicam eventos (ex.: 0012).
  */
 export * from './expenses.events';
+export * from './earnings.events';
