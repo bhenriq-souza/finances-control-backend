@@ -10,7 +10,7 @@ Este arquivo é a camada de **execução**. A camada de **entrega** são as issu
     - What: concluída a ativação faseada, exigir o check verde para merge (regra 3 da proteção de branch)
     - Where: configurações do repositório no GitHub
     - Done when: `AC-0001-03` verificado — a proteção lista `check` como obrigatório e um PR vermelho fica bloqueado
-- [ ] **T-0002-01 — Testes do orquestrador de gates** · #70
+- [x] **T-0002-01 — Testes do orquestrador de gates** · #70
     - What: cobrir `scripts/check.mjs` — classificação PASS/FAIL/SKIP, código de saída e modo `--require-tools`
     - Where: `tests/unit/scripts/check.spec.ts`
     - Done when: `AC-0002-01`, `AC-0002-02` e `AC-0002-03` cobertos por teste automatizado
