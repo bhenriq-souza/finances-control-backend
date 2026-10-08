@@ -287,7 +287,7 @@ OpenAPI por último.
       arquivados e o evento no catálogo `src/events/earnings.events.ts`
     - Where: `src/earnings/`, `src/events/earnings.events.ts`, `src/api.config.ts`
     - Done when: `AC-0014-03`, `AC-0014-08` e `AC-0014-11` cobertos; `INV-0014-03` verificado
-- [ ] **T-0014-04 — Máquina de status, recebimento e varredura de vencidas** · #74
+- [x] **T-0014-04 — Máquina de status, recebimento e varredura de vencidas** · #74
     - What: `PATCH /earnings/:id/status` com a tabela de transições, recebimento e desfazer movendo
       o saldo pela interface do `accounts`, `EarningReceived` e `EarningService.markOverdue`
     - Where: `src/earnings/`, `src/events/earnings.events.ts`
