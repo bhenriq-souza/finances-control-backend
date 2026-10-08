@@ -226,11 +226,11 @@ janela fechada antes de qualquer leitura que dependa dela; consulta antes do pag
       partir da última fatura fechada usando `cycleFor` do `accounts`
     - Where: `src/statements/`, `src/platform/database/migrations/`
     - Done when: `AC-0013-01` a `AC-0013-04` cobertos; `INV-0013-03` e `INV-0013-04` verificados
-- [ ] **T-0013-02 — Fechamento, rolagem e evento `StatementClosed`** · #62
+- [x] **T-0013-02 — Fechamento, rolagem e evento `StatementClosed`** · #62
     - What: `StatementService.closeDue` sob o lock consultivo do cartão, com `previous_balance_cents`,
       a passagem da anterior a `ROLLED_OVER`, a fatura que nasce `PAID` com devido `<= 0`, e os
       eventos no catálogo `src/events/statements.events.ts`
-    - Where: `src/statements/`, `src/events/statements.events.ts`
+    - Where: `src/statements/`, `src/expenses/`, `src/events/statements.events.ts`
     - Done when: `AC-0013-05` e `AC-0013-16` cobertos; `INV-0013-07`, `INV-0013-09` e `INV-0013-10`
       verificados
 - [ ] **T-0013-03 — Janela fechada e data de lançamento** · #63

@@ -23,6 +23,9 @@ import type {
 
 export type ExpenseWithType = Expense & { expenseType: ExpenseType };
 
+/** Janela de `postedOn`, inclusiva nas duas pontas (spec 0013). */
+export type PostingWindow = { from: Date; to: Date };
+
 /** Transições aceitas por `PATCH /expenses/:id/status`; todo outro par é ERR-0012-08. */
 const ALLOWED_TRANSITIONS: Record<string, readonly ExpenseStatus[]> = {
     FORECAST: ['OPEN'],
@@ -472,5 +475,30 @@ export class ExpenseService {
                 });
             }
         }
+    }
+
+    /**
+     * Quita as despesas de cartão do cartão com `posted_on` na janela e status `OPEN` ou
+     * `VERIFYING` (spec 0013): passam a `PAID` com `paidOn`. Escreve com o `manager`
+     * recebido, não abre transação (INV-0004-03), não publica evento e não toca saldo
+     * nem limite. Devolve quantas mudou.
+     */
+    async markPaidByStatement(
+        manager: EntityManager,
+        creditCardId: string,
+        window: PostingWindow,
+        paidOn: Date,
+    ): Promise<{ count: number }> {
+        const result = await manager
+            .createQueryBuilder()
+            .update(Expense)
+            .set({ status: 'PAID', paidOn: businessToday(paidOn) })
+            .where('credit_card_id = :creditCardId', { creditCardId })
+            .andWhere('posted_on >= :from', { from: businessToday(window.from) })
+            .andWhere('posted_on <= :to', { to: businessToday(window.to) })
+            .andWhere('status IN (:...statuses)', { statuses: ['OPEN', 'VERIFYING'] })
+            .execute();
+
+        return { count: result.affected ?? 0 };
     }
 }
