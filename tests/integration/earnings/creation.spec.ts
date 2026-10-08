@@ -210,17 +210,6 @@ describe('POST /earnings (spec 0014)', () => {
             expect(fieldsOf(response)).toContain('kind');
         });
 
-        it.each([undefined, 1, 3, 121])(
-            'recusa kind INSTALLMENT (installmentTotal %p) citando kind, até a T-0014-06',
-            async (installmentTotal) => {
-                const response = await post(valid({ kind: 'INSTALLMENT', installmentTotal }));
-
-                expect(response.status).toBe(400);
-                expect(response.body.error.code).toBe('VALIDATION_ERROR');
-                expect(fieldsOf(response)).toContain('kind');
-            },
-        );
-
         it.each(['VARIABLE', 'FIXED'])('recusa installmentTotal em %s', async (kind) => {
             const response = await post(valid({ kind, installmentTotal: 3 }));
 

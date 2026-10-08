@@ -34,6 +34,7 @@ export * from './symbols';
 export type { TransactionScope, TransactionRunner } from './events/transaction-runner';
 export { splitCents } from './money';
 export { BUSINESS_TIME_ZONE, businessToday } from './business-date';
+export { addMonths, monthlyInstallmentDates } from './monthly-dates';
 export type { JobQueue, JobHandler } from './jobs/job-queue';
 export { archivedFilter, needsArchiveChange, listQuerySchema } from './archiving';
 export { asConflict } from './unique-violation';

@@ -801,8 +801,9 @@ paths:
             summary: Lança uma receita
             description: |
                 Exige perfil `ADMIN` ou `BILLER`. Criar nunca move o saldo da conta; `status`
-                default `OPEN`. Devolve uma lista com uma receita (`FIXED`/`VARIABLE`) e publica
-                `EarningCreated`.
+                default `OPEN`. Devolve uma lista com uma receita (`FIXED`/`VARIABLE`) ou com
+                `installmentTotal` parcelas, em ordem (`INSTALLMENT`), todas na mesma transação,
+                e publica um `EarningCreated` por receita.
             operationId: createEarning
             security: [{ bearerAuth: [] }]
             requestBody:
@@ -860,7 +861,8 @@ paths:
                 Exige perfil `ADMIN` ou `BILLER`. Aceita `description`, `earningTypeId`,
                 `occurredOn`, `amountCents`, `bankAccountId` e `notes`; ao menos um campo.
                 `amountCents` e `bankAccountId` de receita recebida são 409. Trocar conta ou
-                valor de receita não recebida não move saldo. `kind`, `status`, `receivedOn` e
+                valor de receita não recebida não move saldo. Em parcela, `bankAccountId` vale para
+                todas as parcelas não recebidas do grupo; os demais campos, só para ela. `kind`, `status`, `receivedOn` e
                 `installment*` são 400 citando o campo (o status muda por `PATCH …/status`).
             operationId: updateEarning
             security: [{ bearerAuth: [] }]
@@ -888,7 +890,8 @@ paths:
             summary: Exclui uma receita não recebida
             description: |
                 Exige perfil `ADMIN` ou `BILLER`. Só receita não recebida: a recebida é
-                desfeita antes, para que o saldo volte explicitamente. Não move saldo.
+                desfeita antes, para que o saldo volte explicitamente. Não move saldo. Excluir uma
+                parcela exclui também as não recebidas do grupo; as recebidas ficam.
             operationId: deleteEarning
             security: [{ bearerAuth: [] }]
             responses:
@@ -1630,7 +1633,15 @@ components:
                     type: string
                     enum: [OPEN, FORECAST, VERIFYING]
                     description: Default `OPEN`.
-                installmentTotal: { type: integer, minimum: 2, maximum: 120 }
+                installmentTotal:
+                    type: integer
+                    minimum: 2
+                    maximum: 120
+                    description: |
+                        Obrigatório em `INSTALLMENT` e proibido nos demais (400). `amountCents`
+                        é o **total**: vira `installmentTotal` parcelas mensais rateadas por
+                        `splitCents` (resto na primeira), a partir de `occurredOn`, com o dia
+                        original preservado (31/01, 28/02, 31/03).
                 notes: { type: string, minLength: 1, maxLength: 1000 }
 
         UpdateEarning:

@@ -16,8 +16,7 @@ export const createEarningSchema = z
     .object({
         description: z.string().trim().min(1).max(200),
         earningTypeId: z.uuid(),
-        // INSTALLMENT entra com a T-0014-06, que amplia o enum e gera as parcelas.
-        kind: z.enum(['FIXED', 'VARIABLE']),
+        kind: z.enum(EARNING_KINDS),
         amountCents,
         occurredOn: z.iso.date(),
         bankAccountId: z.uuid(),
@@ -27,11 +26,20 @@ export const createEarningSchema = z
     })
     .strict()
     .superRefine((data, ctx) => {
-        if (data.installmentTotal !== undefined) {
+        // ERR-0014-07: obrigatório em INSTALLMENT, proibido nos demais.
+        if (data.kind === 'INSTALLMENT' && data.installmentTotal === undefined) {
             ctx.addIssue({
                 code: 'custom',
                 path: ['installmentTotal'],
-                message: 'installmentTotal is not allowed for this kind',
+                message: 'installmentTotal is required for INSTALLMENT',
+            });
+        }
+
+        if (data.kind !== 'INSTALLMENT' && data.installmentTotal !== undefined) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['installmentTotal'],
+                message: 'installmentTotal is only allowed for INSTALLMENT',
             });
         }
     });
