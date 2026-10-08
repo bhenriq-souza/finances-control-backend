@@ -10,6 +10,9 @@ const DOMAIN = 'identity|accounts|expenses|statements|earnings|reporting|imports
  */
 const ACCOUNTS_API_CLIENTS = 'expenses|statements|earnings';
 
+/** Clientes que só podem chamar o `accounts`; `statements` também lê o `expenses` (spec 0013). */
+const ACCOUNTS_ONLY_CLIENTS = 'expenses|earnings';
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
     forbidden: [
@@ -67,11 +70,25 @@ module.exports = {
                 'síncrona à interface pública do módulo dono do número, nunca evento. ' +
                 '`expenses` (spec 0012, INV-0012-10), `statements` (spec 0013, `cycleFor`) e ' +
                 '`earnings` (spec 0014, INV-0014-06) podem importar `src/accounts/index.ts` e ' +
-                'nenhum outro módulo de domínio.',
-            from: { path: `^src/(${ACCOUNTS_API_CLIENTS})/` },
+                'nenhum outro módulo de domínio, salvo a regra seguinte para `statements`.',
+            from: { path: `^src/(${ACCOUNTS_ONLY_CLIENTS})/` },
             to: {
                 path: `^src/(?:${DOMAIN})/`,
                 pathNot: ['^src/$1/', '^src/accounts/index\\.ts$'],
+            },
+        },
+        {
+            name: 'statements-reads-accounts-and-expenses-public-api',
+            severity: 'error',
+            comment:
+                'Spec 0013 (INV-0013-12): `statements` lê e quita despesas de cartão pela ' +
+                'interface pública do `expenses` (`listByCreditCard`, `markPaidByStatement`) e ' +
+                'deriva ciclos e move saldo e limite pela do `accounts`. Nenhum outro módulo ' +
+                'de domínio; `expenses` nunca importa `statements` (regra `no-cross-domain-dependency`).',
+            from: { path: '^src/(statements)/' },
+            to: {
+                path: `^src/(?:${DOMAIN})/`,
+                pathNot: ['^src/$1/', '^src/accounts/index\\.ts$', '^src/expenses/index\\.ts$'],
             },
         },
         {
