@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { EXPENSE_KINDS } from './expense-kind';
 import { EXPENSE_STATUSES } from './expense-status';
 
 /** Dinheiro entra como inteiro positivo de centavos; fração é `400` (ERR-0012-12). */
@@ -81,3 +82,50 @@ export const changeExpenseStatusSchema = z
 export type ChangeExpenseStatus = z.infer<typeof changeExpenseStatusSchema>;
 
 export const expenseIdParamsSchema = z.object({ id: z.uuid() });
+
+/**
+ * `PATCH /expenses/:id`. Estrito: `kind`, `status`, `paidOn`, `bankAccountId`,
+ * `creditCardId` e `installment*` são recusados citando a chave (ERR-0012-11).
+ */
+export const updateExpenseSchema = z
+    .object({
+        description: z.string().trim().min(1).max(200).optional(),
+        expenseTypeId: z.uuid().optional(),
+        occurredOn: businessDate.optional(),
+        amountCents: amountCents.optional(),
+        postedOn: businessDate.optional(),
+        notes: z.string().trim().min(1).max(1000).nullable().optional(),
+    })
+    .strict()
+    .refine((data) => Object.keys(data).length > 0, {
+        message: 'At least one field must be provided',
+    });
+
+export type UpdateExpense = z.infer<typeof updateExpenseSchema>;
+
+/** Filtros de `GET /expenses`, combinados por E (ERR-0012-15 para `from` > `to`). */
+export const listExpensesQuerySchema = z
+    .object({
+        from: businessDate.optional(),
+        to: businessDate.optional(),
+        status: z.enum(EXPENSE_STATUSES).optional(),
+        kind: z.enum(EXPENSE_KINDS).optional(),
+        expenseTypeId: z.uuid().optional(),
+        bankAccountId: z.uuid().optional(),
+        creditCardId: z.uuid().optional(),
+        installmentGroupId: z.uuid().optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+        if (data.from !== undefined && data.to !== undefined && data.from > data.to) {
+            for (const field of ['from', 'to'] as const) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: [field],
+                    message: 'from must not be after to',
+                });
+            }
+        }
+    });
+
+export type ListExpensesQuery = z.infer<typeof listExpensesQuerySchema>;

@@ -6,6 +6,7 @@ import {
     BaseRoute,
     RequireAuthenticationSymbol,
     RequireProfileSymbol,
+    USER_PROFILES,
     type RequireProfile,
 } from '../platform';
 import type { ExpenseController } from './expense.controller';
@@ -24,7 +25,33 @@ export class ExpenseRoutes extends BaseRoute {
     routes(): RouteDef[] {
         const write = [this.requireAuthentication, this.requireProfile('ADMIN', 'BILLER')];
 
+        const read = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
+
         return [
+            {
+                method: 'GET',
+                path: '/',
+                middlewares: read,
+                handler: this.bind(this.controller, this.controller.handleListExpenses),
+            },
+            {
+                method: 'GET',
+                path: '/:id',
+                middlewares: read,
+                handler: this.bind(this.controller, this.controller.handleGetExpense),
+            },
+            {
+                method: 'PATCH',
+                path: '/:id',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleUpdateExpense),
+            },
+            {
+                method: 'DELETE',
+                path: '/:id',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleDeleteExpense),
+            },
             {
                 method: 'POST',
                 path: '/',

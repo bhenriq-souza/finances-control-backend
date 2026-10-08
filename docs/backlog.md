@@ -200,7 +200,7 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
     - Where: `src/expenses/`, `src/events/expenses.events.ts`
     - Done when: `AC-0012-05`, `AC-0012-06`, `AC-0012-11` e `AC-0012-12` cobertos; `INV-0012-04`,
       `INV-0012-05`, `INV-0012-07` e `INV-0012-08` verificados
-- [ ] **T-0012-07 — Consulta, alteração, exclusão, autorização e OpenAPI** · #59
+- [x] **T-0012-07 — Consulta, alteração, exclusão, autorização e OpenAPI** · #59
     - What: `GET /expenses` com filtros, `GET /expenses/:id`, `PATCH /expenses/:id`, `DELETE`
       com a regra do grupo, `listByCreditCard`, as guardas de perfil e o contrato no `openapi.yaml`
     - Where: `src/expenses/`, `docs/openapi.yaml`

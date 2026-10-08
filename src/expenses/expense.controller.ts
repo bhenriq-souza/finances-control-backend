@@ -7,6 +7,8 @@ import {
     changeExpenseStatusSchema,
     createExpenseSchema,
     expenseIdParamsSchema,
+    listExpensesQuerySchema,
+    updateExpenseSchema,
 } from './expense.schemas';
 import type { ExpenseService } from './expense.service';
 import { ExpenseServiceSymbol } from './expenses.symbols';
@@ -29,5 +31,32 @@ export class ExpenseController {
             res,
             toExpenseResponse(await this.service.changeStatus(id, change)),
         );
+    }
+
+    async handleListExpenses(req: Request, res: Response): Promise<Response> {
+        const query = listExpensesQuerySchema.parse(req.query);
+
+        return HttpResponses.ok(res, (await this.service.list(query)).map(toExpenseResponse));
+    }
+
+    async handleGetExpense(req: Request, res: Response): Promise<Response> {
+        const { id } = expenseIdParamsSchema.parse(req.params);
+
+        return HttpResponses.ok(res, toExpenseResponse(await this.service.findById(id)));
+    }
+
+    async handleUpdateExpense(req: Request, res: Response): Promise<Response> {
+        const { id } = expenseIdParamsSchema.parse(req.params);
+        const changes = updateExpenseSchema.parse(req.body);
+
+        return HttpResponses.ok(res, toExpenseResponse(await this.service.update(id, changes)));
+    }
+
+    async handleDeleteExpense(req: Request, res: Response): Promise<Response> {
+        const { id } = expenseIdParamsSchema.parse(req.params);
+
+        await this.service.delete(id);
+
+        return HttpResponses.noContent(res);
     }
 }
