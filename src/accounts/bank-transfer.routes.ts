@@ -6,6 +6,7 @@ import {
     BaseRoute,
     RequireAuthenticationSymbol,
     RequireProfileSymbol,
+    USER_PROFILES,
     type RequireProfile,
 } from '../platform';
 import { BankTransferControllerSymbol } from './accounts.symbols';
@@ -25,7 +26,33 @@ export class BankTransferRoutes extends BaseRoute {
         // Transferir é movimentar, não cadastrar conta: perfil de quem lança despesas.
         const write = [this.requireAuthentication, this.requireProfile('ADMIN', 'BILLER')];
 
+        const read = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
+
         return [
+            {
+                method: 'GET',
+                path: '/',
+                middlewares: read,
+                handler: this.bind(this.controller, this.controller.handleListBankTransfers),
+            },
+            {
+                method: 'GET',
+                path: '/:id',
+                middlewares: read,
+                handler: this.bind(this.controller, this.controller.handleGetBankTransfer),
+            },
+            {
+                method: 'PATCH',
+                path: '/:id',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleUpdateBankTransfer),
+            },
+            {
+                method: 'DELETE',
+                path: '/:id',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleDeleteBankTransfer),
+            },
             {
                 method: 'POST',
                 path: '/',

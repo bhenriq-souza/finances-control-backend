@@ -1,5 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
+import { ZodError } from 'zod';
 import type { EntityManager } from 'typeorm';
 
 import { TRANSFER_COMPLETED } from '../events';
@@ -13,6 +14,7 @@ import { BankAccountServiceSymbol } from './accounts.symbols';
 import { BankAccount } from './bank-account.entity';
 import type { BankAccountService } from './bank-account.service';
 import { BankTransfer } from './bank-transfer.entity';
+import type { ListBankTransfersQuery, UpdateBankTransfer } from './bank-transfer.schemas';
 import type { BankTransferStatus } from './bank-transfer-status';
 
 export type CreateBankTransfer = {
@@ -32,6 +34,19 @@ export type ChangeBankTransferStatus = {
 };
 
 type Movement = Pick<BankTransfer, 'fromBankAccountId' | 'toBankAccountId' | 'amountCents'>;
+
+const transferNotFound = (): CustomError =>
+    CustomError.notFound('Bank transfer not found', 'BANK_TRANSFER_NOT_FOUND', {
+        exposeMessage: true,
+    });
+
+const alreadyCompleted = (): CustomError =>
+    new CustomError(
+        409,
+        'BANK_TRANSFER_ALREADY_COMPLETED',
+        'Completed transfers cannot change accounts, amount or date, nor be deleted; undo it first',
+        { exposeMessage: true },
+    );
 
 @injectable()
 export class BankTransferService {
@@ -89,11 +104,7 @@ export class BankTransferService {
                 lock: { mode: 'pessimistic_write' },
             });
 
-            if (!transfer) {
-                throw CustomError.notFound('Bank transfer not found', 'BANK_TRANSFER_NOT_FOUND', {
-                    exposeMessage: true,
-                });
-            }
+            if (!transfer) throw transferNotFound();
 
             if (transfer.status === change.status) {
                 throw new CustomError(
@@ -116,6 +127,114 @@ export class BankTransferService {
             }
 
             return repository.findOneByOrFail({ id });
+        });
+    }
+
+    /** ERR-0018-02 para `:id` inexistente. */
+    async findById(id: string): Promise<BankTransfer> {
+        const transfer = await this.runner.run((scope) =>
+            scope.manager.getRepository(BankTransfer).findOne({ where: { id } }),
+        );
+
+        if (!transfer) throw transferNotFound();
+
+        return transfer;
+    }
+
+    /** AC-0018-11: `bankAccountId` casa a origem **ou** o destino; `from`/`to` são inclusivos. */
+    list(query: ListBankTransfersQuery = {}): Promise<BankTransfer[]> {
+        return this.runner.run((scope) => {
+            const qb = scope.manager
+                .getRepository(BankTransfer)
+                .createQueryBuilder('t')
+                .orderBy('t.occurredOn', 'ASC')
+                .addOrderBy('t.createdAt', 'ASC')
+                .addOrderBy('t.id', 'ASC');
+
+            if (query.bankAccountId !== undefined) {
+                qb.andWhere(
+                    '(t.fromBankAccountId = :accountId OR t.toBankAccountId = :accountId)',
+                    { accountId: query.bankAccountId },
+                );
+            }
+            if (query.status !== undefined) qb.andWhere('t.status = :status', query);
+            if (query.from !== undefined) qb.andWhere('t.occurredOn >= :from', query);
+            if (query.to !== undefined) qb.andWhere('t.occurredOn <= :to', query);
+
+            return qb.getMany();
+        });
+    }
+
+    /**
+     * `description` e `notes` valem sempre; contas, valor e data só em `SCHEDULED`
+     * (ERR-0018-06). Agendada não move saldo, então nenhuma conta é tocada.
+     */
+    update(id: string, changes: UpdateBankTransfer): Promise<BankTransfer> {
+        return this.runner.run(async (scope) => {
+            const repository = scope.manager.getRepository(BankTransfer);
+            const transfer = await repository.findOne({
+                where: { id },
+                lock: { mode: 'pessimistic_write' },
+            });
+
+            if (!transfer) throw transferNotFound();
+
+            const { description, notes, ...movement } = changes;
+            const touchesMovement = Object.values(movement).some((value) => value !== undefined);
+
+            if (transfer.status === 'COMPLETED' && touchesMovement) throw alreadyCompleted();
+
+            const from = movement.fromBankAccountId ?? transfer.fromBankAccountId;
+            const to = movement.toBankAccountId ?? transfer.toBankAccountId;
+
+            if (from === to) {
+                throw new ZodError(
+                    (['fromBankAccountId', 'toBankAccountId'] as const).map((field) => ({
+                        code: 'custom' as const,
+                        path: [field],
+                        message: 'fromBankAccountId and toBankAccountId must be different accounts',
+                        input: changes,
+                    })),
+                );
+            }
+
+            if (
+                movement.fromBankAccountId !== undefined ||
+                movement.toBankAccountId !== undefined
+            ) {
+                await this.assertAccountsAreUsable(scope.manager, {
+                    fromBankAccountId: from,
+                    toBankAccountId: to,
+                });
+            }
+
+            const patch: Partial<BankTransfer> = {};
+            if (description !== undefined) patch.description = description;
+            if (notes !== undefined) patch.notes = notes;
+            if (movement.fromBankAccountId !== undefined) patch.fromBankAccountId = from;
+            if (movement.toBankAccountId !== undefined) patch.toBankAccountId = to;
+            if (movement.amountCents !== undefined) patch.amountCents = movement.amountCents;
+            if (movement.occurredOn !== undefined) patch.occurredOn = movement.occurredOn;
+
+            await repository.update({ id }, patch);
+
+            return repository.findOneByOrFail({ id });
+        });
+    }
+
+    /** Só `SCHEDULED` se exclui (ERR-0018-06): a concluída é desfeita antes. */
+    delete(id: string): Promise<void> {
+        return this.runner.run(async (scope) => {
+            const repository = scope.manager.getRepository(BankTransfer);
+            const transfer = await repository.findOne({
+                where: { id },
+                lock: { mode: 'pessimistic_write' },
+            });
+
+            if (!transfer) throw transferNotFound();
+            if (transfer.status === 'COMPLETED') throw alreadyCompleted();
+
+            await repository.delete({ id });
         });
     }
 
