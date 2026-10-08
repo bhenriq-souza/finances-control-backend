@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { EARNING_KINDS } from './earning-kind';
 import { EARNING_STATUSES } from './earning-status';
 
 /** Status que uma receita pode ter ao nascer (ERR-0014-09). */
@@ -60,3 +61,49 @@ export const changeEarningStatusSchema = z
 export type ChangeEarningStatusInput = z.infer<typeof changeEarningStatusSchema>;
 
 export const earningIdParamsSchema = z.object({ id: z.uuid() });
+
+/**
+ * `PATCH /earnings/:id`. Estrito: `kind`, `status`, `receivedOn` e `installment*` são
+ * recusados citando a chave (ERR-0014-11); corpo vazio também é `400`.
+ */
+export const updateEarningSchema = z
+    .object({
+        description: z.string().trim().min(1).max(200).optional(),
+        earningTypeId: z.uuid().optional(),
+        occurredOn: z.iso.date().optional(),
+        amountCents: amountCents.optional(),
+        bankAccountId: z.uuid().optional(),
+        notes: z.string().trim().min(1).max(1000).nullable().optional(),
+    })
+    .strict()
+    .refine((data) => Object.keys(data).length > 0, {
+        message: 'At least one field must be provided',
+    });
+
+export type UpdateEarningInput = z.infer<typeof updateEarningSchema>;
+
+/** `GET /earnings`: filtros combinados por E; `from` > `to` é `400` (ERR-0014-13). */
+export const listEarningsQuerySchema = z
+    .object({
+        from: z.iso.date().optional(),
+        to: z.iso.date().optional(),
+        status: z.enum(EARNING_STATUSES).optional(),
+        kind: z.enum(EARNING_KINDS).optional(),
+        earningTypeId: z.uuid().optional(),
+        bankAccountId: z.uuid().optional(),
+        installmentGroupId: z.uuid().optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+        if (data.from !== undefined && data.to !== undefined && data.from > data.to) {
+            for (const field of ['from', 'to'] as const) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: [field],
+                    message: 'from must not be after to',
+                });
+            }
+        }
+    });
+
+export type ListEarningsQuery = z.infer<typeof listEarningsQuerySchema>;

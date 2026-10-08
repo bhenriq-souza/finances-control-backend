@@ -14,7 +14,12 @@ import type { TransactionRunner } from '../platform';
 import { Earning } from './earning.entity';
 import { EarningTypeServiceSymbol } from './earnings.symbols';
 import type { EarningStatus } from './earning-status';
-import type { ChangeEarningStatusInput, CreateEarningInput } from './earning.schemas';
+import type {
+    ChangeEarningStatusInput,
+    CreateEarningInput,
+    ListEarningsQuery,
+    UpdateEarningInput,
+} from './earning.schemas';
 import type { EarningTypeService } from './earning-type.service';
 
 export type EarningWithType = Earning & { earningType: NonNullable<Earning['earningType']> };
@@ -27,6 +32,18 @@ const ALLOWED_TRANSITIONS: Readonly<Record<EarningStatus, readonly EarningStatus
     VERIFYING: ['OPEN', 'RECEIVED'],
     RECEIVED: ['OPEN'],
 };
+
+const earningNotFound = (): CustomError =>
+    CustomError.notFound('Earning not found', 'EARNING_NOT_FOUND', { exposeMessage: true });
+
+/** ERR-0014-10: o saldo já absorveu a receita recebida. */
+const alreadyReceived = (): CustomError =>
+    new CustomError(
+        409,
+        'EARNING_ALREADY_RECEIVED',
+        'The earning is already received; undo the receipt first',
+        { exposeMessage: true },
+    );
 
 @injectable()
 export class EarningService {
@@ -102,6 +119,120 @@ export class EarningService {
             .findOneOrFail({ where: { id }, relations: { earningType: true } });
 
         return [created as EarningWithType];
+    }
+
+    /** ERR-0014-02 para `:id` inexistente. */
+    async findById(id: string): Promise<EarningWithType> {
+        const earning = await this.dataSource
+            .getRepository(Earning)
+            .findOne({ where: { id }, relations: { earningType: true } });
+
+        if (!earning) throw earningNotFound();
+
+        return earning as EarningWithType;
+    }
+
+    /** AC-0014-10: filtros por E; `from`/`to` inclusivos sobre `occurredOn`. */
+    async list(query: ListEarningsQuery = {}): Promise<EarningWithType[]> {
+        const qb = this.dataSource
+            .getRepository(Earning)
+            .createQueryBuilder('e')
+            .innerJoinAndSelect('e.earningType', 'earningType')
+            .orderBy('e.occurredOn', 'ASC')
+            .addOrderBy('e.createdAt', 'ASC')
+            .addOrderBy('e.id', 'ASC');
+
+        if (query.from !== undefined) qb.andWhere('e.occurredOn >= :from', query);
+        if (query.to !== undefined) qb.andWhere('e.occurredOn <= :to', query);
+        if (query.status !== undefined) qb.andWhere('e.status = :status', query);
+        if (query.kind !== undefined) qb.andWhere('e.kind = :kind', query);
+        if (query.earningTypeId !== undefined) {
+            qb.andWhere('e.earningTypeId = :earningTypeId', query);
+        }
+        if (query.bankAccountId !== undefined) {
+            qb.andWhere('e.bankAccountId = :bankAccountId', query);
+        }
+        if (query.installmentGroupId !== undefined) {
+            qb.andWhere('e.installmentGroupId = :installmentGroupId', query);
+        }
+
+        return (await qb.getMany()) as EarningWithType[];
+    }
+
+    /**
+     * Receita recebida não muda valor nem conta (ERR-0014-10, INV-0014-07). Não recebida
+     * não está no saldo de conta nenhuma, então trocar conta ou valor não move nada.
+     * Existência (404) antes de arquivamento (409), conta antes de tipo.
+     */
+    async update(id: string, changes: UpdateEarningInput): Promise<EarningWithType> {
+        await this.transactions.run(async (scope) => {
+            const repository = scope.manager.getRepository(Earning);
+            const earning = await repository.findOne({
+                where: { id },
+                lock: { mode: 'for_no_key_update' },
+            });
+
+            if (!earning) throw earningNotFound();
+
+            if (
+                earning.status === 'RECEIVED' &&
+                (changes.amountCents !== undefined || changes.bankAccountId !== undefined)
+            ) {
+                throw alreadyReceived();
+            }
+
+            if (
+                changes.bankAccountId !== undefined &&
+                changes.bankAccountId !== earning.bankAccountId
+            ) {
+                const account = await this.accounts.findById(changes.bankAccountId);
+
+                if (account.archivedAt) {
+                    throw new CustomError(
+                        409,
+                        'BANK_ACCOUNT_ARCHIVED',
+                        'This bank account is archived',
+                        { exposeMessage: true },
+                    );
+                }
+            }
+
+            if (
+                changes.earningTypeId !== undefined &&
+                changes.earningTypeId !== earning.earningTypeId
+            ) {
+                const type = await this.types.findById(changes.earningTypeId);
+
+                if (type.archivedAt) {
+                    throw new CustomError(
+                        409,
+                        'EARNING_TYPE_ARCHIVED',
+                        'This earning type is archived',
+                        { exposeMessage: true },
+                    );
+                }
+            }
+
+            await repository.update({ id }, changes);
+        });
+
+        return this.findById(id);
+    }
+
+    /** Só receita não recebida se exclui (ERR-0014-10); excluir não move saldo. */
+    delete(id: string): Promise<void> {
+        return this.transactions.run(async (scope) => {
+            const repository = scope.manager.getRepository(Earning);
+            const earning = await repository.findOne({
+                where: { id },
+                lock: { mode: 'for_no_key_update' },
+            });
+
+            if (!earning) throw earningNotFound();
+            if (earning.status === 'RECEIVED') throw alreadyReceived();
+
+            await repository.delete({ id });
+        });
     }
 
     /**
