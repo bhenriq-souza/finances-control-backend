@@ -1,8 +1,7 @@
 import type { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 
-import { HttpResponses } from '../platform';
-import { listQuerySchema } from './archiving';
+import { HttpResponses, listQuerySchema } from '../platform';
 import { CreditCardServiceSymbol } from './accounts.symbols';
 import { toCreditCardResponse } from './credit-card.response';
 import {

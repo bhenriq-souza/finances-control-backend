@@ -1,8 +1,7 @@
 import type { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 
-import { HttpResponses } from '../platform';
-import { listQuerySchema } from './archiving';
+import { HttpResponses, listQuerySchema } from '../platform';
 import { BankAccountServiceSymbol } from './accounts.symbols';
 import { toBankAccountResponse } from './bank-account.response';
 import {

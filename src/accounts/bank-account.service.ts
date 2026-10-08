@@ -2,12 +2,15 @@ import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 import type { DataSource, EntityManager, Repository } from 'typeorm';
 
-import { DatabaseConnectionSymbol } from '../platform';
-import { archivedFilter, needsArchiveChange } from './archiving';
+import {
+    DatabaseConnectionSymbol,
+    archivedFilter,
+    asConflict,
+    needsArchiveChange,
+} from '../platform';
 import { BankAccount } from './bank-account.entity';
 import type { BankAccountType } from './bank-account-type';
 import { Bank } from './bank.entity';
-import { asConflict } from './unique-violation';
 
 const CONFLICTS = {
     uq_bank_accounts_bank_id_account_number: {
