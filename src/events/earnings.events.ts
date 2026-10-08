@@ -17,3 +17,9 @@ export type EarningCreated = DomainEvent<
         installmentGroupId: string | null;
     }
 >;
+
+export const EARNING_RECEIVED = 'EarningReceived' as const;
+export type EarningReceived = DomainEvent<
+    typeof EARNING_RECEIVED,
+    { earningId: string; amountCents: number; bankAccountId: string; receivedOn: string }
+>;

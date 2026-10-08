@@ -32,6 +32,12 @@ export class EarningRoutes extends BaseRoute {
                 middlewares: write,
                 handler: this.bind(this.controller, this.controller.handleCreateEarning),
             },
+            {
+                method: 'PATCH',
+                path: '/:id/status',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleChangeStatus),
+            },
         ];
     }
 }

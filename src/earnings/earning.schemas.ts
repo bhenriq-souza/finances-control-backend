@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { EARNING_STATUSES } from './earning-status';
+
 /** Status que uma receita pode ter ao nascer (ERR-0014-09). */
 export const CREATION_STATUSES = ['OPEN', 'FORECAST', 'VERIFYING'] as const;
 
@@ -34,3 +36,27 @@ export const createEarningSchema = z
     });
 
 export type CreateEarningInput = z.infer<typeof createEarningSchema>;
+
+/**
+ * `PATCH /earnings/:id/status`. Qualquer status é aceito aqui; o par fora da tabela de
+ * transições (inclusive `FORECAST` e `OVERDUE` como alvo) vira `409` no serviço (ERR-0014-08).
+ */
+export const changeEarningStatusSchema = z
+    .object({
+        status: z.enum(EARNING_STATUSES),
+        receivedOn: z.iso.date().optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+        if (data.receivedOn !== undefined && data.status !== 'RECEIVED') {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['receivedOn'],
+                message: 'receivedOn is only allowed when status is RECEIVED',
+            });
+        }
+    });
+
+export type ChangeEarningStatusInput = z.infer<typeof changeEarningStatusSchema>;
+
+export const earningIdParamsSchema = z.object({ id: z.uuid() });

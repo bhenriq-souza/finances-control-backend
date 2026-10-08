@@ -3,15 +3,30 @@ import { CustomError } from '@bhs-dev/typescript-common-errors';
 import type { DataSource } from 'typeorm';
 
 import { BankAccountService, BankAccountServiceSymbol } from '../accounts';
-import { EARNING_CREATED, type EarningCreated } from '../events';
-import { DatabaseConnectionSymbol, TransactionRunnerSymbol } from '../platform';
+import {
+    EARNING_CREATED,
+    EARNING_RECEIVED,
+    type EarningCreated,
+    type EarningReceived,
+} from '../events';
+import { DatabaseConnectionSymbol, TransactionRunnerSymbol, businessToday } from '../platform';
 import type { TransactionRunner } from '../platform';
 import { Earning } from './earning.entity';
 import { EarningTypeServiceSymbol } from './earnings.symbols';
-import type { CreateEarningInput } from './earning.schemas';
+import type { EarningStatus } from './earning-status';
+import type { ChangeEarningStatusInput, CreateEarningInput } from './earning.schemas';
 import type { EarningTypeService } from './earning-type.service';
 
 export type EarningWithType = Earning & { earningType: NonNullable<Earning['earningType']> };
+
+/** Transições permitidas por `PATCH /earnings/:id/status` (spec 0014, "Máquina de status"). */
+const ALLOWED_TRANSITIONS: Readonly<Record<EarningStatus, readonly EarningStatus[]>> = {
+    FORECAST: ['OPEN'],
+    OPEN: ['VERIFYING', 'RECEIVED'],
+    OVERDUE: ['VERIFYING', 'RECEIVED'],
+    VERIFYING: ['OPEN', 'RECEIVED'],
+    RECEIVED: ['OPEN'],
+};
 
 @injectable()
 export class EarningService {
@@ -87,5 +102,96 @@ export class EarningService {
             .findOneOrFail({ where: { id }, relations: { earningType: true } });
 
         return [created as EarningWithType];
+    }
+
+    /**
+     * Aplica uma transição de status. Receber soma `amountCents` ao saldo corrente da
+     * conta e desfazer o devolve, na mesma transação (INV-0014-03); `EarningReceived`
+     * só sai após o commit e desfazer não publica evento.
+     */
+    async changeStatus(id: string, change: ChangeEarningStatusInput): Promise<EarningWithType> {
+        await this.transactions.run(async (scope) => {
+            const repository = scope.manager.getRepository(Earning);
+            // `for_no_key_update`: `pessimistic_write` conflita com o KEY SHARE das FKs.
+            // Sem relations, pois o lock não se aplica a JOIN externo.
+            const earning = await repository.findOne({
+                where: { id },
+                lock: { mode: 'for_no_key_update' },
+            });
+
+            if (!earning) {
+                throw CustomError.notFound('Earning not found', 'EARNING_NOT_FOUND', {
+                    exposeMessage: true,
+                });
+            }
+
+            const from = earning.status;
+            const to = change.status;
+
+            if (!ALLOWED_TRANSITIONS[from].includes(to)) {
+                throw new CustomError(
+                    409,
+                    'EARNING_STATUS_TRANSITION_NOT_ALLOWED',
+                    `Cannot change an earning from ${from} to ${to}`,
+                    { exposeMessage: true },
+                );
+            }
+
+            if (to === 'RECEIVED') {
+                const receivedOn = change.receivedOn ?? businessToday();
+
+                await repository.update({ id }, { status: to, receivedOn });
+                await this.accounts.applyBalanceDelta(
+                    scope.manager,
+                    earning.bankAccountId,
+                    earning.amountCents,
+                );
+
+                const event: Omit<EarningReceived, 'occurredAt' | 'correlationId'> = {
+                    name: EARNING_RECEIVED,
+                    payload: {
+                        earningId: id,
+                        amountCents: earning.amountCents,
+                        bankAccountId: earning.bankAccountId,
+                        receivedOn,
+                    },
+                };
+                scope.publish(event);
+            } else if (from === 'RECEIVED') {
+                await repository.update({ id }, { status: to, receivedOn: null });
+                await this.accounts.applyBalanceDelta(
+                    scope.manager,
+                    earning.bankAccountId,
+                    -earning.amountCents,
+                );
+            } else {
+                await repository.update({ id }, { status: to });
+            }
+        });
+
+        const updated = await this.dataSource
+            .getRepository(Earning)
+            .findOneOrFail({ where: { id }, relations: { earningType: true } });
+
+        return updated as EarningWithType;
+    }
+
+    /**
+     * Varredura de vencidas (job do FCB-015; sem rota): um único `UPDATE` leva a
+     * `OVERDUE` toda receita `OPEN` esperada antes de `asOf`, no dia de negócio, e
+     * devolve quantas mudou. Idempotente: a segunda chamada não encontra `OPEN`.
+     */
+    async markOverdue(asOf: Date): Promise<number> {
+        const result = await this.dataSource
+            .createQueryBuilder()
+            .update(Earning)
+            .set({ status: 'OVERDUE' })
+            .where('status = :open AND occurred_on < :asOf', {
+                open: 'OPEN',
+                asOf: businessToday(asOf),
+            })
+            .execute();
+
+        return result.affected ?? 0;
     }
 }
