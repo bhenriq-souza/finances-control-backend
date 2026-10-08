@@ -228,4 +228,180 @@ describe('criação e status de /bank-transfers (spec 0018)', () => {
         expect(responses.map((r) => r.status).sort()).toEqual([200, 409]);
         expect(await balanceOf(accountA)).toBe(70000);
     });
+
+    describe('consulta, alteração e exclusão (T-0018-02)', () => {
+        const get = (path: string) => request(ctx.app).get(path).set('Authorization', BILLER);
+        const patch = (id: string, body: Record<string, unknown>) =>
+            request(ctx.app).patch(`/bank-transfers/${id}`).set('Authorization', BILLER).send(body);
+        const remove = (id: string) =>
+            request(ctx.app).delete(`/bank-transfers/${id}`).set('Authorization', BILLER);
+        const descriptions = (response: request.Response): string[] =>
+            response.body.data.map((t: { description: string }) => t.description);
+
+        it('AC-0018-11: bankAccountId lista as que saem e as que entram, em ordem de data', async () => {
+            const repository = dataSource.getRepository(BankAccount);
+            const { bankId } = await repository.findOneByOrFail({ id: accountA });
+            const third = await repository.save(
+                repository.create({
+                    bankId,
+                    type: 'CHECKING',
+                    accountNumber: 'C',
+                    description: 'C',
+                    openingBalanceCents: 0,
+                    currentBalanceCents: 0,
+                    overdraftLimitCents: 0,
+                    archivedAt: null,
+                }),
+            );
+
+            await transfer({ occurredOn: '2026-03-12', description: 'saida' });
+            await transfer({
+                fromBankAccountId: third.id,
+                toBankAccountId: accountA,
+                occurredOn: '2026-03-05',
+                description: 'entrada',
+            });
+            await transfer({
+                fromBankAccountId: third.id,
+                toBankAccountId: accountB,
+                description: 'alheia',
+            });
+
+            const response = await get(`/bank-transfers?bankAccountId=${accountA}`);
+
+            expect(response.status).toBe(200);
+            expect(descriptions(response)).toEqual(['entrada', 'saida']);
+        });
+
+        it('filtra por status e por intervalo inclusivo de occurredOn', async () => {
+            await transfer({ occurredOn: '2026-03-01', description: 'a' });
+            await transfer({ occurredOn: '2026-03-10', status: 'SCHEDULED', description: 'b' });
+            await transfer({ occurredOn: '2026-03-31', description: 'c' });
+
+            expect(descriptions(await get('/bank-transfers?status=SCHEDULED'))).toEqual(['b']);
+            expect(
+                descriptions(await get('/bank-transfers?from=2026-03-10&to=2026-03-31')),
+            ).toEqual(['b', 'c']);
+        });
+
+        it('ERR-0018-09: from > to é 400', async () => {
+            const response = await get('/bank-transfers?from=2026-04-01&to=2026-03-01');
+
+            expect(response.status).toBe(400);
+            expect(response.body.error.code).toBe('VALIDATION_ERROR');
+        });
+
+        it('GET /:id devolve a transferência; ERR-0018-02 para id inexistente', async () => {
+            const created = await transfer();
+
+            const found = await get(`/bank-transfers/${created.body.data.id}`);
+            expect(found.status).toBe(200);
+            expect(found.body.data).toEqual(created.body.data);
+
+            const missing = await get(`/bank-transfers/${MISSING}`);
+            expect(missing.status).toBe(404);
+            expect(missing.body.error.code).toBe('BANK_TRANSFER_NOT_FOUND');
+        });
+
+        it('AC-0018-06: concluída recusa valor, contas, data e exclusão, mas aceita description', async () => {
+            const { id } = (await transfer()).body.data;
+
+            for (const body of [
+                { amountCents: 100 },
+                { occurredOn: '2026-03-11' },
+                { fromBankAccountId: accountB, toBankAccountId: accountA },
+            ]) {
+                const response = await patch(id, body);
+                expect(response.status).toBe(409);
+                expect(response.body.error.code).toBe('BANK_TRANSFER_ALREADY_COMPLETED');
+            }
+
+            const deleted = await remove(id);
+            expect(deleted.status).toBe(409);
+            expect(deleted.body.error.code).toBe('BANK_TRANSFER_ALREADY_COMPLETED');
+
+            const ok = await patch(id, { description: 'Nova', notes: 'obs' });
+            expect(ok.status).toBe(200);
+            expect(ok.body.data).toMatchObject({
+                description: 'Nova',
+                notes: 'obs',
+                amountCents: 30000,
+            });
+            expect(await balanceOf(accountA)).toBe(70000);
+            expect(await balanceOf(accountB)).toBe(35000);
+        });
+
+        it('AC-0018-06: agendada aceita alterar valor e contas sem mover saldo, e se exclui', async () => {
+            const { id } = (await transfer({ status: 'SCHEDULED' })).body.data;
+
+            const changed = await patch(id, {
+                amountCents: 12345,
+                occurredOn: '2026-04-01',
+                fromBankAccountId: accountB,
+                toBankAccountId: accountA,
+            });
+            expect(changed.status).toBe(200);
+            expect(changed.body.data).toMatchObject({
+                amountCents: 12345,
+                occurredOn: '2026-04-01',
+                fromBankAccountId: accountB,
+                toBankAccountId: accountA,
+            });
+            expect(await balanceOf(accountA)).toBe(100000);
+            expect(await balanceOf(accountB)).toBe(5000);
+
+            expect((await remove(id)).status).toBe(204);
+            expect((await get(`/bank-transfers/${id}`)).status).toBe(404);
+            expect(await balanceOf(accountA)).toBe(100000);
+        });
+
+        it('INV-0018-06: desfazer e então excluir devolve os saldos', async () => {
+            const { id } = (await transfer()).body.data;
+
+            await changeStatus(id, { status: 'SCHEDULED' });
+            expect((await remove(id)).status).toBe(204);
+            expect(await balanceOf(accountA)).toBe(100000);
+            expect(await balanceOf(accountB)).toBe(5000);
+        });
+
+        it.each(['status', 'completedOn'])(
+            'ERR-0018-08: PATCH com %s é 400 citando o campo',
+            async (field) => {
+                const { id } = (await transfer({ status: 'SCHEDULED' })).body.data;
+
+                const response = await patch(id, {
+                    description: 'x',
+                    [field]: field === 'status' ? 'COMPLETED' : '2026-03-10',
+                });
+
+                expect(response.status).toBe(400);
+                expect(response.body.error.code).toBe('VALIDATION_ERROR');
+                expect(JSON.stringify(response.body)).toContain(field);
+            },
+        );
+
+        it('ERR-0018-01/03/04 e 404 na alteração de agendada', async () => {
+            const { id } = (await transfer({ status: 'SCHEDULED' })).body.data;
+
+            const same = await patch(id, { toBankAccountId: accountA });
+            expect(same.status).toBe(400);
+            expect(JSON.stringify(same.body)).toContain('fromBankAccountId');
+            expect(JSON.stringify(same.body)).toContain('toBankAccountId');
+
+            const ghost = await patch(id, { toBankAccountId: MISSING });
+            expect(ghost.status).toBe(404);
+            expect(ghost.body.error.code).toBe('BANK_ACCOUNT_NOT_FOUND');
+
+            await dataSource.query('UPDATE bank_accounts SET archived_at = now() WHERE id = $1', [
+                accountB,
+            ]);
+            const archived = await patch(id, { toBankAccountId: accountB });
+            expect(archived.status).toBe(409);
+            expect(archived.body.error.code).toBe('BANK_ACCOUNT_ARCHIVED');
+
+            expect((await patch(MISSING, { description: 'x' })).status).toBe(404);
+            expect((await remove(MISSING)).status).toBe(404);
+            expect((await patch(id, { amountCents: 0 })).status).toBe(400);
+        });
+    });
 });

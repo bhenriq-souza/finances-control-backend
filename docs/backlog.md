@@ -388,7 +388,7 @@ da spec 0004 implementada; a parte de relatórios, da spec 0015.
     - Where: `src/accounts/`, `src/events/accounts.events.ts`, `src/platform/database/migrations/`
     - Done when: `AC-0018-01` a `AC-0018-05` e `AC-0018-07` cobertos; `INV-0018-01` a `INV-0018-05`
       verificados
-- [ ] **T-0018-02 — Consulta, alteração, exclusão, autorização e OpenAPI** · #95
+- [x] **T-0018-02 — Consulta, alteração, exclusão, autorização e OpenAPI** · #95
     - What: `GET` com filtros, `PATCH /:id` e `DELETE` com as regras da concluída, as guardas de
       perfil e o contrato no `openapi.yaml`
     - Where: `src/accounts/`, `docs/openapi.yaml`

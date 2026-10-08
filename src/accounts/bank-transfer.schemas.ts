@@ -58,3 +58,42 @@ export const changeBankTransferStatusSchema = z
     });
 
 export const bankTransferIdParamsSchema = z.object({ id: z.uuid() });
+
+export const updateBankTransferSchema = z
+    .object({
+        description: z.string().trim().min(1).max(120).optional(),
+        notes: z.string().trim().min(1).max(1000).nullable().optional(),
+        fromBankAccountId: z.uuid().optional(),
+        toBankAccountId: z.uuid().optional(),
+        amountCents: z.int().positive().optional(),
+        occurredOn: date.optional(),
+    })
+    // ERR-0018-08: `status` e `completedOn` vão por `…/status`; a chave recusada é citada.
+    .strict()
+    .refine((data) => Object.keys(data).length > 0, {
+        message: 'At least one field must be provided',
+    });
+
+export const listBankTransfersQuerySchema = z
+    .object({
+        bankAccountId: z.uuid().optional(),
+        status: z.enum(BANK_TRANSFER_STATUSES).optional(),
+        from: date.optional(),
+        to: date.optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+        // ERR-0018-09
+        if (data.from !== undefined && data.to !== undefined && data.from > data.to) {
+            for (const field of ['from', 'to'] as const) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: [field],
+                    message: 'from must not be after to',
+                });
+            }
+        }
+    });
+
+export type UpdateBankTransfer = z.infer<typeof updateBankTransferSchema>;
+export type ListBankTransfersQuery = z.infer<typeof listBankTransfersQuerySchema>;
