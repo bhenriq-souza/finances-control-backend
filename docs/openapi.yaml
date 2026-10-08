@@ -22,6 +22,8 @@ tags:
       description: Bancos, contas bancárias e cartões de crédito
     - name: Earnings
       description: Receitas
+    - name: Expenses
+      description: Despesas e tipos de despesa
 
 paths:
     /health:
@@ -935,6 +937,205 @@ paths:
                 '409':
                     $ref: '#/components/responses/EarningConflict'
 
+    /expenses:
+        get:
+            tags: [Expenses]
+            summary: Lista as despesas
+            description: |
+                Filtros opcionais, combinados por E. Sem filtro, devolve tudo. Em ordem de
+                `occurredOn` e depois de criação. Qualquer perfil lê.
+            operationId: listExpenses
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: from
+                  in: query
+                  required: false
+                  description: '`occurredOn` mínimo, inclusivo. Maior que `to` é 400.'
+                  schema: { type: string, format: date }
+                - name: to
+                  in: query
+                  required: false
+                  description: '`occurredOn` máximo, inclusivo.'
+                  schema: { type: string, format: date }
+                - name: status
+                  in: query
+                  required: false
+                  schema: { $ref: '#/components/schemas/ExpenseStatus' }
+                - name: kind
+                  in: query
+                  required: false
+                  schema: { $ref: '#/components/schemas/ExpenseKind' }
+                - name: expenseTypeId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+                - name: bankAccountId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+                - name: creditCardId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+                - name: installmentGroupId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+            responses:
+                '200':
+                    description: Despesas que casam com os filtros
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/ExpenseResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+        post:
+            tags: [Expenses]
+            summary: Lança uma despesa
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Devolve uma lista de um elemento. Despesa
+                de cartão `OPEN` ou `VERIFYING` abate o limite disponível na mesma
+                transação; `FORECAST` não. Saldo e limite nunca barram o lançamento.
+            operationId: createExpense
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateExpense'
+            responses:
+                '201':
+                    description: As despesas criadas, em ordem de parcela
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/ExpenseResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseNotFound'
+                '409':
+                    $ref: '#/components/responses/ExpenseConflict'
+
+    /expenses/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        get:
+            tags: [Expenses]
+            summary: Consulta uma despesa
+            operationId: getExpense
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/Expense'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseNotFound'
+        patch:
+            tags: [Expenses]
+            summary: Altera uma despesa
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Corpo estrito e não vazio: `kind`, `status`,
+                `paidOn`, `bankAccountId`, `creditCardId` e `installment*` são 400 citando o
+                campo. `amountCents` de despesa paga é 409; em cartão abatido do limite, move
+                a diferença na mesma transação. Numa parcela, altera só aquela parcela.
+            operationId: updateExpense
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateExpense'
+            responses:
+                '200':
+                    $ref: '#/components/responses/Expense'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseNotFound'
+                '409':
+                    $ref: '#/components/responses/ExpenseConflict'
+        delete:
+            tags: [Expenses]
+            summary: Exclui uma despesa
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Só despesa não paga; a paga é 409 (desfaça o
+                pagamento antes). Despesa de cartão devolve o limite. Excluir uma parcela exclui,
+                na mesma transação, todas as parcelas não pagas do grupo; as pagas permanecem.
+            operationId: deleteExpense
+            security: [{ bearerAuth: [] }]
+            responses:
+                '204':
+                    description: Excluída
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseNotFound'
+                '409':
+                    $ref: '#/components/responses/ExpenseConflict'
+
+    /expenses/{id}/status:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        patch:
+            tags: [Expenses]
+            summary: Muda o status de uma despesa
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Pagar despesa de conta abate o saldo e grava
+                `paidOn` (default: hoje, no fuso de negócio); desfazer devolve. Despesa de
+                cartão não é paga por aqui. `FORECAST → OPEN` de cartão abate o limite.
+            operationId: changeExpenseStatus
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ChangeExpenseStatus'
+            responses:
+                '200':
+                    $ref: '#/components/responses/Expense'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseNotFound'
+                '409':
+                    $ref: '#/components/responses/ExpenseConflict'
+
 components:
     parameters:
         ResourceId:
@@ -1096,6 +1297,34 @@ components:
                 conta ou tipo arquivado; `EARNING_ALREADY_RECEIVED` ao alterar valor ou conta,
                 ou excluir, receita recebida; `EARNING_STATUS_TRANSITION_NOT_ALLOWED` em
                 transição fora da tabela.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        Expense:
+            description: A despesa
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/ExpenseResponse'
+        ExpenseNotFound:
+            description: |
+                `EXPENSE_NOT_FOUND`, `EXPENSE_TYPE_NOT_FOUND`, `BANK_ACCOUNT_NOT_FOUND` ou
+                `CREDIT_CARD_NOT_FOUND`
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        ExpenseConflict:
+            description: |
+                `EXPENSE_ALREADY_PAID` ao alterar o valor ou excluir despesa paga;
+                `EXPENSE_STATUS_TRANSITION_NOT_ALLOWED`; `CREDIT_CARD_EXPENSE_PAID_BY_STATEMENT`
+                ao pagar ou despagar despesa de cartão; `EXPENSE_TYPE_ARCHIVED`,
+                `BANK_ACCOUNT_ARCHIVED` ou `CREDIT_CARD_ARCHIVED` ao lançar ou alterar com
+                tipo, conta ou cartão arquivado.
             content:
                 application/json:
                     schema:
@@ -1455,6 +1684,115 @@ components:
                 notes: { type: string, nullable: true }
                 earningType: { $ref: '#/components/schemas/EarningTypeResponse' }
                 bankAccountId: { type: string, format: uuid }
+                installment:
+                    type: object
+                    nullable: true
+                    required: [groupId, number, total]
+                    properties:
+                        groupId: { type: string, format: uuid }
+                        number: { type: integer }
+                        total: { type: integer }
+                createdAt: { type: string, format: date-time }
+                updatedAt: { type: string, format: date-time }
+
+        ExpenseKind:
+            type: string
+            enum: [FIXED, VARIABLE, INSTALLMENT]
+        ExpenseStatus:
+            type: string
+            enum: [OPEN, FORECAST, PAID, OVERDUE, VERIFYING]
+
+        ExpenseTypeResponse:
+            type: object
+            required: [id, name, archivedAt, createdAt]
+            properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                archivedAt: { type: string, format: date-time, nullable: true }
+                createdAt: { type: string, format: date-time }
+
+        CreateExpense:
+            type: object
+            required: [description, expenseTypeId, kind, amountCents, occurredOn]
+            description: Exatamente um entre `bankAccountId` e `creditCardId`.
+            properties:
+                description: { type: string }
+                expenseTypeId: { type: string, format: uuid }
+                kind: { $ref: '#/components/schemas/ExpenseKind' }
+                amountCents: { type: integer, minimum: 1 }
+                occurredOn: { type: string, format: date }
+                bankAccountId: { type: string, format: uuid }
+                creditCardId: { type: string, format: uuid }
+                postedOn:
+                    type: string
+                    format: date
+                    description: Só com `creditCardId`; não anterior a `occurredOn`.
+                status:
+                    type: string
+                    enum: [OPEN, FORECAST, VERIFYING]
+                    default: OPEN
+                notes: { type: string }
+
+        UpdateExpense:
+            type: object
+            minProperties: 1
+            description: |
+                `postedOn` só em despesa de cartão. Outros campos são 400: trocar conta ou
+                cartão é `PATCH …/payment-method`, mudar status é `PATCH …/status`.
+            properties:
+                description: { type: string }
+                expenseTypeId: { type: string, format: uuid }
+                occurredOn: { type: string, format: date }
+                amountCents:
+                    type: integer
+                    minimum: 1
+                    description: Recusado (409) em despesa paga.
+                postedOn: { type: string, format: date }
+                notes: { type: string, nullable: true }
+
+        ChangeExpenseStatus:
+            type: object
+            required: [status]
+            properties:
+                status: { $ref: '#/components/schemas/ExpenseStatus' }
+                paidOn:
+                    type: string
+                    format: date
+                    description: Só ao pagar; o default é hoje.
+
+        ExpenseResponse:
+            type: object
+            required:
+                [
+                    id,
+                    description,
+                    kind,
+                    status,
+                    amountCents,
+                    occurredOn,
+                    paidOn,
+                    notes,
+                    expenseType,
+                    bankAccountId,
+                    creditCardId,
+                    postedOn,
+                    installment,
+                    createdAt,
+                    updatedAt,
+                ]
+            properties:
+                id: { type: string, format: uuid }
+                description: { type: string }
+                kind: { $ref: '#/components/schemas/ExpenseKind' }
+                status: { $ref: '#/components/schemas/ExpenseStatus' }
+                amountCents: { type: integer }
+                occurredOn: { type: string, format: date }
+                paidOn: { type: string, format: date, nullable: true }
+                notes: { type: string, nullable: true }
+                expenseType: { $ref: '#/components/schemas/ExpenseTypeResponse' }
+                bankAccountId: { type: string, format: uuid, nullable: true }
+                creditCardId: { type: string, format: uuid, nullable: true }
+                postedOn: { type: string, format: date, nullable: true }
                 installment:
                     type: object
                     nullable: true
