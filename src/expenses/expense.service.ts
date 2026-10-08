@@ -8,13 +8,23 @@ import {
     type BankAccountService,
     type CreditCardService,
 } from '../accounts';
-import { EXPENSE_CREATED, type ExpenseCreated } from '../events';
-import { TransactionRunnerSymbol, type TransactionRunner } from '../platform';
+import { EXPENSE_CREATED, EXPENSE_PAID, type ExpenseCreated } from '../events';
+import { TransactionRunnerSymbol, businessToday, type TransactionRunner } from '../platform';
 import { ExpenseType } from './expense-type.entity';
 import { Expense } from './expense.entity';
-import type { CreateExpense } from './expense.schemas';
+import type { ExpenseStatus } from './expense-status';
+import type { ChangeExpenseStatus, CreateExpense } from './expense.schemas';
 
 export type ExpenseWithType = Expense & { expenseType: ExpenseType };
+
+/** Transições aceitas por `PATCH /expenses/:id/status`; todo outro par é ERR-0012-08. */
+const ALLOWED_TRANSITIONS: Record<string, readonly ExpenseStatus[]> = {
+    FORECAST: ['OPEN'],
+    OPEN: ['VERIFYING', 'PAID'],
+    OVERDUE: ['VERIFYING', 'PAID'],
+    VERIFYING: ['OPEN', 'PAID'],
+    PAID: ['OPEN'],
+};
 
 @injectable()
 export class ExpenseService {
@@ -87,6 +97,118 @@ export class ExpenseService {
             });
 
             return [loaded as ExpenseWithType];
+        });
+    }
+
+    /**
+     * Aplica uma transição da máquina de status numa única transação (AC-0012-05,
+     * AC-0012-12). Pagar ou desfazer move o saldo da conta e `paid_on` junto;
+     * `FORECAST → OPEN` de cartão abate o limite. Despesa de cartão nunca é paga
+     * por aqui (ERR-0012-09).
+     */
+    changeStatus(id: string, change: ChangeExpenseStatus): Promise<ExpenseWithType> {
+        return this.runner.run(async (scope) => {
+            const { manager } = scope;
+            const repository = manager.getRepository(Expense);
+            // FOR NO KEY UPDATE: serializa mudanças da mesma despesa sem conflitar com o
+            // KEY SHARE que a FK de uma fatura toma sobre a linha.
+            const expense = await repository.findOne({
+                where: { id },
+                lock: { mode: 'for_no_key_update' },
+            });
+
+            if (!expense) {
+                throw CustomError.notFound('Expense not found', 'EXPENSE_NOT_FOUND', {
+                    exposeMessage: true,
+                });
+            }
+
+            const from = expense.status;
+            const to = change.status;
+
+            if (!ALLOWED_TRANSITIONS[from]?.includes(to)) {
+                throw new CustomError(
+                    409,
+                    'EXPENSE_STATUS_TRANSITION_NOT_ALLOWED',
+                    `Transition from ${from} to ${to} is not allowed`,
+                    { exposeMessage: true },
+                );
+            }
+
+            const touchesPayment = to === 'PAID' || from === 'PAID';
+
+            if (touchesPayment && expense.creditCardId) {
+                throw new CustomError(
+                    409,
+                    'CREDIT_CARD_EXPENSE_PAID_BY_STATEMENT',
+                    'Credit card expenses are paid through the statement',
+                    { exposeMessage: true },
+                );
+            }
+
+            if (to === 'PAID') {
+                const paidOn = change.paidOn ?? businessToday();
+
+                await this.bankAccounts.applyBalanceDelta(
+                    manager,
+                    expense.bankAccountId as string,
+                    -expense.amountCents,
+                );
+                await repository.update({ id }, { status: 'PAID', paidOn });
+                scope.publish({
+                    name: EXPENSE_PAID,
+                    payload: {
+                        expenseId: id,
+                        amountCents: expense.amountCents,
+                        bankAccountId: expense.bankAccountId as string,
+                        paidOn,
+                    },
+                });
+            } else if (from === 'PAID') {
+                await this.bankAccounts.applyBalanceDelta(
+                    manager,
+                    expense.bankAccountId as string,
+                    expense.amountCents,
+                );
+                await repository.update({ id }, { status: 'OPEN', paidOn: null });
+            } else {
+                if (from === 'FORECAST' && expense.creditCardId) {
+                    await this.creditCards.applyAvailableLimitDelta(
+                        manager,
+                        expense.creditCardId,
+                        -expense.amountCents,
+                    );
+                }
+
+                await repository.update({ id }, { status: to });
+            }
+
+            return (await repository.findOneOrFail({
+                where: { id },
+                relations: { expenseType: true },
+            })) as ExpenseWithType;
+        });
+    }
+
+    /**
+     * Varredura de vencidas: um único `UPDATE` leva a `OVERDUE` toda despesa de conta
+     * `OPEN` com `occurred_on` anterior a `asOf` (data de negócio de `asOf`), e devolve
+     * quantas mudou. Idempotente; despesa de cartão nunca vence (INV-0012-08).
+     */
+    markOverdue(asOf: Date): Promise<number> {
+        const cutoff = businessToday(asOf);
+
+        return this.runner.run(async ({ manager }) => {
+            const result = await manager
+                .createQueryBuilder()
+                .update(Expense)
+                .set({ status: 'OVERDUE' })
+                .where('status = :open', { open: 'OPEN' })
+                .andWhere('bank_account_id IS NOT NULL')
+                .andWhere('occurred_on < :cutoff', { cutoff })
+                .execute();
+
+            return result.affected ?? 0;
         });
     }
 

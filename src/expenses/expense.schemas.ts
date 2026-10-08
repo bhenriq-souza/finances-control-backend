@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { EXPENSE_STATUSES } from './expense-status';
+
 /** Dinheiro entra como inteiro positivo de centavos; fração é `400` (ERR-0012-12). */
 const amountCents = z.int().positive();
 
@@ -55,3 +57,27 @@ export const createExpenseSchema = z
     });
 
 export type CreateExpense = z.infer<typeof createExpenseSchema>;
+
+/**
+ * Alvos aceitos por `PATCH /expenses/:id/status`. `FORECAST` e `OVERDUE` não são
+ * alvo: o par é recusado com ERR-0012-08 pelo serviço, não por validação.
+ */
+export const changeExpenseStatusSchema = z
+    .object({
+        status: z.enum(EXPENSE_STATUSES),
+        paidOn: businessDate.optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+        if (data.status !== 'PAID' && data.paidOn !== undefined) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['paidOn'],
+                message: 'paidOn is only allowed when status is PAID',
+            });
+        }
+    });
+
+export type ChangeExpenseStatus = z.infer<typeof changeExpenseStatusSchema>;
+
+export const expenseIdParamsSchema = z.object({ id: z.uuid() });
