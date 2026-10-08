@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
+
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
-import type { DataSource } from 'typeorm';
+import { In, type DataSource, type FindOptionsWhere, type Repository } from 'typeorm';
 
 import { BankAccountService, BankAccountServiceSymbol } from '../accounts';
 import {
@@ -9,7 +11,13 @@ import {
     type EarningCreated,
     type EarningReceived,
 } from '../events';
-import { DatabaseConnectionSymbol, TransactionRunnerSymbol, businessToday } from '../platform';
+import {
+    DatabaseConnectionSymbol,
+    TransactionRunnerSymbol,
+    businessToday,
+    monthlyInstallmentDates,
+    splitCents,
+} from '../platform';
 import type { TransactionRunner } from '../platform';
 import { Earning } from './earning.entity';
 import { EarningTypeServiceSymbol } from './earnings.symbols';
@@ -77,48 +85,64 @@ export class EarningService {
 
         const status = input.status ?? 'OPEN';
 
-        const id = await this.transactions.run(async (scope) => {
+        // INSTALLMENT: `installmentTotal` linhas, rateadas por `splitCents` e esperadas mês a
+        // mês, todas na mesma transação (INV-0014-09); as demais são uma linha.
+        const total = input.kind === 'INSTALLMENT' ? (input.installmentTotal ?? 1) : 1;
+        const groupId = input.kind === 'INSTALLMENT' ? randomUUID() : null;
+        const amounts = splitCents(input.amountCents, total);
+        const dates = monthlyInstallmentDates(input.occurredOn, total);
+
+        const ids = await this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
-            const saved = await repository.save(
-                repository.create({
-                    description: input.description,
-                    earningTypeId: input.earningTypeId,
-                    kind: input.kind,
-                    status,
-                    amountCents: input.amountCents,
-                    occurredOn: input.occurredOn,
-                    receivedOn: null,
-                    bankAccountId: input.bankAccountId,
-                    installmentGroupId: null,
-                    installmentNumber: null,
-                    installmentTotal: null,
-                    notes: input.notes ?? null,
-                }),
-            );
+            const created: string[] = [];
 
-            const event: Omit<EarningCreated, 'occurredAt' | 'correlationId'> = {
-                name: EARNING_CREATED,
-                payload: {
-                    earningId: saved.id,
-                    kind: input.kind,
-                    status,
-                    amountCents: input.amountCents,
-                    occurredOn: input.occurredOn,
-                    bankAccountId: input.bankAccountId,
-                    installmentGroupId: null,
-                },
-            };
-            scope.publish(event);
+            for (let index = 0; index < total; index += 1) {
+                const amountCents = amounts[index]!;
+                const occurredOn = dates[index]!;
+                const saved = await repository.save(
+                    repository.create({
+                        description: input.description,
+                        earningTypeId: input.earningTypeId,
+                        kind: input.kind,
+                        status,
+                        amountCents,
+                        occurredOn,
+                        receivedOn: null,
+                        bankAccountId: input.bankAccountId,
+                        installmentGroupId: groupId,
+                        installmentNumber: groupId === null ? null : index + 1,
+                        installmentTotal: groupId === null ? null : total,
+                        notes: input.notes ?? null,
+                    }),
+                );
 
-            return saved.id;
+                const event: Omit<EarningCreated, 'occurredAt' | 'correlationId'> = {
+                    name: EARNING_CREATED,
+                    payload: {
+                        earningId: saved.id,
+                        kind: input.kind,
+                        status,
+                        amountCents,
+                        occurredOn,
+                        bankAccountId: input.bankAccountId,
+                        installmentGroupId: groupId,
+                    },
+                };
+                scope.publish(event);
+                created.push(saved.id);
+            }
+
+            return created;
         });
 
         // Recarrega porque `created_at` é do banco e o INSERT do ORM não a traz.
-        const created = await this.dataSource
-            .getRepository(Earning)
-            .findOneOrFail({ where: { id }, relations: { earningType: true } });
+        const rows = await this.dataSource.getRepository(Earning).find({
+            where: { id: In(ids) },
+            relations: { earningType: true },
+        });
+        const byId = new Map(rows.map((row) => [row.id, row]));
 
-        return [created as EarningWithType];
+        return ids.map((id) => byId.get(id) as EarningWithType);
     }
 
     /** ERR-0014-02 para `:id` inexistente. */
@@ -167,10 +191,8 @@ export class EarningService {
     async update(id: string, changes: UpdateEarningInput): Promise<EarningWithType> {
         await this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
-            const earning = await repository.findOne({
-                where: { id },
-                lock: { mode: 'for_no_key_update' },
-            });
+            const locked = await this.lockGroup(repository, id);
+            const earning = locked.find((row) => row.id === id);
 
             if (!earning) throw earningNotFound();
 
@@ -214,24 +236,66 @@ export class EarningService {
             }
 
             await repository.update({ id }, changes);
+
+            // Trocar a conta de uma parcela troca a de todas as não recebidas do grupo; as
+            // recebidas ficam onde entraram (INV-0014-10). Nada move saldo.
+            if (changes.bankAccountId !== undefined) {
+                const siblings = locked
+                    .filter((row) => row.id !== id && row.status !== 'RECEIVED')
+                    .map((row) => row.id);
+
+                if (siblings.length > 0) {
+                    await repository.update(
+                        { id: In(siblings) },
+                        { bankAccountId: changes.bankAccountId },
+                    );
+                }
+            }
         });
 
         return this.findById(id);
     }
 
-    /** Só receita não recebida se exclui (ERR-0014-10); excluir não move saldo. */
+    /**
+     * Só receita não recebida se exclui (ERR-0014-10); excluir não move saldo. Numa
+     * parcela, exclui na mesma transação todas as não recebidas do grupo; as recebidas
+     * ficam (INV-0014-10).
+     */
     delete(id: string): Promise<void> {
         return this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
-            const earning = await repository.findOne({
-                where: { id },
-                lock: { mode: 'for_no_key_update' },
-            });
+            const locked = await this.lockGroup(repository, id);
+            const target = locked.find((row) => row.id === id);
 
-            if (!earning) throw earningNotFound();
-            if (earning.status === 'RECEIVED') throw alreadyReceived();
+            if (!target) throw earningNotFound();
+            if (target.status === 'RECEIVED') throw alreadyReceived();
 
-            await repository.delete({ id });
+            const doomed = locked.filter((row) => row.status !== 'RECEIVED');
+
+            await repository.delete({ id: In(doomed.map((row) => row.id)) });
+        });
+    }
+
+    /**
+     * Leitura sem trava só para descobrir o grupo; a trava vem a seguir, sobre o grupo
+     * inteiro em ordem de `id`, para que duas operações sobre parcelas do mesmo grupo nunca
+     * se travem em ordem cruzada. `for_no_key_update` por causa do KEY SHARE das FKs.
+     * Devolve vazio se `id` não existe.
+     */
+    private async lockGroup(repository: Repository<Earning>, id: string): Promise<Earning[]> {
+        const probe = await repository.findOne({ where: { id } });
+
+        if (!probe) return [];
+
+        const where: FindOptionsWhere<Earning> =
+            probe.installmentGroupId !== null
+                ? { installmentGroupId: probe.installmentGroupId }
+                : { id };
+
+        return repository.find({
+            where,
+            order: { id: 'ASC' },
+            lock: { mode: 'for_no_key_update' },
         });
     }
 

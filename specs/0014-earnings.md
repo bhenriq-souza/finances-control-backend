@@ -1,7 +1,7 @@
 ---
 id: '0014'
 title: Earnings — receitas, tipos e status
-status: approved
+status: implemented
 depends_on: ['0000', '0003', '0004', '0010', '0011', '0012']
 ---
 
