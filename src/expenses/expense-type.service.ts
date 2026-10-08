@@ -2,10 +2,13 @@ import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 import type { DataSource, Repository } from 'typeorm';
 
-import { DatabaseConnectionSymbol } from '../platform';
-import { archivedFilter, needsArchiveChange } from './archiving';
+import {
+    DatabaseConnectionSymbol,
+    archivedFilter,
+    asConflict,
+    needsArchiveChange,
+} from '../platform';
 import { ExpenseType } from './expense-type.entity';
-import { asConflict } from './unique-violation';
 
 const CONFLICTS = {
     uq_expense_types_name: {

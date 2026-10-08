@@ -1,7 +1,7 @@
 import { QueryFailedError } from 'typeorm';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 
-import { asConflict } from '../../src/accounts/unique-violation';
+import { asConflict } from '../../src/platform/unique-violation';
 
 const CONFLICTS = {
     uq_banks_febraban_code: { code: 'BANK_ALREADY_EXISTS', message: 'já existe' },

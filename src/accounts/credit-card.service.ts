@@ -2,11 +2,14 @@ import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 import type { DataSource, EntityManager, Repository } from 'typeorm';
 
-import { DatabaseConnectionSymbol } from '../platform';
-import { archivedFilter, needsArchiveChange } from './archiving';
+import {
+    DatabaseConnectionSymbol,
+    archivedFilter,
+    asConflict,
+    needsArchiveChange,
+} from '../platform';
 import { Bank } from './bank.entity';
 import { CreditCard } from './credit-card.entity';
-import { asConflict } from './unique-violation';
 
 const CONFLICTS = {
     uq_credit_cards_bank_id_name: {
