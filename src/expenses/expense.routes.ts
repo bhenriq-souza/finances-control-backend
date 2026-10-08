@@ -31,6 +31,12 @@ export class ExpenseRoutes extends BaseRoute {
                 middlewares: write,
                 handler: this.bind(this.controller, this.controller.handleCreateExpense),
             },
+            {
+                method: 'PATCH',
+                path: '/:id/status',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleChangeExpenseStatus),
+            },
         ];
     }
 }

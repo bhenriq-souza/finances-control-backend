@@ -194,7 +194,7 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
       datas mensais com dia preservado e limite abatido pelo total
     - Where: `src/expenses/`
     - Done when: `AC-0012-07`, `AC-0012-08` e `AC-0012-09` cobertos; `INV-0012-06` verificado
-- [ ] **T-0012-06 — Máquina de status, pagamento e varredura de vencidas** · #58
+- [x] **T-0012-06 — Máquina de status, pagamento e varredura de vencidas** · #58
     - What: `PATCH /expenses/:id/status` com a tabela de transições, pagamento e desfazer movendo
       o saldo da conta, recusa para cartão, `ExpensePaid` e `ExpenseService.markOverdue`
     - Where: `src/expenses/`, `src/events/expenses.events.ts`
