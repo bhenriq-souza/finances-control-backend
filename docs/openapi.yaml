@@ -20,6 +20,8 @@ tags:
       description: Usuários, autenticação e concessão de perfil
     - name: Accounts
       description: Bancos, contas bancárias e cartões de crédito
+    - name: Earnings
+      description: Receitas
 
 paths:
     /health:
@@ -732,6 +734,207 @@ paths:
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
 
+    /earnings:
+        get:
+            tags: [Earnings]
+            summary: Lista as receitas
+            description: |
+                Em ordem de `occurredOn` e depois de criação. Filtros opcionais, combinados por
+                E. Qualquer perfil lê.
+            operationId: listEarnings
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: from
+                  in: query
+                  required: false
+                  description: '`occurredOn` mínimo, inclusivo. Maior que `to` é 400.'
+                  schema: { type: string, format: date }
+                - name: to
+                  in: query
+                  required: false
+                  description: '`occurredOn` máximo, inclusivo.'
+                  schema: { type: string, format: date }
+                - name: status
+                  in: query
+                  required: false
+                  schema:
+                      $ref: '#/components/schemas/EarningStatus'
+                - name: kind
+                  in: query
+                  required: false
+                  schema:
+                      $ref: '#/components/schemas/EarningKind'
+                - name: earningTypeId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+                - name: bankAccountId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+                - name: installmentGroupId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+            responses:
+                '200':
+                    description: Receitas que casam com os filtros
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/EarningResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+        post:
+            tags: [Earnings]
+            summary: Lança uma receita
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Criar nunca move o saldo da conta; `status`
+                default `OPEN`. Devolve uma lista com uma receita (`FIXED`/`VARIABLE`) e publica
+                `EarningCreated`.
+            operationId: createEarning
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateEarning'
+            responses:
+                '201':
+                    description: As receitas criadas
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/EarningResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningNotFound'
+                '409':
+                    $ref: '#/components/responses/EarningConflict'
+
+    /earnings/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        get:
+            tags: [Earnings]
+            summary: Consulta uma receita
+            operationId: getEarning
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/Earning'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningNotFound'
+        patch:
+            tags: [Earnings]
+            summary: Altera uma receita
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Aceita `description`, `earningTypeId`,
+                `occurredOn`, `amountCents`, `bankAccountId` e `notes`; ao menos um campo.
+                `amountCents` e `bankAccountId` de receita recebida são 409. Trocar conta ou
+                valor de receita não recebida não move saldo. `kind`, `status`, `receivedOn` e
+                `installment*` são 400 citando o campo (o status muda por `PATCH …/status`).
+            operationId: updateEarning
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateEarning'
+            responses:
+                '200':
+                    $ref: '#/components/responses/Earning'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningNotFound'
+                '409':
+                    $ref: '#/components/responses/EarningConflict'
+        delete:
+            tags: [Earnings]
+            summary: Exclui uma receita não recebida
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Só receita não recebida: a recebida é
+                desfeita antes, para que o saldo volte explicitamente. Não move saldo.
+            operationId: deleteEarning
+            security: [{ bearerAuth: [] }]
+            responses:
+                '204':
+                    description: Excluída
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningNotFound'
+                '409':
+                    $ref: '#/components/responses/EarningConflict'
+
+    /earnings/{id}/status:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        patch:
+            tags: [Earnings]
+            summary: Muda o status de uma receita
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Receber soma `amountCents` ao saldo da conta
+                na mesma transação (publica `EarningReceived`); `RECEIVED → OPEN` devolve o
+                saldo. `FORECAST` e `OVERDUE` não são alvo válido.
+            operationId: changeEarningStatus
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ChangeEarningStatus'
+            responses:
+                '200':
+                    $ref: '#/components/responses/Earning'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningNotFound'
+                '409':
+                    $ref: '#/components/responses/EarningConflict'
+
 components:
     parameters:
         ResourceId:
@@ -868,6 +1071,31 @@ components:
                 `BANK_TRANSFER_ALREADY_COMPLETED` ao alterar contas, valor ou data, ou
                 excluir, transferência concluída; `BANK_TRANSFER_STATUS_UNCHANGED` ao
                 repetir o status atual.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        Earning:
+            description: A receita
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/EarningResponse'
+        EarningNotFound:
+            description: '`EARNING_NOT_FOUND`, `EARNING_TYPE_NOT_FOUND` ou `BANK_ACCOUNT_NOT_FOUND`'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        EarningConflict:
+            description: |
+                `BANK_ACCOUNT_ARCHIVED` ou `EARNING_TYPE_ARCHIVED` ao lançar ou trocar para
+                conta ou tipo arquivado; `EARNING_ALREADY_RECEIVED` ao alterar valor ou conta,
+                ou excluir, receita recebida; `EARNING_STATUS_TRANSITION_NOT_ALLOWED` em
+                transição fora da tabela.
             content:
                 application/json:
                     schema:
@@ -1141,6 +1369,102 @@ components:
                 currentCycle: { $ref: '#/components/schemas/BillingCycle' }
                 archivedAt: { type: string, format: date-time, nullable: true }
                 createdAt: { type: string, format: date-time }
+
+        EarningStatus:
+            type: string
+            enum: [OPEN, FORECAST, RECEIVED, OVERDUE, VERIFYING]
+
+        EarningKind:
+            type: string
+            enum: [FIXED, VARIABLE, INSTALLMENT]
+
+        EarningTypeResponse:
+            type: object
+            required: [id, name, archivedAt, createdAt]
+            properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                archivedAt: { type: string, format: date-time, nullable: true }
+                createdAt: { type: string, format: date-time }
+
+        CreateEarning:
+            type: object
+            required: [description, earningTypeId, kind, amountCents, occurredOn, bankAccountId]
+            properties:
+                description: { type: string, minLength: 1, maxLength: 200 }
+                earningTypeId: { type: string, format: uuid }
+                kind: { $ref: '#/components/schemas/EarningKind' }
+                amountCents: { type: integer, exclusiveMinimum: 0 }
+                occurredOn: { type: string, format: date }
+                bankAccountId: { type: string, format: uuid }
+                status:
+                    type: string
+                    enum: [OPEN, FORECAST, VERIFYING]
+                    description: Default `OPEN`.
+                installmentTotal: { type: integer, minimum: 2, maximum: 120 }
+                notes: { type: string, minLength: 1, maxLength: 1000 }
+
+        UpdateEarning:
+            type: object
+            minProperties: 1
+            additionalProperties: false
+            properties:
+                description: { type: string, minLength: 1, maxLength: 200 }
+                earningTypeId: { type: string, format: uuid }
+                occurredOn: { type: string, format: date }
+                amountCents: { type: integer, exclusiveMinimum: 0 }
+                bankAccountId: { type: string, format: uuid }
+                notes: { type: string, minLength: 1, maxLength: 1000, nullable: true }
+
+        ChangeEarningStatus:
+            type: object
+            required: [status]
+            properties:
+                status: { $ref: '#/components/schemas/EarningStatus' }
+                receivedOn:
+                    type: string
+                    format: date
+                    description: Só ao receber; o default é hoje.
+
+        EarningResponse:
+            type: object
+            required:
+                [
+                    id,
+                    description,
+                    kind,
+                    status,
+                    amountCents,
+                    occurredOn,
+                    receivedOn,
+                    notes,
+                    earningType,
+                    bankAccountId,
+                    installment,
+                    createdAt,
+                    updatedAt,
+                ]
+            properties:
+                id: { type: string, format: uuid }
+                description: { type: string }
+                kind: { $ref: '#/components/schemas/EarningKind' }
+                status: { $ref: '#/components/schemas/EarningStatus' }
+                amountCents: { type: integer }
+                occurredOn: { type: string, format: date }
+                receivedOn: { type: string, format: date, nullable: true }
+                notes: { type: string, nullable: true }
+                earningType: { $ref: '#/components/schemas/EarningTypeResponse' }
+                bankAccountId: { type: string, format: uuid }
+                installment:
+                    type: object
+                    nullable: true
+                    required: [groupId, number, total]
+                    properties:
+                        groupId: { type: string, format: uuid }
+                        number: { type: integer }
+                        total: { type: integer }
+                createdAt: { type: string, format: date-time }
+                updatedAt: { type: string, format: date-time }
 
         Error:
             type: object

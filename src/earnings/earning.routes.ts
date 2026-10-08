@@ -6,6 +6,7 @@ import {
     BaseRoute,
     RequireAuthenticationSymbol,
     RequireProfileSymbol,
+    USER_PROFILES,
     type RequireProfile,
 } from '../platform';
 import { EarningControllerSymbol } from './earnings.symbols';
@@ -25,7 +26,33 @@ export class EarningRoutes extends BaseRoute {
         // Escrita é de ADMIN e BILLER; leitura, de qualquer perfil (spec 0014).
         const write = [this.requireAuthentication, this.requireProfile('ADMIN', 'BILLER')];
 
+        const read = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
+
         return [
+            {
+                method: 'GET',
+                path: '/',
+                middlewares: read,
+                handler: this.bind(this.controller, this.controller.handleListEarnings),
+            },
+            {
+                method: 'GET',
+                path: '/:id',
+                middlewares: read,
+                handler: this.bind(this.controller, this.controller.handleGetEarning),
+            },
+            {
+                method: 'PATCH',
+                path: '/:id',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleUpdateEarning),
+            },
+            {
+                method: 'DELETE',
+                path: '/:id',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleDeleteEarning),
+            },
             {
                 method: 'POST',
                 path: '/',

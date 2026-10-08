@@ -7,6 +7,8 @@ import {
     changeEarningStatusSchema,
     createEarningSchema,
     earningIdParamsSchema,
+    listEarningsQuerySchema,
+    updateEarningSchema,
 } from './earning.schemas';
 import type { EarningService } from './earning.service';
 import { EarningServiceSymbol } from './earnings.symbols';
@@ -28,5 +30,33 @@ export class EarningController {
         const earning = await this.service.changeStatus(id, data);
 
         return HttpResponses.ok(res, toEarningResponse(earning));
+    }
+
+    async handleListEarnings(req: Request, res: Response): Promise<Response> {
+        const query = listEarningsQuerySchema.parse(req.query);
+        const earnings = await this.service.list(query);
+
+        return HttpResponses.ok(res, earnings.map(toEarningResponse));
+    }
+
+    async handleGetEarning(req: Request, res: Response): Promise<Response> {
+        const { id } = earningIdParamsSchema.parse(req.params);
+
+        return HttpResponses.ok(res, toEarningResponse(await this.service.findById(id)));
+    }
+
+    async handleUpdateEarning(req: Request, res: Response): Promise<Response> {
+        const { id } = earningIdParamsSchema.parse(req.params);
+        const changes = updateEarningSchema.parse(req.body);
+
+        return HttpResponses.ok(res, toEarningResponse(await this.service.update(id, changes)));
+    }
+
+    async handleDeleteEarning(req: Request, res: Response): Promise<Response> {
+        const { id } = earningIdParamsSchema.parse(req.params);
+
+        await this.service.delete(id);
+
+        return HttpResponses.noContent(res);
     }
 }

@@ -293,7 +293,7 @@ OpenAPI por último.
     - Where: `src/earnings/`, `src/events/earnings.events.ts`
     - Done when: `AC-0014-04` a `AC-0014-07` cobertos; `INV-0014-03`, `INV-0014-05` e `INV-0014-06`
       verificados
-- [ ] **T-0014-05 — Consulta, alteração, exclusão, autorização e OpenAPI** · #75
+- [x] **T-0014-05 — Consulta, alteração, exclusão, autorização e OpenAPI** · #75
     - What: `GET /earnings` com filtros, `GET /earnings/:id`, `PATCH /earnings/:id`, `DELETE`, as
       guardas de perfil e o contrato no `openapi.yaml`
     - Where: `src/earnings/`, `docs/openapi.yaml`
