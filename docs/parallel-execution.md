@@ -18,8 +18,8 @@ Todos os critérios valem ao mesmo tempo:
    que de fato usam o que ela cita (por exemplo, "depende da spec 0004" não segura uma tarefa só de
    schema). Na dúvida, o líder pergunta antes de lançar.
 3. Módulos disjuntos em `src/` (ADR-0003, regras 1–3). Arquivo em comum é aceito só quando a
-   mudança é **apenas acréscimo** (linhas de `export`, um `it(...)` novo no fim de uma suíte, o
-   checkbox do backlog). O líder resolve esses conflitos no rebase, na ordem de merge. Duas tarefas
+   mudança é **apenas acréscimo** (linhas de `export`, um `it(...)` novo no fim do `describe` de uma
+   suíte, o checkbox do backlog). O líder resolve esses conflitos no rebase, na ordem de merge. Duas tarefas
    que editam o mesmo trecho, a mesma migration ou a mesma tabela não são independentes.
 4. É código e teste. Infra, CI, Firebase, documentação e spec ficam com o líder.
 
@@ -150,6 +150,7 @@ haja defeito.
 | 2      | 2026-10-06 | T-0004-02, T-0012-01, T-0014-01                       | sonnet | ~59 mil, ~74 mil e ~72 mil                                                                                                                                          | ~1,5–2,5 min                                                |
 | 3      | 2026-10-06 | T-0004-03, T-0012-02, T-0014-02, T-0013-01, T-0017-01 | sonnet | ~53 mil, ~81 mil, ~77 mil, ~88 mil e ~136 mil na primeira entrega; acumulado depois das retomadas: ~83 mil (T-0012-02), ~108 mil (T-0013-01) e ~149 mil (T-0017-01) | ~1,7–8,1 min na primeira entrega; ~0,8–3,6 min por retomada |
 | 4      | 2026-10-07 | T-0002-01, T-0012-04, T-0014-03, T-0018-01            | sonnet | ~61 mil, ~122 mil, ~115 mil e ~129 mil na primeira entrega; acumulado depois das retomadas: ~120 mil (T-0014-03) e ~134 mil (T-0018-01)                             | ~3,2–5,7 min na primeira entrega; ~1,0–1,5 min por retomada |
+| 5      | 2026-10-08 | T-0012-06, T-0014-04, T-0018-02, FCB-019 (item 3)     | sonnet | ~109 mil, ~87 mil, ~100 mil e ~43 mil                                                                                                                               | ~1,3–8,0 min, sem retomada                                  |
 
 Nas rodadas 1 e 2, nenhum subagente parou com dúvida sobre a spec e todos os `npm run check` saíram
 verdes na primeira tentativa. Os subagentes tomaram decisões dentro da spec (proteção com
@@ -185,6 +186,12 @@ tarefas voltaram ao subagente:
   negada, e o líder concluiu a tarefa com o aval do responsável.
 
 A partir desta rodada a medição é só de tempo; o experimento de custo terminou na rodada 3.
+
+A rodada 5, com quatro subagentes, foi a primeira sem retomada e sem parada. Os quatro PRs estavam
+abertos 11 min depois do lançamento. As tarefas irmãs T-0012-06 e T-0014-04 chegaram alinhadas nos
+pontos que a spec não fixa, porque o briefing já trazia a convenção (trava da linha, código de erro
+da transição, data de corte da varredura). Os módulos eram disjuntos, e os quatro PRs foram
+mergeados sem rebase; o `/check` do `develop` combinado saiu verde.
 
 O que cada rodada ensinou:
 
@@ -230,6 +237,19 @@ O que cada rodada ensinou:
     - Com o rebase em cascata, a ordem de merge importou: cada merge deixou o PR seguinte em
       conflito de só-acréscimo (`api.config.ts`, `src/events/index.ts`), resolvido pelo líder em
       minutos, com novo `/check` de 37–61 s.
+- **Rodada 5.**
+    - Fixar no briefing das tarefas irmãs a convenção do que a spec não fixa, em vez de só apontar
+      o arquivo de referência, eliminou a retomada por divergência.
+    - Com quatro `/check` em paralelo, suítes antigas com o timeout padrão de 5 s do Jest
+      (`pg-boss-job-queue`, a criação concorrente de despesas) estouraram nos subagentes e
+      passaram no `/check` do líder, rodado um por vez. A saída que vai para o PR continua sendo a
+      do líder.
+    - Um segundo `describe` com `startApp` próprio no mesmo arquivo quebra, porque o container da
+      composição guarda o primeiro `DataSource`. Teste novo em suíte compartilhada entra dentro do
+      `describe` existente (ajustado no critério 3).
+    - Com módulos disjuntos e só o checkbox do backlog em comum, o GitHub mesclou os quatro PRs
+      sem rebase. Quando isso acontece, o líder roda o `/check` no `develop` depois do último
+      merge, porque nenhum `/check` anterior viu a combinação.
 - **Gargalo real.** O limite não é o custo de tokens. É o grafo de dependências do backlog e a
   revisão humana dos PRs. Com mais subagentes, a quantidade de tarefas realmente independentes
   cai rápido, e a ordem de merge passa a ditar os rebases.
