@@ -12,3 +12,4 @@
 export * from './expenses.events';
 export * from './earnings.events';
 export * from './accounts.events';
+export * from './statements.events';

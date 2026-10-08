@@ -13,3 +13,4 @@ export {
     nextCycle,
     type ChainAnchor,
 } from './statement-chain';
+export { StatementService, lockCreditCard } from './statement.service';
