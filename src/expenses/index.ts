@@ -17,3 +17,8 @@ export { toExpenseResponse, type ExpenseResponse } from './expense.response';
 export * from './expenses.symbols';
 export type { PostingWindow } from './expense.service';
 export { ExpenseJobs, ExpenseJobsSymbol } from './expense-jobs';
+export {
+    OpenPeriodGuard,
+    StatementPeriodGuardSymbol,
+    type StatementPeriodGuard,
+} from './statement-period-guard';

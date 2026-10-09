@@ -3,9 +3,13 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
 import { startApp, stopApp, type TestApp } from '../app.helper';
+import { businessToday } from '../../../src/platform';
 import { ADMIN, cleanFixture, insertExpense, seedFixture, type Fixture } from './fixture.helper';
 
 const SCHEMA = 'test_expenses_update_and_delete';
+
+const dayAfter = (iso: string): string =>
+    new Date(new Date(`${iso}T00:00:00Z`).getTime() + 86400000).toISOString().slice(0, 10);
 
 describe('despesa: alteração e exclusão (spec 0012)', () => {
     let ctx: TestApp;
@@ -199,15 +203,16 @@ describe('despesa: alteração e exclusão (spec 0012)', () => {
         });
 
         it('postedOn de cartão: grava o informado e, ao mudar occurredOn sozinho, recalcula pelo default', async () => {
-            const id = await create();
+            const today = businessToday();
+            const id = await create({ occurredOn: today });
 
-            const moved = await patch(id, { postedOn: '2026-04-02' });
-            expect(moved.body.data.postedOn).toBe('2026-04-02');
+            const moved = await patch(id, { postedOn: dayAfter(today) });
+            expect(moved.body.data.postedOn).toBe(dayAfter(today));
 
-            const redated = await patch(id, { occurredOn: '2026-03-20' });
+            const redated = await patch(id, { occurredOn: today });
             expect(redated.body.data).toMatchObject({
-                occurredOn: '2026-03-20',
-                postedOn: '2026-03-20',
+                occurredOn: today,
+                postedOn: today,
             });
         });
 
@@ -264,7 +269,10 @@ describe('despesa: alteração e exclusão (spec 0012)', () => {
         });
 
         it('AC-0012-14, INV-0012-13: excluir uma parcela de cartão em 3x exclui as três e devolve a soma', async () => {
-            const ids = await insertGroup(() => ({ cardId: fx.cardId }));
+            const ids = await insertGroup(() => ({
+                cardId: fx.cardId,
+                occurredOn: businessToday(),
+            }));
             await setLimit(20000);
 
             const res = await remove(ids[1]!);
@@ -325,7 +333,10 @@ describe('despesa: alteração e exclusão (spec 0012)', () => {
         });
 
         it('exclusões concorrentes de parcelas do mesmo grupo devolvem o limite uma só vez', async () => {
-            const ids = await insertGroup(() => ({ cardId: fx.cardId }));
+            const ids = await insertGroup(() => ({
+                cardId: fx.cardId,
+                occurredOn: businessToday(),
+            }));
             await setLimit(20000);
 
             const results = await Promise.all(ids.map((id) => remove(id)));

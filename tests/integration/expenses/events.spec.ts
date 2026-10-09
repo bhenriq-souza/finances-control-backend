@@ -2,7 +2,11 @@ import request from 'supertest';
 
 import { container } from '../../../src/container';
 import { EXPENSE_CREATED, type ExpenseCreated } from '../../../src/events';
-import { DomainEventDispatcherSymbol, type DomainEventDispatcher } from '../../../src/platform';
+import {
+    DomainEventDispatcherSymbol,
+    businessToday,
+    type DomainEventDispatcher,
+} from '../../../src/platform';
 import { startApp, stopApp, type TestApp } from '../app.helper';
 
 const SCHEMA = 'test_expenses_events';
@@ -109,10 +113,12 @@ describe('evento ExpenseCreated (spec 0012, AC-0012-19)', () => {
     });
 
     it('AC-0012-19: despesa de cartão leva creditCardId e postedOn', async () => {
+        const today = businessToday();
         const res = await create({
             bankAccountId: undefined,
             creditCardId: cardId,
-            postedOn: '2026-03-12',
+            occurredOn: today,
+            postedOn: today,
         });
 
         expect(res.status).toBe(201);
@@ -122,7 +128,7 @@ describe('evento ExpenseCreated (spec 0012, AC-0012-19)', () => {
             status: 'OPEN',
             bankAccountId: null,
             creditCardId: cardId,
-            postedOn: '2026-03-12',
+            postedOn: today,
         });
     });
 

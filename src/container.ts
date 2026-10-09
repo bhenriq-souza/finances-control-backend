@@ -13,6 +13,8 @@ import {
     UserProvisioningService,
     type TokenVerifier,
 } from './identity';
+import { StatementPeriodGuardSymbol } from './expenses';
+import { StatementPeriodGuardService } from './statements';
 import { envList } from './platform/config/env.list';
 import { AppDataSource } from './platform/database/data-source';
 import { RequestContext } from './platform/context/request-context';
@@ -54,6 +56,9 @@ container.registerSingleton(TransactionRunnerSymbol, DataSourceTransactionRunner
 
 /* jobs — worker no mesmo processo; só `platform/jobs` conhece o pg-boss (spec 0017) */
 container.registerSingleton(JobQueueSymbol, PgBossJobQueue);
+
+/* janela fechada — `statements` implementa a porta que `expenses` declara (spec 0013) */
+container.registerSingleton(StatementPeriodGuardSymbol, StatementPeriodGuardService);
 
 /* helpers de resposta */
 container.register(HttpResponsesSymbol, { useValue: HttpResponses });

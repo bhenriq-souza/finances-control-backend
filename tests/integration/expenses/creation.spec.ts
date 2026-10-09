@@ -1,8 +1,11 @@
 import request from 'supertest';
 
 import { startApp, stopApp, type TestApp } from '../app.helper';
+import { businessToday } from '../../../src/platform';
 
 const SCHEMA = 'test_expenses_creation';
+const dayAfter = (iso: string): string =>
+    new Date(new Date(`${iso}T00:00:00Z`).getTime() + 86400000).toISOString().slice(0, 10);
 const ADMIN = 'Bearer uid-admin';
 const MISSING = '00000000-0000-4000-8000-000000000000';
 
@@ -133,22 +136,24 @@ describe('POST /expenses (spec 0012, criação)', () => {
 
     describe('postedOn (AC-0012-21, INV-0012-14, ERR-0012-17)', () => {
         it('AC-0012-21: despesa de cartão sem postedOn nasce com postedOn igual a occurredOn', async () => {
-            const res = await cardExpense();
+            const today = businessToday();
+            const res = await cardExpense({ occurredOn: today });
 
             expect(res.status).toBe(201);
             expect(res.body.data[0]).toMatchObject({
                 creditCardId: cardId,
                 bankAccountId: null,
-                occurredOn: '2026-03-10',
-                postedOn: '2026-03-10',
+                occurredOn: today,
+                postedOn: today,
             });
         });
 
         it('AC-0012-21: postedOn posterior a occurredOn grava o informado', async () => {
-            const res = await cardExpense({ postedOn: '2026-03-29' });
+            const today = businessToday();
+            const res = await cardExpense({ occurredOn: today, postedOn: dayAfter(today) });
 
             expect(res.status).toBe(201);
-            expect(res.body.data[0].postedOn).toBe('2026-03-29');
+            expect(res.body.data[0].postedOn).toBe(dayAfter(today));
         });
 
         it('AC-0012-21, ERR-0012-17: postedOn anterior a occurredOn é 400 citando o campo', async () => {
