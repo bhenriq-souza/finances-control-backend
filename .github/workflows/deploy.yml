@@ -7,12 +7,17 @@ name: deploy
 on:
     push:
         branches: [develop]
-        # Mudanças que não entram na imagem não precisam gerar deploy.
-        paths-ignore:
-            - '**.md'
-            - 'docs/**'
-            - 'specs/**'
-            - '.claude/**'
+        # Mudanças que não entram na imagem não precisam gerar deploy. O contrato
+        # (docs/openapi.yaml) é copiado para a imagem e servido em runtime, então
+        # volta a valer depois da exclusão de docs/**: o GitHub avalia os padrões
+        # em ordem e não aceita negação em paths-ignore.
+        paths:
+            - '**'
+            - '!**.md'
+            - '!docs/**'
+            - '!specs/**'
+            - '!.claude/**'
+            - 'docs/openapi.yaml'
     workflow_dispatch:
         inputs:
             environment:

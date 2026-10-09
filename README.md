@@ -58,7 +58,7 @@ push develop → build da imagem → Artifact Registry (tag sha-<commit> + lates
              → commit da nova tag no homelab-gitops → Argo CD reconcilia → dev-apps
 ```
 
-A aplicação responde em `finances.dev.homelab.local` (rede local, via Traefik). Mudanças só em documentação não disparam deploy. Também dá para acionar manualmente pelo `workflow_dispatch`, escolhendo o ambiente.
+A aplicação responde em `finances.dev.homelab.local` (rede local, via Traefik). Mudanças só em documentação não disparam deploy, exceto em `docs/openapi.yaml`, que vai dentro da imagem e é servido pelo Swagger. Também dá para acionar manualmente pelo `workflow_dispatch`, escolhendo o ambiente.
 
 Autenticação sem chave estática: OIDC/Workload Identity Federation para o GCP, e uma deploy key SSH com escopo de um repositório para escrever no GitOps. Os três secrets necessários (`GCP_WIF_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `GITOPS_DEPLOY_KEY`) já estão configurados; o procedimento está em [`docs/app-onboarding.md`](https://github.com/bhenriq-souza/homelab-gitops/blob/main/docs/app-onboarding.md) do homelab-gitops.
 
