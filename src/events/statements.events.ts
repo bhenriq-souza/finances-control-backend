@@ -22,3 +22,17 @@ export type StatementPaid = DomainEvent<
     typeof STATEMENT_PAID,
     { statementId: string; creditCardId: string; paidOn: string }
 >;
+
+/** Publicado quando um estorno de cartão é lançado (spec 0013, Estornos). */
+export const CREDIT_CARD_REFUND_REGISTERED = 'CreditCardRefundRegistered' as const;
+export type CreditCardRefundRegistered = DomainEvent<
+    typeof CREDIT_CARD_REFUND_REGISTERED,
+    {
+        refundId: string;
+        creditCardId: string;
+        expenseId: string | null;
+        amountCents: number;
+        occurredOn: string; // ISO date, `YYYY-MM-DD`
+        postedOn: string;
+    }
+>;

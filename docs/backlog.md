@@ -241,7 +241,7 @@ janela fechada antes de qualquer leitura que dependa dela; consulta antes do pag
     - Done when: `AC-0013-07`, `AC-0013-10` (menos a troca de forma de pagamento e a exclusão de
       estorno, cujas rotas ainda não existem), `AC-0013-11` (parcelas inseridas direto no banco) e
       `AC-0013-21` cobertos; `INV-0013-05` e `INV-0013-12` verificados
-- [ ] **T-0013-04 — Estornos** · #64
+- [x] **T-0013-04 — Estornos** · #64
     - What: as rotas de `/credit-card-refunds`, com o limite devolvido e consumido na mesma
       transação, a validação da despesa estornada e o evento `CreditCardRefundRegistered`
     - Where: `src/statements/`, `src/expenses/`, `src/api.config.ts`
@@ -261,7 +261,7 @@ janela fechada antes de qualquer leitura que dependa dela; consulta antes do pag
     - Done when: `AC-0013-13` a `AC-0013-15`, `AC-0013-18` a `AC-0013-20` e
       `AC-0013-24` a `AC-0013-26` cobertos; `INV-0013-06` e `INV-0013-14` verificados
 - [ ] **T-0013-07 — Autorização e OpenAPI** · #67
-    - What: as guardas de perfil nas rotas e o contrato no `openapi.yaml`
+    - What: as guardas de perfil nas rotas de pagamento (T-0013-06) e o contrato no `openapi.yaml`
     - Where: `src/statements/`, `docs/openapi.yaml`
     - Done when: `AC-0013-23` coberto; `INV-0013-13` verificado; última tarefa da spec: fecha
       FCB-010 e muda o `status` para `implemented`
