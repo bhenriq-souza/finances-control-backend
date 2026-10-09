@@ -747,6 +747,131 @@ paths:
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
 
+    /earning-types:
+        get:
+            tags: [Earnings]
+            summary: Lista os tipos de receita
+            description: Qualquer perfil. Ordenados por nome.
+            operationId: listEarningTypes
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/IncludeArchived'
+            responses:
+                '200':
+                    description: Tipos de receita cadastrados, ordenados por nome
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/EarningTypeResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+        post:
+            tags: [Earnings]
+            summary: Cadastra um tipo de receita
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. O nome é único sem diferenciar
+                maiúsculas (ERR-0014-01).
+            operationId: createEarningType
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/EarningTypeName'
+            responses:
+                '201':
+                    $ref: '#/components/responses/EarningType'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '409':
+                    $ref: '#/components/responses/EarningTypeConflict'
+
+    /earning-types/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        patch:
+            tags: [Earnings]
+            summary: Renomeia um tipo de receita
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Só o nome é alterável; `archivedAt` muda
+                só pelo arquivamento.
+            operationId: updateEarningType
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/EarningTypeName'
+            responses:
+                '200':
+                    $ref: '#/components/responses/EarningType'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningTypeNotFound'
+                '409':
+                    $ref: '#/components/responses/EarningTypeConflict'
+
+    /earning-types/{id}/archive:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        post:
+            tags: [Earnings]
+            summary: Arquiva um tipo de receita
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Arquivar o tira da listagem padrão e o
+                mantém sustentando os lançamentos antigos; um tipo arquivado não recebe
+                lançamento novo. Idempotente (ERR-0014-14).
+            operationId: archiveEarningType
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/EarningType'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningTypeNotFound'
+        delete:
+            tags: [Earnings]
+            summary: Desarquiva um tipo de receita
+            description: Exige perfil `ADMIN` ou `BILLER`. Idempotente.
+            operationId: unarchiveEarningType
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/EarningType'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningTypeNotFound'
+
     /earnings:
         get:
             tags: [Earnings]
@@ -1043,6 +1168,131 @@ paths:
                     $ref: '#/components/responses/EarningNotFound'
                 '409':
                     $ref: '#/components/responses/EarningConflict'
+
+    /expense-types:
+        get:
+            tags: [Expenses]
+            summary: Lista os tipos de despesa
+            description: Qualquer perfil. Ordenados por nome.
+            operationId: listExpenseTypes
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/IncludeArchived'
+            responses:
+                '200':
+                    description: Tipos de despesa cadastrados, ordenados por nome
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/ExpenseTypeResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+        post:
+            tags: [Expenses]
+            summary: Cadastra um tipo de despesa
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. O nome é único sem diferenciar
+                maiúsculas (ERR-0012-01).
+            operationId: createExpenseType
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ExpenseTypeName'
+            responses:
+                '201':
+                    $ref: '#/components/responses/ExpenseType'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '409':
+                    $ref: '#/components/responses/ExpenseTypeConflict'
+
+    /expense-types/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        patch:
+            tags: [Expenses]
+            summary: Renomeia um tipo de despesa
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Só o nome é alterável; `archivedAt` muda
+                só pelo arquivamento.
+            operationId: updateExpenseType
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ExpenseTypeName'
+            responses:
+                '200':
+                    $ref: '#/components/responses/ExpenseType'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseTypeNotFound'
+                '409':
+                    $ref: '#/components/responses/ExpenseTypeConflict'
+
+    /expense-types/{id}/archive:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        post:
+            tags: [Expenses]
+            summary: Arquiva um tipo de despesa
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Arquivar o tira da listagem padrão e o
+                mantém sustentando os lançamentos antigos; um tipo arquivado não recebe
+                lançamento novo. Idempotente (ERR-0012-16).
+            operationId: archiveExpenseType
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/ExpenseType'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseTypeNotFound'
+        delete:
+            tags: [Expenses]
+            summary: Desarquiva um tipo de despesa
+            description: Exige perfil `ADMIN` ou `BILLER`. Idempotente.
+            operationId: unarchiveExpenseType
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/ExpenseType'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseTypeNotFound'
 
     /expenses:
         get:
@@ -2168,6 +2418,27 @@ components:
                 application/json:
                     schema:
                         $ref: '#/components/schemas/Error'
+        EarningType:
+            description: O tipo de receita
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/EarningTypeResponse'
+        EarningTypeNotFound:
+            description: '`EARNING_TYPE_NOT_FOUND`'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        EarningTypeConflict:
+            description: '`EARNING_TYPE_ALREADY_EXISTS`: já existe um tipo com esse nome, sem diferenciar maiúsculas.'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
         Earning:
             description: A receita
             content:
@@ -2204,6 +2475,27 @@ components:
                 conta ou tipo arquivado; `EARNING_ALREADY_RECEIVED` ao alterar valor ou conta,
                 ou excluir, receita recebida; `EARNING_STATUS_TRANSITION_NOT_ALLOWED` em
                 transição fora da tabela.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        ExpenseType:
+            description: O tipo de despesa
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/ExpenseTypeResponse'
+        ExpenseTypeNotFound:
+            description: '`EXPENSE_TYPE_NOT_FOUND`'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        ExpenseTypeConflict:
+            description: '`EXPENSE_TYPE_ALREADY_EXISTS`: já existe um tipo com esse nome, sem diferenciar maiúsculas.'
             content:
                 application/json:
                     schema:
@@ -2600,6 +2892,17 @@ components:
             type: string
             enum: [FIXED, VARIABLE, INSTALLMENT]
 
+        EarningTypeName:
+            type: object
+            required: [name]
+            additionalProperties: false
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 120
+                    description: Espaços nas pontas são removidos antes de validar.
+
         EarningTypeResponse:
             type: object
             required: [id, name, archivedAt, createdAt]
@@ -2751,6 +3054,17 @@ components:
         ExpenseStatus:
             type: string
             enum: [OPEN, FORECAST, PAID, OVERDUE, VERIFYING]
+
+        ExpenseTypeName:
+            type: object
+            required: [name]
+            additionalProperties: false
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 120
+                    description: Espaços nas pontas são removidos antes de validar.
 
         ExpenseTypeResponse:
             type: object
