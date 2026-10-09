@@ -247,7 +247,7 @@ janela fechada antes de qualquer leitura que dependa dela; consulta antes do pag
     - Where: `src/statements/`, `src/expenses/`, `src/api.config.ts`
     - Done when: `AC-0013-12` coberto; exclusão de estorno na janela fechada recusada com
       `409 STATEMENT_CLOSED` (`AC-0013-10`); `INV-0013-11` verificado
-- [ ] **T-0013-05 — Consulta e resumo de faturas** · #65
+- [x] **T-0013-05 — Consulta e resumo de faturas** · #65
     - What: `GET /statements`, `/statements/current` e `/statements/:id`, com projeção das abertas,
       fechamento de recuperação antes de responder, valores e `byExpenseType` derivados, `overdue`,
       e `listByCreditCard` por `postedOn`

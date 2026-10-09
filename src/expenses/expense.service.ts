@@ -21,6 +21,7 @@ import {
 } from '../platform';
 import { ExpenseType } from './expense-type.entity';
 import { Expense } from './expense.entity';
+import type { CardExpenseSummary } from './card-expense-summary';
 import type { ExpenseStatus } from './expense-status';
 import { StatementPeriodGuardSymbol, type StatementPeriodGuard } from './statement-period-guard';
 import type {
@@ -331,17 +332,18 @@ export class ExpenseService {
 
     /**
      * Despesas de um cartão com `posted_on` na janela (inclusiva, em datas de negócio),
-     * para a fatura; leitura. Ordem: `posted_on`, criação.
+     * para a fatura; leitura. Ordem: `posted_on`, criação (spec 0013). Com `manager`, lê na
+     * transação do chamador; sem ele, abre a própria.
      */
-    listByCreditCard(
+    async listByCreditCard(
         creditCardId: string,
-        range: { from: Date; to: Date },
-    ): Promise<ExpenseWithType[]> {
-        const from = businessToday(range.from);
-        const to = businessToday(range.to);
-
-        return this.runner.run(async (scope) => {
-            const expenses = await scope.manager
+        window: PostingWindow,
+        manager?: EntityManager,
+    ): Promise<CardExpenseSummary[]> {
+        const from = businessToday(window.from);
+        const to = businessToday(window.to);
+        const read = async (em: EntityManager): Promise<CardExpenseSummary[]> => {
+            const expenses = await em
                 .getRepository(Expense)
                 .createQueryBuilder('e')
                 .innerJoinAndSelect('e.expenseType', 't')
@@ -353,8 +355,28 @@ export class ExpenseService {
                 .addOrderBy('e.id', 'ASC')
                 .getMany();
 
-            return expenses as ExpenseWithType[];
-        });
+            return expenses.map((expense) => ({
+                id: expense.id,
+                description: expense.description,
+                occurredOn: expense.occurredOn,
+                postedOn: expense.postedOn!,
+                amountCents: expense.amountCents,
+                status: expense.status,
+                expenseType: { id: expense.expenseType!.id, name: expense.expenseType!.name },
+                installment:
+                    expense.installmentGroupId !== null &&
+                    expense.installmentNumber !== null &&
+                    expense.installmentTotal !== null
+                        ? {
+                              groupId: expense.installmentGroupId,
+                              number: expense.installmentNumber,
+                              total: expense.installmentTotal,
+                          }
+                        : null,
+            }));
+        };
+
+        return manager ? read(manager) : this.runner.run((scope) => read(scope.manager));
     }
 
     /**

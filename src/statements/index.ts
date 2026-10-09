@@ -24,3 +24,6 @@ export {
     type CreditCardRefundResponse,
 } from './credit-card-refund.response';
 export * from './statements.symbols';
+export { StatementController } from './statement.controller';
+export { StatementRoutes } from './statement.routes';
+export type { StatementView } from './statement-view';
