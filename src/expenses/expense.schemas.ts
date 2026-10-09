@@ -140,3 +140,30 @@ export const listExpensesQuerySchema = z
     });
 
 export type ListExpensesQuery = z.infer<typeof listExpensesQuerySchema>;
+
+/** `PATCH /expenses/:id/payment-method`: exatamente um dos dois ids; `postedOn` só no cartão. */
+export const changePaymentMethodSchema = z
+    .object({
+        bankAccountId: z.uuid().optional(),
+        creditCardId: z.uuid().optional(),
+        postedOn: businessDate.optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+        if ((data.bankAccountId === undefined) === (data.creditCardId === undefined)) {
+            const message = 'Exactly one of bankAccountId and creditCardId is required';
+
+            ctx.addIssue({ code: 'custom', path: ['bankAccountId'], message });
+            ctx.addIssue({ code: 'custom', path: ['creditCardId'], message });
+        }
+
+        if (data.postedOn !== undefined && data.creditCardId === undefined) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['postedOn'],
+                message: 'postedOn is only allowed for credit card expenses',
+            });
+        }
+    });
+
+export type ChangePaymentMethod = z.infer<typeof changePaymentMethodSchema>;

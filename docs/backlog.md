@@ -206,7 +206,7 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
     - Where: `src/expenses/`, `docs/openapi.yaml`
     - Done when: `AC-0012-13`, `AC-0012-14`, `AC-0012-16` e `AC-0012-18` cobertos; `INV-0012-11`,
       `INV-0012-12` e `INV-0012-13`
-- [ ] **T-0012-08 — Troca de forma de pagamento** · #60
+- [x] **T-0012-08 — Troca de forma de pagamento** · #60
     - What: `PATCH /expenses/:id/payment-method`, movendo o limite de origem e destino na mesma
       transação, com a regra do grupo de parcelas e o `postedOn` no cartão de destino
     - Where: `src/expenses/`, `docs/openapi.yaml`

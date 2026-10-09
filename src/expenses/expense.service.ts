@@ -26,6 +26,7 @@ import type { ExpenseStatus } from './expense-status';
 import { StatementPeriodGuardSymbol, type StatementPeriodGuard } from './statement-period-guard';
 import type {
     ChangeExpenseStatus,
+    ChangePaymentMethod,
     CreateExpense,
     ListExpensesQuery,
     UpdateExpense,
@@ -484,6 +485,169 @@ export class ExpenseService {
                 where: { id },
                 relations: { expenseType: true },
             })) as ExpenseWithType;
+        });
+    }
+
+    /**
+     * Troca a forma de pagamento de uma despesa não paga (spec 0012, Troca de forma de
+     * pagamento). Numa parcela, vale para todas as parcelas do grupo que não estão pagas
+     * nem em fatura fechada. Limite de origem e de destino movem na mesma transação
+     * (INV-0012-15); saldo de conta nunca (INV-0012-04). Devolve as despesas movidas, em
+     * ordem de parcela; destino igual à origem responde sem efeito.
+     */
+    changePaymentMethod(id: string, change: ChangePaymentMethod): Promise<ExpenseWithType[]> {
+        return this.runner.run(async (scope) => {
+            const { manager } = scope;
+            const repository = manager.getRepository(Expense);
+
+            // Leitura sem trava só para descobrir o grupo; a trava do grupo vem em ordem de
+            // `id`, como na exclusão, para que duas trocas concorrentes nunca se travem
+            // em ordem cruzada.
+            const probe = await repository.findOne({ where: { id } });
+
+            if (!probe) throw expenseNotFound();
+
+            const locked = await repository.find({
+                where:
+                    probe.installmentGroupId !== null
+                        ? { installmentGroupId: probe.installmentGroupId }
+                        : { id },
+                order: { id: 'ASC' },
+                lock: { mode: 'for_no_key_update' },
+            });
+            const target = locked.find((row) => row.id === id);
+
+            if (!target) throw expenseNotFound();
+            if (target.status === 'PAID') throw alreadyPaid();
+
+            const destCardId = change.creditCardId ?? null;
+            const destAccountId = change.bankAccountId ?? null;
+            const reload = async (ids: string[]): Promise<ExpenseWithType[]> => {
+                const rows = await repository.find({
+                    where: { id: In(ids) },
+                    relations: { expenseType: true },
+                });
+
+                return (rows as ExpenseWithType[]).sort(
+                    (a, b) =>
+                        (a.installmentNumber ?? 0) - (b.installmentNumber ?? 0) ||
+                        a.createdAt.getTime() - b.createdAt.getTime(),
+                );
+            };
+            const sameDestination = (row: Expense): boolean =>
+                destCardId !== null
+                    ? row.creditCardId === destCardId
+                    : row.bankAccountId === destAccountId;
+
+            if (sameDestination(target)) return reload([id]);
+
+            if (destCardId !== null) {
+                if ((await this.creditCards.findById(destCardId)).archivedAt) {
+                    throw new CustomError(409, 'CREDIT_CARD_ARCHIVED', 'This card is archived', {
+                        exposeMessage: true,
+                    });
+                }
+            } else if ((await this.bankAccounts.findById(destAccountId as string)).archivedAt) {
+                throw new CustomError(409, 'BANK_ACCOUNT_ARCHIVED', 'This account is archived', {
+                    exposeMessage: true,
+                });
+            }
+
+            const destClosedThrough =
+                destCardId !== null ? await this.closedThrough(manager, destCardId) : null;
+
+            if (
+                change.postedOn !== undefined &&
+                destClosedThrough !== null &&
+                change.postedOn <= destClosedThrough
+            ) {
+                throw statementClosed(destClosedThrough);
+            }
+
+            if (change.postedOn !== undefined && change.postedOn < target.occurredOn) {
+                throw this.invalidPostedOn('postedOn must not be before occurredOn');
+            }
+
+            // Window closed for the card of origin: a counting row there stays put (spec 0013).
+            const sourceClosedThrough = new Map<string, string>();
+
+            for (const row of locked) {
+                if (row.creditCardId !== null && !sourceClosedThrough.has(row.creditCardId)) {
+                    sourceClosedThrough.set(
+                        row.creditCardId,
+                        await this.closedThrough(manager, row.creditCardId),
+                    );
+                }
+            }
+
+            const isClosed = (row: Expense): boolean =>
+                row.creditCardId !== null &&
+                row.status !== 'FORECAST' &&
+                row.postedOn !== null &&
+                row.postedOn <= (sourceClosedThrough.get(row.creditCardId) as string);
+
+            if (isClosed(target)) {
+                throw statementClosed(
+                    sourceClosedThrough.get(target.creditCardId as string) as string,
+                );
+            }
+
+            const moved = locked.filter(
+                (row) =>
+                    row.id === id ||
+                    (row.status !== 'PAID' && !isClosed(row) && !sameDestination(row)),
+            );
+            const limitDeltas = new Map<string, number>();
+            const addDelta = (cardId: string, cents: number): void => {
+                limitDeltas.set(cardId, (limitDeltas.get(cardId) ?? 0) + cents);
+            };
+            const earliestOpen = destClosedThrough !== null ? nextDay(destClosedThrough) : null;
+
+            for (const row of moved) {
+                const consumes = LIMIT_CONSUMING.includes(row.status);
+
+                if (row.creditCardId !== null && consumes) {
+                    addDelta(row.creditCardId, row.amountCents);
+                }
+
+                if (destCardId !== null) {
+                    // O vencida de conta chega ao cartão como OPEN (INV-0012-08).
+                    const status = row.status === 'OVERDUE' ? 'OPEN' : row.status;
+                    const defaultPostedOn =
+                        row.occurredOn > (earliestOpen as string)
+                            ? row.occurredOn
+                            : (earliestOpen as string);
+
+                    if (status !== 'FORECAST') addDelta(destCardId, -row.amountCents);
+
+                    await repository.update(
+                        { id: row.id },
+                        {
+                            bankAccountId: null,
+                            creditCardId: destCardId,
+                            postedOn:
+                                row.id === id
+                                    ? (change.postedOn ?? defaultPostedOn)
+                                    : defaultPostedOn,
+                            status,
+                        },
+                    );
+                } else {
+                    await repository.update(
+                        { id: row.id },
+                        { bankAccountId: destAccountId, creditCardId: null, postedOn: null },
+                    );
+                }
+            }
+
+            for (const cardId of [...limitDeltas.keys()].sort()) {
+                const delta = limitDeltas.get(cardId) as number;
+
+                if (delta !== 0)
+                    await this.creditCards.applyAvailableLimitDelta(manager, cardId, delta);
+            }
+
+            return reload(moved.map((row) => row.id));
         });
     }
 

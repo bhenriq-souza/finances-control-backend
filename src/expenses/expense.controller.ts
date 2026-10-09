@@ -5,6 +5,7 @@ import { HttpResponses } from '../platform';
 import { toExpenseResponse } from './expense.response';
 import {
     changeExpenseStatusSchema,
+    changePaymentMethodSchema,
     createExpenseSchema,
     expenseIdParamsSchema,
     listExpensesQuerySchema,
@@ -50,6 +51,16 @@ export class ExpenseController {
         const changes = updateExpenseSchema.parse(req.body);
 
         return HttpResponses.ok(res, toExpenseResponse(await this.service.update(id, changes)));
+    }
+
+    async handleChangePaymentMethod(req: Request, res: Response): Promise<Response> {
+        const { id } = expenseIdParamsSchema.parse(req.params);
+        const change = changePaymentMethodSchema.parse(req.body);
+
+        return HttpResponses.ok(
+            res,
+            (await this.service.changePaymentMethod(id, change)).map(toExpenseResponse),
+        );
     }
 
     async handleDeleteExpense(req: Request, res: Response): Promise<Response> {
