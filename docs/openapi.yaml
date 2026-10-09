@@ -1142,6 +1142,77 @@ paths:
                 '409':
                     $ref: '#/components/responses/ExpenseConflict'
 
+    /expenses/{id}/payment-method:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        patch:
+            tags: [Expenses]
+            summary: Troca a forma de pagamento de uma despesa
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Move uma despesa não paga para outra conta
+                ou outro cartão; o corpo leva exatamente um entre `bankAccountId` e
+                `creditCardId` (`postedOn` só com `creditCardId`). Despesa paga é 409
+                `EXPENSE_ALREADY_PAID`; destino arquivado é 409 `BANK_ACCOUNT_ARCHIVED` ou
+                `CREDIT_CARD_ARCHIVED`; destino igual à origem responde 200 sem efeito.
+                Numa parcela, vale para todas as parcelas do grupo que não estão pagas nem
+                em fatura fechada; a resposta é sempre a lista das despesas movidas, em
+                ordem de parcela. Tudo na mesma transação: sair de um cartão devolve o
+                limite, entrar abate (`OPEN`, `VERIFYING`; `FORECAST` não move limite) e
+                `OVERDUE` de conta chega ao cartão como `OPEN`. Entrando num cartão,
+                `postedOn` é o informado (aplicado à despesa indicada; as demais parcelas
+                usam o default) ou `max(occurredOn, último dia fechado + 1)`; saindo para
+                uma conta, volta a nulo. Despesa de cartão em fatura fechada, ou `postedOn`
+                informado dentro da janela fechada do destino, é 409 `STATEMENT_CLOSED`.
+                Saldo de conta nunca se move.
+            operationId: changeExpensePaymentMethod
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            additionalProperties: false
+                            description: Exatamente um entre `bankAccountId` e `creditCardId`.
+                            properties:
+                                bankAccountId: { type: string, format: uuid }
+                                creditCardId: { type: string, format: uuid }
+                                postedOn:
+                                    type: string
+                                    format: date
+                                    description: Só com `creditCardId`; não anterior a `occurredOn`.
+                            oneOf:
+                                - required: [bankAccountId]
+                                - required: [creditCardId]
+            responses:
+                '200':
+                    description: As despesas movidas, em ordem de parcela
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/ExpenseResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseNotFound'
+                '409':
+                    description: |
+                        `EXPENSE_ALREADY_PAID`, `BANK_ACCOUNT_ARCHIVED`, `CREDIT_CARD_ARCHIVED`
+                        ou `STATEMENT_CLOSED` (mensagem com o último dia fechado).
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+
 components:
     parameters:
         ResourceId:
