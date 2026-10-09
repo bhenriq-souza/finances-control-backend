@@ -379,7 +379,7 @@ receitas, que a espelha.
     - What: as mesmas regras de série para receitas e as rotas de `/earning-recurrences`
     - Where: `src/earnings/`, `docs/openapi.yaml`, `src/platform/database/migrations/`
     - Done when: `AC-0017-12` coberto
-- [ ] **T-0017-06 — Schema `pgboss` no cluster** · #147
+- [x] **T-0017-06 — Schema `pgboss` no cluster** · #147
     - What: o `jobs:migrate` no initContainer, depois de `migration:run`, com o schema `pgboss`
       provisionado no banco do cluster, evidência colada no PR
     - Where: `homelab-gitops`, provisionamento da spec 0003
