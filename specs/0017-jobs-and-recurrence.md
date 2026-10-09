@@ -1,7 +1,7 @@
 ---
 id: '0017'
 title: Jobs e recorrência — pg-boss, rotinas diárias e lançamentos fixos mensais
-status: approved
+status: implemented
 depends_on: ['0000', '0003', '0004', '0012', '0013', '0014']
 ---
 
