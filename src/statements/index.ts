@@ -15,3 +15,4 @@ export {
 } from './statement-chain';
 export { StatementService, lockCreditCard } from './statement.service';
 export { StatementJobs, StatementJobsSymbol } from './statement-jobs';
+export { StatementPeriodGuardService } from './statement-period-guard.service';

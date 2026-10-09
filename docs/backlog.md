@@ -210,8 +210,9 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
     - What: `PATCH /expenses/:id/payment-method`, movendo o limite de origem e destino na mesma
       transação, com a regra do grupo de parcelas e o `postedOn` no cartão de destino
     - Where: `src/expenses/`, `docs/openapi.yaml`
-    - Done when: `AC-0012-22`, `AC-0012-23` e `AC-0012-24` cobertos; `INV-0012-15` verificado;
-      última tarefa: fecha FCB-009 e muda o `status` para `implemented`
+    - Done when: `AC-0012-22`, `AC-0012-23`, `AC-0012-24` e `AC-0013-08` cobertos; troca de forma
+      de pagamento na janela fechada recusada com `409 STATEMENT_CLOSED` (`AC-0013-10`);
+      `INV-0012-15` verificado; última tarefa: fecha FCB-009 e muda o `status` para `implemented`
 
 ## Statements (F004)
 
@@ -233,17 +234,19 @@ janela fechada antes de qualquer leitura que dependa dela; consulta antes do pag
     - Where: `src/statements/`, `src/expenses/`, `src/events/statements.events.ts`
     - Done when: `AC-0013-05` e `AC-0013-16` cobertos; `INV-0013-07`, `INV-0013-09` e `INV-0013-10`
       verificados
-- [ ] **T-0013-03 — Janela fechada e data de lançamento** · #63
+- [x] **T-0013-03 — Janela fechada e data de lançamento** · #63
     - What: porta `StatementPeriodGuard` e default de `postedOn` no `expenses`, implementação no
       `statements` registrada na composição, e as regras da janela fechada da spec
     - Where: `src/expenses/`, `src/statements/`, `src/container.ts`
-    - Done when: `AC-0013-07`, `AC-0013-08`, `AC-0013-10`, `AC-0013-11` e `AC-0013-21` cobertos;
-      `INV-0013-05` e `INV-0013-12` verificados
+    - Done when: `AC-0013-07`, `AC-0013-10` (menos a troca de forma de pagamento e a exclusão de
+      estorno, cujas rotas ainda não existem), `AC-0013-11` (parcelas inseridas direto no banco) e
+      `AC-0013-21` cobertos; `INV-0013-05` e `INV-0013-12` verificados
 - [ ] **T-0013-04 — Estornos** · #64
     - What: as rotas de `/credit-card-refunds`, com o limite devolvido e consumido na mesma
       transação, a validação da despesa estornada e o evento `CreditCardRefundRegistered`
     - Where: `src/statements/`, `src/expenses/`, `src/api.config.ts`
-    - Done when: `AC-0013-12` coberto; `INV-0013-11` verificado
+    - Done when: `AC-0013-12` coberto; exclusão de estorno na janela fechada recusada com
+      `409 STATEMENT_CLOSED` (`AC-0013-10`); `INV-0013-11` verificado
 - [ ] **T-0013-05 — Consulta e resumo de faturas** · #65
     - What: `GET /statements`, `/statements/current` e `/statements/:id`, com projeção das abertas,
       fechamento de recuperação antes de responder, valores e `byExpenseType` derivados, `overdue`,

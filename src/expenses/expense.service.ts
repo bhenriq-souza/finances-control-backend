@@ -14,6 +14,7 @@ import { TransactionRunnerSymbol, businessToday, type TransactionRunner } from '
 import { ExpenseType } from './expense-type.entity';
 import { Expense } from './expense.entity';
 import type { ExpenseStatus } from './expense-status';
+import { StatementPeriodGuardSymbol, type StatementPeriodGuard } from './statement-period-guard';
 import type {
     ChangeExpenseStatus,
     CreateExpense,
@@ -46,6 +47,21 @@ const alreadyPaid = (): CustomError =>
         { exposeMessage: true },
     );
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The day after a `YYYY-MM-DD` date. */
+const nextDay = (iso: string): string =>
+    new Date(new Date(`${iso}T00:00:00.000Z`).getTime() + DAY_MS).toISOString().slice(0, 10);
+
+/** ERR-0013-08: the write would change the total of a closed statement window. */
+const statementClosed = (closedThrough: string): CustomError =>
+    new CustomError(
+        409,
+        'STATEMENT_CLOSED',
+        `The statement window is closed through ${closedThrough}`,
+        { exposeMessage: true },
+    );
+
 /** Estados em que a despesa de cartão está abatida do limite (INV-0012-03). */
 const LIMIT_CONSUMING: readonly ExpenseStatus[] = ['OPEN', 'OVERDUE', 'VERIFYING'];
 
@@ -55,7 +71,13 @@ export class ExpenseService {
         @inject(TransactionRunnerSymbol) private readonly runner: TransactionRunner,
         @inject(BankAccountServiceSymbol) private readonly bankAccounts: BankAccountService,
         @inject(CreditCardServiceSymbol) private readonly creditCards: CreditCardService,
+        @inject(StatementPeriodGuardSymbol) private readonly guard: StatementPeriodGuard,
     ) {}
+
+    /** Last closed day of the card as `YYYY-MM-DD` (spec 0013, A janela fechada). */
+    private async closedThrough(manager: EntityManager, creditCardId: string): Promise<string> {
+        return businessToday(await this.guard.closedThrough(manager, creditCardId));
+    }
 
     /**
      * Cria uma despesa de uma linha (`FIXED`/`VARIABLE`) numa única transação: valida
@@ -70,6 +92,22 @@ export class ExpenseService {
             await this.assertTypeIsUsable(manager, data.expenseTypeId);
             await this.assertPaymentMethodIsUsable(data);
 
+            let postedOn: string | null = null;
+
+            if (data.creditCardId) {
+                const closedThrough = await this.closedThrough(manager, data.creditCardId);
+
+                if (data.postedOn !== undefined && data.postedOn <= closedThrough) {
+                    throw statementClosed(closedThrough);
+                }
+
+                const earliestOpen = nextDay(closedThrough);
+
+                postedOn =
+                    data.postedOn ??
+                    (data.occurredOn > earliestOpen ? data.occurredOn : earliestOpen);
+            }
+
             const repository = manager.getRepository(Expense);
             const saved = await repository.save(
                 repository.create({
@@ -82,7 +120,7 @@ export class ExpenseService {
                     paidOn: null,
                     bankAccountId: data.bankAccountId ?? null,
                     creditCardId: data.creditCardId ?? null,
-                    postedOn: data.creditCardId ? (data.postedOn ?? data.occurredOn) : null,
+                    postedOn,
                     installmentGroupId: null,
                     installmentNumber: null,
                     installmentTotal: null,
@@ -156,6 +194,14 @@ export class ExpenseService {
                     `Transition from ${from} to ${to} is not allowed`,
                     { exposeMessage: true },
                 );
+            }
+
+            if (from === 'FORECAST' && to === 'OPEN' && expense.creditCardId) {
+                const closedThrough = await this.closedThrough(manager, expense.creditCardId);
+
+                if (expense.postedOn !== null && expense.postedOn <= closedThrough) {
+                    throw statementClosed(closedThrough);
+                }
             }
 
             const touchesPayment = to === 'PAID' || from === 'PAID';
@@ -318,6 +364,26 @@ export class ExpenseService {
                 await this.assertTypeIsUsable(manager, changes.expenseTypeId);
             }
 
+            const closedThrough =
+                expense.creditCardId !== null
+                    ? await this.closedThrough(manager, expense.creditCardId)
+                    : null;
+            const inClosedWindow =
+                closedThrough !== null &&
+                expense.postedOn !== null &&
+                expense.postedOn <= closedThrough;
+
+            if (
+                inClosedWindow &&
+                ((changes.amountCents !== undefined &&
+                    changes.amountCents !== expense.amountCents) ||
+                    (changes.occurredOn !== undefined &&
+                        changes.occurredOn !== expense.occurredOn) ||
+                    (changes.postedOn !== undefined && changes.postedOn !== expense.postedOn))
+            ) {
+                throw statementClosed(closedThrough);
+            }
+
             const occurredOn = changes.occurredOn ?? expense.occurredOn;
             const patch: Partial<Expense> = {};
 
@@ -329,12 +395,25 @@ export class ExpenseService {
 
             if (expense.creditCardId !== null) {
                 // Mudar a data de compra sem dizer o lançamento recalcula o default.
+                const earliestOpen = nextDay(closedThrough as string);
                 const postedOn =
                     changes.postedOn ??
-                    (changes.occurredOn !== undefined ? occurredOn : expense.postedOn);
+                    (changes.occurredOn !== undefined
+                        ? occurredOn > earliestOpen
+                            ? occurredOn
+                            : earliestOpen
+                        : expense.postedOn);
 
                 if (postedOn !== null && postedOn < occurredOn) {
                     throw this.invalidPostedOn('postedOn must not be before occurredOn');
+                }
+
+                if (
+                    changes.postedOn !== undefined &&
+                    changes.postedOn !== expense.postedOn &&
+                    changes.postedOn <= (closedThrough as string)
+                ) {
+                    throw statementClosed(closedThrough as string);
                 }
 
                 if (postedOn !== expense.postedOn) patch.postedOn = postedOn;
@@ -393,7 +472,20 @@ export class ExpenseService {
             if (!target) throw expenseNotFound();
             if (target.status === 'PAID') throw alreadyPaid();
 
-            const doomed = locked.filter((row) => row.status !== 'PAID');
+            // Window closed for the card: a counting row there is as good as paid (spec 0013).
+            const closedThrough =
+                target.creditCardId !== null
+                    ? await this.closedThrough(manager, target.creditCardId)
+                    : null;
+            const isClosed = (row: Expense): boolean =>
+                closedThrough !== null &&
+                row.status !== 'FORECAST' &&
+                row.postedOn !== null &&
+                row.postedOn <= closedThrough;
+
+            if (isClosed(target)) throw statementClosed(closedThrough as string);
+
+            const doomed = locked.filter((row) => row.status !== 'PAID' && !isClosed(row));
             const releasedByCard = new Map<string, number>();
 
             for (const row of doomed) {
