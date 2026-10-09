@@ -25,9 +25,27 @@ export const createExpenseSchema = z
         /** Obrigatório em `INSTALLMENT`, proibido nos demais (ERR-0012-07). */
         installmentTotal: z.int().min(2).max(120).optional(),
         notes: z.string().trim().min(1).max(1000).optional(),
+        /** Última data da série; só em `FIXED` (spec 0017). */
+        recurrenceEndsOn: businessDate.optional(),
     })
     .strict()
     .superRefine((data, ctx) => {
+        if (data.recurrenceEndsOn !== undefined) {
+            if (data.kind !== 'FIXED') {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['recurrenceEndsOn'],
+                    message: 'recurrenceEndsOn is only allowed for FIXED',
+                });
+            } else if (data.recurrenceEndsOn < data.occurredOn) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['recurrenceEndsOn'],
+                    message: 'recurrenceEndsOn must not be before occurredOn',
+                });
+            }
+        }
+
         if (data.kind === 'INSTALLMENT' && data.installmentTotal === undefined) {
             ctx.addIssue({
                 code: 'custom',

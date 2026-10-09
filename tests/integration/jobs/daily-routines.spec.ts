@@ -9,7 +9,13 @@ import { cleanFixture, insertExpense, seedFixture, type Fixture } from '../expen
 
 const SCHEMA = 'test_jobs_daily_routines';
 const CRON = '15 0 * * *';
-const JOBS = ['statements.close-due', 'expenses.mark-overdue', 'earnings.mark-overdue'];
+const JOBS = [
+    'statements.close-due',
+    'expenses.mark-overdue',
+    'expenses.extend-recurrences',
+    'expenses.promote-recurrences',
+    'earnings.mark-overdue',
+];
 
 /** Só `Date` é falsificado: o driver do Postgres precisa dos timers reais. */
 const FAKE_ONLY_DATE = [
@@ -169,7 +175,7 @@ describe('rotinas diárias (spec 0017, AC-0017-13, INV-0017-01, INV-0017-02)', (
         await cleanFixture(ctx);
     });
 
-    it('registra as três rotinas e agenda cada uma às 00h15 (15 0 * * *)', () => {
+    it('registra as rotinas e agenda cada uma às 00h15 (15 0 * * *)', () => {
         expect([...handlers.keys()].sort()).toEqual([...JOBS].sort());
         expect([...schedules.entries()].sort()).toEqual(JOBS.map((name) => [name, CRON]).sort());
     });

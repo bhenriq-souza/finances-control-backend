@@ -84,6 +84,7 @@ describe('POST /expenses (spec 0012, criação)', () => {
 
     afterEach(async () => {
         await ctx.dataSource.query('DELETE FROM expenses');
+        await ctx.dataSource.query('DELETE FROM expense_recurrences');
         await ctx.dataSource.query("DELETE FROM expense_types WHERE name LIKE 'T-%'");
         await ctx.dataSource.query('DELETE FROM credit_cards');
         await ctx.dataSource.query('DELETE FROM bank_accounts');

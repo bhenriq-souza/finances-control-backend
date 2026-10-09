@@ -87,6 +87,7 @@ describe('evento ExpenseCreated (spec 0012, AC-0012-19)', () => {
     afterEach(async () => {
         unsubscribe();
         await ctx.dataSource.query('DELETE FROM expenses');
+        await ctx.dataSource.query('DELETE FROM expense_recurrences');
         await ctx.dataSource.query("DELETE FROM expense_types WHERE name LIKE 'T-%'");
         await ctx.dataSource.query('DELETE FROM credit_cards');
         await ctx.dataSource.query('DELETE FROM bank_accounts');
@@ -97,7 +98,8 @@ describe('evento ExpenseCreated (spec 0012, AC-0012-19)', () => {
         const res = await create({ status: 'FORECAST' });
 
         expect(res.status).toBe(201);
-        expect(received).toHaveLength(1);
+        // FIXED gera a série (spec 0017): um evento por ocorrência criada.
+        expect(received).toHaveLength(res.body.data.length);
         expect(received[0]?.name).toBe('ExpenseCreated');
         expect(received[0]?.payload).toEqual({
             expenseId: res.body.data[0].id,
@@ -122,7 +124,7 @@ describe('evento ExpenseCreated (spec 0012, AC-0012-19)', () => {
         });
 
         expect(res.status).toBe(201);
-        expect(received).toHaveLength(1);
+        expect(received).toHaveLength(res.body.data.length);
         expect(received[0]?.payload).toMatchObject({
             expenseId: res.body.data[0].id,
             status: 'OPEN',
@@ -133,9 +135,9 @@ describe('evento ExpenseCreated (spec 0012, AC-0012-19)', () => {
     });
 
     it('AC-0012-19, INV-0004-01: o handler só roda depois do commit e já enxerga a linha', async () => {
-        await create();
+        const res = await create();
 
-        expect(rowsSeenByHandler).toEqual([1]);
+        expect(rowsSeenByHandler).toEqual(res.body.data.map(() => 1));
     });
 
     it('AC-0012-19, INV-0004-02: criação recusada não publica evento', async () => {

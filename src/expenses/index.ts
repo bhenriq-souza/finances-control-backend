@@ -23,3 +23,8 @@ export {
     type StatementPeriodGuard,
 } from './statement-period-guard';
 export type { CardExpenseSummary } from './card-expense-summary';
+export { ExpenseRecurrence } from './expense-recurrence.entity';
+export {
+    ExpenseRecurrenceService,
+    ExpenseRecurrenceServiceSymbol,
+} from './expense-recurrence.service';

@@ -1007,9 +1007,11 @@ paths:
             summary: Lança uma despesa
             description: |
                 Exige perfil `ADMIN` ou `BILLER`. Devolve uma lista com um elemento
-                (`FIXED`/`VARIABLE`) ou com `installmentTotal` parcelas, em ordem de parcela
+                (`VARIABLE`) ou com `installmentTotal` parcelas, em ordem de parcela
                 (`INSTALLMENT`), todas criadas na mesma transação; publica um `ExpenseCreated`
-                por linha. Despesa de cartão `OPEN` ou `VERIFYING` abate o limite disponível na
+                por linha. `FIXED` cria a série (spec 0017): a primeira ocorrência com o `status`
+                informado e as dos meses seguintes como `FORECAST`, até o último dia do 12º mês
+                depois do mês de hoje (ou até `recurrenceEndsOn`), em ordem de data. Despesa de cartão `OPEN` ou `VERIFYING` abate o limite disponível na
                 mesma transação (num parcelamento, o total de uma vez); `FORECAST` não. Saldo e
                 limite nunca barram o lançamento.
             operationId: createExpense
@@ -1827,6 +1829,12 @@ components:
                         original preservado (31/01, 28/02, 31/03). No cartão, `postedOn` da
                         parcela `k` é o da primeira mais `k − 1` meses.
                 notes: { type: string }
+                recurrenceEndsOn:
+                    type: string
+                    format: date
+                    description: |
+                        Só em `FIXED` (400 nos demais); não anterior a `occurredOn`. Última data
+                        da série; sem ele a série não tem fim.
 
         UpdateExpense:
             type: object

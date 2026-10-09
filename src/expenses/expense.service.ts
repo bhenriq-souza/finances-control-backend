@@ -20,6 +20,8 @@ import {
     type TransactionRunner,
 } from '../platform';
 import { ExpenseType } from './expense-type.entity';
+import { ExpenseRecurrence } from './expense-recurrence.entity';
+import { recurrenceHorizon, seriesDates } from './expense-recurrence.dates';
 import { Expense } from './expense.entity';
 import type { CardExpenseSummary } from './card-expense-summary';
 import type { ExpenseStatus } from './expense-status';
@@ -120,14 +122,60 @@ export class ExpenseService {
 
             // INSTALLMENT: `installmentTotal` linhas rateadas por `splitCents`, datas mensais com
             // o dia original preservado; a de cartão segue o `postedOn` da primeira (INV-0012-06).
+            // FIXED: a série até o horizonte (spec 0017); a primeira leva o `status` informado e
+            // as demais nascem `FORECAST`, com o `postedOn` default da janela fechada.
             const isInstallment = data.kind === 'INSTALLMENT';
-            const total = isInstallment ? (data.installmentTotal as number) : 1;
+            const isFixed = data.kind === 'FIXED';
             const groupId = isInstallment ? randomUUID() : null;
-            const amounts = splitCents(data.amountCents, total);
-            const occurredDates = monthlyInstallmentDates(data.occurredOn, total);
-            const postedDates = postedOn === null ? null : monthlyInstallmentDates(postedOn, total);
+            const occurredDates = isFixed
+                ? seriesDates(
+                      data.occurredOn,
+                      data.recurrenceEndsOn ?? null,
+                      recurrenceHorizon(businessToday()),
+                  )
+                : monthlyInstallmentDates(
+                      data.occurredOn,
+                      isInstallment ? (data.installmentTotal as number) : 1,
+                  );
+            const total = occurredDates.length;
+            const amounts = isFixed
+                ? occurredDates.map(() => data.amountCents)
+                : splitCents(data.amountCents, total);
+            const earliestOpen =
+                postedOn === null
+                    ? null
+                    : nextDay(await this.closedThrough(manager, data.creditCardId as string));
+            const postedDates =
+                postedOn === null
+                    ? null
+                    : isFixed
+                      ? occurredDates.map((date, index) =>
+                            index === 0
+                                ? postedOn
+                                : date > (earliestOpen as string)
+                                  ? date
+                                  : (earliestOpen as string),
+                        )
+                      : monthlyInstallmentDates(postedOn, total);
 
             const repository = manager.getRepository(Expense);
+            const recurrenceId = isFixed
+                ? (
+                      await manager.getRepository(ExpenseRecurrence).save(
+                          manager.getRepository(ExpenseRecurrence).create({
+                              description: data.description,
+                              expenseTypeId: data.expenseTypeId,
+                              amountCents: data.amountCents,
+                              dayOfMonth: Number(data.occurredOn.slice(8, 10)),
+                              bankAccountId: data.bankAccountId ?? null,
+                              creditCardId: data.creditCardId ?? null,
+                              notes: data.notes ?? null,
+                              startsOn: data.occurredOn,
+                              endsOn: data.recurrenceEndsOn ?? null,
+                          }),
+                      )
+                  ).id
+                : null;
             const ids: string[] = [];
 
             for (let index = 0; index < total; index += 1) {
@@ -136,7 +184,7 @@ export class ExpenseService {
                         description: data.description,
                         expenseTypeId: data.expenseTypeId,
                         kind: data.kind,
-                        status: data.status,
+                        status: isFixed && index > 0 ? 'FORECAST' : data.status,
                         amountCents: amounts[index] as number,
                         occurredOn: occurredDates[index] as string,
                         paidOn: null,
@@ -146,6 +194,7 @@ export class ExpenseService {
                         installmentGroupId: groupId,
                         installmentNumber: groupId === null ? null : index + 1,
                         installmentTotal: groupId === null ? null : total,
+                        recurrenceId,
                         notes: data.notes ?? null,
                     }),
                 );
