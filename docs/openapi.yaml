@@ -24,6 +24,8 @@ tags:
       description: Receitas
     - name: Expenses
       description: Despesas e tipos de despesa
+    - name: Statements
+      description: Faturas de cartão, pagamentos de fatura e estornos
 
 paths:
     /health:
@@ -1215,10 +1217,434 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/Error'
 
+    /statements:
+        get:
+            tags: [Statements]
+            summary: Lista as faturas de um cartão
+            description: |
+                Faturas do cartão com `closesOn` entre `from` e `to`, fechadas e projetadas, em
+                ordem de `closesOn`. `creditCardId` é obrigatório. Sem `from` e `to`, devolve as
+                fechadas dos últimos doze meses e a aberta corrente. A janela cobre no máximo
+                120 faturas (400 `VALIDATION_ERROR` acima disso) e `from` maior que `to` é 400.
+                A fatura projetada (aberta) tem `id` e `closedAt` nulos e `status` `OPEN`.
+                A listagem não traz `expenses`, `refunds` nem `payments`. Qualquer perfil lê.
+                Registra antes qualquer fechamento vencido do cartão.
+            operationId: listStatements
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: creditCardId
+                  in: query
+                  required: true
+                  schema: { type: string, format: uuid }
+                - name: from
+                  in: query
+                  required: false
+                  description: '`closesOn` mínimo, inclusivo.'
+                  schema: { type: string, format: date }
+                - name: to
+                  in: query
+                  required: false
+                  description: '`closesOn` máximo, inclusivo.'
+                  schema: { type: string, format: date }
+            responses:
+                '200':
+                    description: As faturas do cartão, em ordem de `closesOn`
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/StatementResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/StatementNotFound'
+
+    /statements/current:
+        get:
+            tags: [Statements]
+            summary: Consulta a fatura aberta de hoje
+            description: |
+                Fatura aberta do cartão (projetada), com o detalhe: `expenses`, `refunds` e
+                `payments` (estes últimos, os pagamentos antecipados). `creditCardId` é
+                obrigatório. Qualquer perfil lê.
+            operationId: getCurrentStatement
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: creditCardId
+                  in: query
+                  required: true
+                  schema: { type: string, format: uuid }
+            responses:
+                '200':
+                    $ref: '#/components/responses/Statement'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/StatementNotFound'
+
+    /statements/current/payments:
+        post:
+            tags: [Statements]
+            summary: Paga antecipadamente a fatura aberta
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Debita a conta e libera o limite do cartão
+                na mesma transação; o pagamento fica sem fatura (`statementId` nulo no evento)
+                até o fechamento e nenhuma despesa é marcada como paga. `amountCents` vai de 1
+                ao `remainingCents` atual da fatura aberta (409
+                `STATEMENT_PAYMENT_EXCEEDS_REMAINING`). Com fatura `CLOSED` pendente no cartão é
+                409 `STATEMENT_PREVIOUS_UNPAID`. `paidOn` é opcional (default hoje), entre o
+                início da fatura aberta e hoje (400). Conta arquivada é 409
+                `BANK_ACCOUNT_ARCHIVED`; saldo insuficiente não barra. Devolve a fatura aberta
+                com o detalhe.
+            operationId: payCurrentStatement
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateEarlyStatementPayment'
+            responses:
+                '201':
+                    $ref: '#/components/responses/Statement'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/StatementNotFound'
+                '409':
+                    $ref: '#/components/responses/StatementConflict'
+
+    /statements/current/payments/{paymentId}:
+        parameters:
+            - $ref: '#/components/parameters/StatementPaymentId'
+        delete:
+            tags: [Statements]
+            summary: Desfaz um pagamento antecipado
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Desfaz o **último** pagamento antecipado do
+                cartão (`creditCardId` na query, obrigatório) enquanto a fatura não fecha: a
+                conta recebe o valor de volta e o limite é consumido, na mesma transação. Outro
+                que não o último é 409 `STATEMENT_PAYMENT_LOCKED`. Depois do fechamento, o
+                pagamento pertence à fatura registrada e segue a regra dela. Não publica evento.
+            operationId: undoCurrentStatementPayment
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: creditCardId
+                  in: query
+                  required: true
+                  schema: { type: string, format: uuid }
+            responses:
+                '204':
+                    description: Desfeito
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/StatementNotFound'
+                '409':
+                    $ref: '#/components/responses/StatementConflict'
+
+    /statements/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        get:
+            tags: [Statements]
+            summary: Consulta uma fatura fechada
+            description: |
+                Fatura persistida (`CLOSED`, `PAID` ou `ROLLED_OVER`), com o detalhe:
+                `expenses` e `refunds` da janela, em ordem de `postedOn`, e `payments`. A
+                fatura projetada não tem `id` e só se lê por `GET /statements` e
+                `GET /statements/current`. Qualquer perfil lê.
+            operationId: getStatement
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/Statement'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/StatementNotFound'
+        patch:
+            tags: [Statements]
+            summary: Informa o pagamento mínimo da fatura
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Grava o mínimo informado pelo cliente, sem
+                restrição quanto ao valor: só o formato de dinheiro (inteiro de centavos, não
+                negativo) é validado, e `null` o apaga. Vale para qualquer fatura persistida.
+                O sistema não calcula mínimo; o informado só serve à resposta e ao cálculo de
+                `overdue`. Devolve a fatura com o detalhe.
+            operationId: updateStatement
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateStatement'
+            responses:
+                '200':
+                    $ref: '#/components/responses/Statement'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/StatementNotFound'
+
+    /statements/{id}/payments:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        post:
+            tags: [Statements]
+            summary: Paga uma fatura fechada
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Total, mínimo ou valor livre: para o backend,
+                um `amountCents` entre 1 e `remainingCents`. Uma fatura aceita vários
+                pagamentos. Na mesma transação, debita a conta, libera o limite do cartão e
+                publica `StatementPaymentRegistered`; se o restante chegou a zero, a fatura
+                passa a `PAID`, as despesas da cadeia em `OPEN` ou `VERIFYING` passam a `PAID`
+                com o `paidOn` do pagamento e `StatementPaid` é publicado. `paidOn` é opcional
+                (default hoje), posterior ao `closesOn` e não posterior a hoje (400).
+                Erros 409: `STATEMENT_ALREADY_PAID`, `STATEMENT_ROLLED_OVER` (o restante está na
+                fatura seguinte), `STATEMENT_PAYMENT_EXCEEDS_REMAINING` (mensagem com o
+                restante) e `BANK_ACCOUNT_ARCHIVED`. Saldo insuficiente não barra. Devolve a
+                fatura com o detalhe.
+            operationId: payStatement
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateStatementPayment'
+            responses:
+                '201':
+                    $ref: '#/components/responses/Statement'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/StatementNotFound'
+                '409':
+                    $ref: '#/components/responses/StatementConflict'
+
+    /statements/{id}/payments/{paymentId}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+            - $ref: '#/components/parameters/StatementPaymentId'
+        delete:
+            tags: [Statements]
+            summary: Desfaz o último pagamento de uma fatura
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Só o **último** pagamento da fatura, e só
+                enquanto a fatura seguinte não foi registrada; fora disso é 409
+                `STATEMENT_PAYMENT_LOCKED`. Na mesma transação: a fatura `PAID` volta a `CLOSED`
+                e as despesas da cadeia voltam a `OPEN` com `paidOn` nulo, a conta recebe o
+                valor de volta, o limite é consumido e o pagamento é apagado. Não publica evento.
+            operationId: undoStatementPayment
+            security: [{ bearerAuth: [] }]
+            responses:
+                '204':
+                    description: Desfeito
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/StatementNotFound'
+                '409':
+                    $ref: '#/components/responses/StatementConflict'
+
+    /credit-card-refunds:
+        get:
+            tags: [Statements]
+            summary: Lista os estornos de cartão
+            description: |
+                Filtros opcionais, combinados por E; `from` e `to` incidem sobre `postedOn`,
+                inclusivos (`from` maior que `to` é 400). Em ordem de `postedOn`. Qualquer
+                perfil lê.
+            operationId: listCreditCardRefunds
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: creditCardId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+                - name: expenseId
+                  in: query
+                  required: false
+                  schema: { type: string, format: uuid }
+                - name: from
+                  in: query
+                  required: false
+                  description: '`postedOn` mínimo, inclusivo.'
+                  schema: { type: string, format: date }
+                - name: to
+                  in: query
+                  required: false
+                  description: '`postedOn` máximo, inclusivo.'
+                  schema: { type: string, format: date }
+            responses:
+                '200':
+                    description: Estornos que casam com os filtros
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/CreditCardRefundResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+        post:
+            tags: [Statements]
+            summary: Lança um estorno de cartão
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Devolve `amountCents` ao limite disponível na
+                mesma transação, abate o total da fatura em que cai (a do `postedOn`) e publica
+                `CreditCardRefundRegistered`. Sem `postedOn`, o default é
+                `max(occurredOn, último dia fechado + 1)`; o informado não pode cair na janela
+                fechada (409 `STATEMENT_CLOSED`) nem ser anterior a `occurredOn` (400).
+                `expenseId`, opcional, aponta a compra estornada e precisa ser despesa do mesmo
+                cartão (409 `REFUND_EXPENSE_MISMATCH`); a soma dos estornos da despesa não passa
+                do valor dela (409 `REFUND_EXCEEDS_EXPENSE`). Cartão arquivado aceita estorno.
+            operationId: createCreditCardRefund
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateCreditCardRefund'
+            responses:
+                '201':
+                    $ref: '#/components/responses/CreditCardRefund'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/CreditCardRefundNotFound'
+                '409':
+                    $ref: '#/components/responses/CreditCardRefundConflict'
+
+    /credit-card-refunds/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        get:
+            tags: [Statements]
+            summary: Consulta um estorno de cartão
+            operationId: getCreditCardRefund
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/CreditCardRefund'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/CreditCardRefundNotFound'
+        patch:
+            tags: [Statements]
+            summary: Altera a descrição ou as observações de um estorno
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Corpo estrito e não vazio: só `description` e
+                `notes`; qualquer outro campo é 400 citando o campo. Para corrigir valor ou
+                data, exclui-se e lança-se de novo, se a janela estiver aberta.
+            operationId: updateCreditCardRefund
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateCreditCardRefund'
+            responses:
+                '200':
+                    $ref: '#/components/responses/CreditCardRefund'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/CreditCardRefundNotFound'
+        delete:
+            tags: [Statements]
+            summary: Exclui um estorno de cartão
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Consome de novo o valor do limite disponível,
+                na mesma transação. Estorno em janela fechada é 409 `STATEMENT_CLOSED`
+                (mensagem com o último dia fechado).
+            operationId: deleteCreditCardRefund
+            security: [{ bearerAuth: [] }]
+            responses:
+                '204':
+                    description: Excluído
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/CreditCardRefundNotFound'
+                '409':
+                    $ref: '#/components/responses/CreditCardRefundConflict'
+
 components:
     parameters:
         ResourceId:
             name: id
+            in: path
+            required: true
+            schema:
+                type: string
+                format: uuid
+        StatementPaymentId:
+            name: paymentId
             in: path
             required: true
             schema:
@@ -1404,6 +1830,62 @@ components:
                 ao pagar ou despagar despesa de cartão; `EXPENSE_TYPE_ARCHIVED`,
                 `BANK_ACCOUNT_ARCHIVED` ou `CREDIT_CARD_ARCHIVED` ao lançar ou alterar com
                 tipo, conta ou cartão arquivado.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        Statement:
+            description: A fatura, com o detalhe (`expenses`, `refunds` e `payments`)
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/StatementResponse'
+        StatementNotFound:
+            description: |
+                `STATEMENT_NOT_FOUND`, `STATEMENT_PAYMENT_NOT_FOUND`, `BANK_ACCOUNT_NOT_FOUND`
+                ou `CREDIT_CARD_NOT_FOUND`
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        StatementConflict:
+            description: |
+                `STATEMENT_ALREADY_PAID` e `STATEMENT_ROLLED_OVER` ao pagar fatura quitada ou
+                rolada; `STATEMENT_PAYMENT_EXCEEDS_REMAINING` ao pagar acima do restante
+                (mensagem com o restante); `STATEMENT_PREVIOUS_UNPAID` no pagamento antecipado
+                com fatura fechada pendente (mensagem com o id dela); `STATEMENT_PAYMENT_LOCKED`
+                ao desfazer pagamento que não é o último ou depois de a fatura seguinte ser
+                registrada; `BANK_ACCOUNT_ARCHIVED` ao pagar com conta arquivada.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        CreditCardRefund:
+            description: O estorno de cartão
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/CreditCardRefundResponse'
+        CreditCardRefundNotFound:
+            description: |
+                `CREDIT_CARD_REFUND_NOT_FOUND`, `CREDIT_CARD_NOT_FOUND` ou `EXPENSE_NOT_FOUND`
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        CreditCardRefundConflict:
+            description: |
+                `STATEMENT_CLOSED` ao lançar com `postedOn` em janela fechada ou excluir estorno
+                de janela fechada (mensagem com o último dia fechado); `REFUND_EXPENSE_MISMATCH`
+                para despesa de conta ou de outro cartão; `REFUND_EXCEEDS_EXPENSE` quando os
+                estornos da despesa passariam do valor dela (mensagem com o valor ainda
+                estornável).
             content:
                 application/json:
                     schema:
@@ -1906,6 +2388,257 @@ components:
                         total: { type: integer }
                 createdAt: { type: string, format: date-time }
                 updatedAt: { type: string, format: date-time }
+
+        StatementStatus:
+            type: string
+            enum: [OPEN, CLOSED, PAID, ROLLED_OVER]
+            description: |
+                `OPEN` é o status de toda fatura projetada (não persistida); as demais são
+                faturas fechadas. `ROLLED_OVER` é a fechada cujo restante passou para a
+                seguinte.
+
+        StatementResponse:
+            type: object
+            required:
+                [
+                    id,
+                    creditCardId,
+                    status,
+                    startsOn,
+                    closesOn,
+                    dueOn,
+                    purchasesCents,
+                    refundsCents,
+                    totalCents,
+                    previousBalanceCents,
+                    amountDueCents,
+                    paidCents,
+                    remainingCents,
+                    minimumPaymentCents,
+                    overdue,
+                    closedAt,
+                    byExpenseType,
+                ]
+            description: |
+                Todos os valores são derivados dos lançamentos (nada é informado por cliente,
+                salvo o mínimo). `expenses`, `refunds` e `payments` só vêm no detalhe
+                (`GET /statements/{id}`, `GET /statements/current` e respostas de pagamento),
+                não na listagem.
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    nullable: true
+                    description: Nulo na fatura projetada.
+                creditCardId: { type: string, format: uuid }
+                status: { $ref: '#/components/schemas/StatementStatus' }
+                startsOn: { type: string, format: date }
+                closesOn: { type: string, format: date }
+                dueOn: { type: string, format: date }
+                purchasesCents:
+                    type: integer
+                    description: Soma das despesas da janela em `OPEN`, `VERIFYING` ou `PAID`.
+                refundsCents:
+                    type: integer
+                    description: Soma dos estornos da janela.
+                totalCents:
+                    type: integer
+                    description: '`purchasesCents − refundsCents`; pode ser negativo.'
+                previousBalanceCents:
+                    type: integer
+                    description: |
+                        O que veio da fatura anterior: positivo se ela rolou dívida, negativo se
+                        deixou crédito.
+                amountDueCents:
+                    type: integer
+                    description: '`totalCents + previousBalanceCents`.'
+                paidCents:
+                    type: integer
+                    description: Soma dos pagamentos da fatura.
+                remainingCents:
+                    type: integer
+                    description: '`amountDueCents − paidCents`.'
+                minimumPaymentCents: { type: integer, nullable: true }
+                overdue:
+                    type: boolean
+                    description: |
+                        Verdadeiro na fatura `CLOSED` com `dueOn` passado e `paidCents` menor que
+                        o mínimo informado (ou que `amountDueCents`, sem mínimo).
+                closedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: Quando o fechamento foi registrado; nulo na projetada.
+                byExpenseType:
+                    type: array
+                    description: |
+                        `purchasesCents` por tipo de despesa, em ordem de `totalCents`
+                        decrescente e depois de `name`.
+                    items:
+                        type: object
+                        required: [expenseTypeId, name, totalCents]
+                        properties:
+                            expenseTypeId: { type: string, format: uuid }
+                            name: { type: string }
+                            totalCents: { type: integer }
+                expenses:
+                    type: array
+                    description: Só no detalhe; despesas da janela, em ordem de `postedOn`.
+                    items:
+                        $ref: '#/components/schemas/StatementExpenseResponse'
+                refunds:
+                    type: array
+                    description: Só no detalhe; estornos da janela, em ordem de `postedOn`.
+                    items:
+                        $ref: '#/components/schemas/CreditCardRefundResponse'
+                payments:
+                    type: array
+                    description: Só no detalhe.
+                    items:
+                        $ref: '#/components/schemas/StatementPaymentResponse'
+
+        StatementExpenseResponse:
+            type: object
+            required:
+                [
+                    id,
+                    description,
+                    occurredOn,
+                    postedOn,
+                    amountCents,
+                    status,
+                    expenseType,
+                    installment,
+                ]
+            properties:
+                id: { type: string, format: uuid }
+                description: { type: string }
+                occurredOn: { type: string, format: date }
+                postedOn: { type: string, format: date }
+                amountCents: { type: integer }
+                status: { $ref: '#/components/schemas/ExpenseStatus' }
+                expenseType:
+                    type: object
+                    required: [id, name]
+                    properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                installment:
+                    type: object
+                    nullable: true
+                    required: [groupId, number, total]
+                    properties:
+                        groupId: { type: string, format: uuid }
+                        number: { type: integer }
+                        total: { type: integer }
+
+        StatementPaymentResponse:
+            type: object
+            required: [id, bankAccountId, amountCents, paidOn, createdAt]
+            properties:
+                id: { type: string, format: uuid }
+                bankAccountId: { type: string, format: uuid }
+                amountCents: { type: integer }
+                paidOn: { type: string, format: date }
+                createdAt: { type: string, format: date-time }
+
+        CreateStatementPayment:
+            type: object
+            additionalProperties: false
+            required: [bankAccountId, amountCents]
+            properties:
+                bankAccountId: { type: string, format: uuid }
+                amountCents:
+                    type: integer
+                    minimum: 1
+                    description: Até o `remainingCents` da fatura (409 acima disso).
+                paidOn:
+                    type: string
+                    format: date
+                    description: Default hoje; posterior ao `closesOn` e não posterior a hoje.
+
+        CreateEarlyStatementPayment:
+            type: object
+            additionalProperties: false
+            required: [creditCardId, bankAccountId, amountCents]
+            properties:
+                creditCardId: { type: string, format: uuid }
+                bankAccountId: { type: string, format: uuid }
+                amountCents:
+                    type: integer
+                    minimum: 1
+                    description: Até o `remainingCents` atual da fatura aberta (409 acima disso).
+                paidOn:
+                    type: string
+                    format: date
+                    description: Default hoje; entre o início da fatura aberta e hoje.
+
+        UpdateStatement:
+            type: object
+            additionalProperties: false
+            required: [minimumPaymentCents]
+            properties:
+                minimumPaymentCents:
+                    type: integer
+                    minimum: 0
+                    nullable: true
+                    description: O mínimo informado, sem outra regra; `null` o apaga.
+
+        CreditCardRefundResponse:
+            type: object
+            required:
+                [
+                    id,
+                    creditCardId,
+                    expenseId,
+                    description,
+                    amountCents,
+                    occurredOn,
+                    postedOn,
+                    notes,
+                    createdAt,
+                    updatedAt,
+                ]
+            properties:
+                id: { type: string, format: uuid }
+                creditCardId: { type: string, format: uuid }
+                expenseId: { type: string, format: uuid, nullable: true }
+                description: { type: string }
+                amountCents: { type: integer }
+                occurredOn: { type: string, format: date }
+                postedOn: { type: string, format: date }
+                notes: { type: string, nullable: true }
+                createdAt: { type: string, format: date-time }
+                updatedAt: { type: string, format: date-time }
+
+        CreateCreditCardRefund:
+            type: object
+            additionalProperties: false
+            required: [creditCardId, description, amountCents, occurredOn]
+            properties:
+                creditCardId: { type: string, format: uuid }
+                description: { type: string, minLength: 1, maxLength: 200 }
+                amountCents: { type: integer, minimum: 1 }
+                occurredOn: { type: string, format: date }
+                postedOn:
+                    type: string
+                    format: date
+                    description: |
+                        Não anterior a `occurredOn`. Default `max(occurredOn, último dia fechado
+                        + 1)`; o informado não pode cair na janela fechada.
+                expenseId:
+                    type: string
+                    format: uuid
+                    description: A compra estornada; precisa ser despesa do mesmo cartão.
+                notes: { type: string, minLength: 1, maxLength: 1000 }
+
+        UpdateCreditCardRefund:
+            type: object
+            additionalProperties: false
+            minProperties: 1
+            properties:
+                description: { type: string, minLength: 1, maxLength: 200 }
+                notes: { type: string, minLength: 1, maxLength: 1000, nullable: true }
 
         Error:
             type: object
