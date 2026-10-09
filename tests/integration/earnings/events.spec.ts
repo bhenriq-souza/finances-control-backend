@@ -88,6 +88,7 @@ describe('evento EarningCreated (spec 0014, AC-0014-11)', () => {
     afterEach(async () => {
         unsubscribe();
         await ctx.dataSource.query('DELETE FROM earnings');
+        await ctx.dataSource.query('DELETE FROM earning_recurrences');
         await ctx.dataSource.query('DELETE FROM bank_accounts');
         await ctx.dataSource.query('DELETE FROM banks');
         await ctx.dataSource.query("DELETE FROM earning_types WHERE name LIKE 'Teste%'");
@@ -97,7 +98,8 @@ describe('evento EarningCreated (spec 0014, AC-0014-11)', () => {
         const response = await post({ status: 'FORECAST' });
 
         expect(response.status).toBe(201);
-        expect(received).toHaveLength(1);
+        // FIXED gera a série (spec 0017): um evento por ocorrência criada.
+        expect(received).toHaveLength(response.body.data.length);
         expect(received[0]?.name).toBe('EarningCreated');
         expect(received[0]?.payload).toEqual({
             earningId: response.body.data[0].id,

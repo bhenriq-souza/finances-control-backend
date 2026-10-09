@@ -19,6 +19,7 @@ import { EarningType } from './earning-type.entity';
     'installmentGroupId',
     'installmentNumber',
 ])
+@Unique('uq_earnings_recurrence_id_occurred_on', ['recurrenceId', 'occurredOn'])
 @Index('idx_earnings_occurred_on', ['occurredOn'])
 @Index('idx_earnings_bank_account_id', ['bankAccountId'])
 @Index('idx_earnings_status', ['status'])
@@ -26,6 +27,7 @@ import { EarningType } from './earning-type.entity';
 @Check('ck_earnings_status', `status IN ('${EARNING_STATUSES.join("', '")}')`)
 @Check('ck_earnings_amount', 'amount_cents > 0')
 @Check('ck_earnings_received_on', "(received_on IS NOT NULL) = (status = 'RECEIVED')")
+@Check('ck_earnings_recurrence', "(recurrence_id IS NOT NULL) = (kind = 'FIXED')")
 @Check(
     'ck_earnings_installment',
     `(kind = 'INSTALLMENT'
@@ -90,6 +92,10 @@ export class Earning {
 
     @Column({ type: 'int', nullable: true })
     installmentTotal!: number | null;
+
+    /** Série da receita `FIXED` (spec 0017); nulo nas demais. */
+    @Column({ type: 'uuid', nullable: true })
+    recurrenceId!: string | null;
 
     @Column({ type: 'text', nullable: true })
     notes!: string | null;

@@ -803,9 +803,12 @@ paths:
             summary: Lança uma receita
             description: |
                 Exige perfil `ADMIN` ou `BILLER`. Criar nunca move o saldo da conta; `status`
-                default `OPEN`. Devolve uma lista com uma receita (`FIXED`/`VARIABLE`) ou com
+                default `OPEN`. Devolve uma lista com uma receita (`VARIABLE`) ou com
                 `installmentTotal` parcelas, em ordem (`INSTALLMENT`), todas na mesma transação,
-                e publica um `EarningCreated` por receita.
+                e publica um `EarningCreated` por receita. `FIXED` cria a série (spec 0017): a
+                primeira ocorrência com o `status` informado e as dos meses seguintes como
+                `FORECAST`, até o último dia do 12º mês depois do mês de hoje (ou até
+                `recurrenceEndsOn`), em ordem de data.
             operationId: createEarning
             security: [{ bearerAuth: [] }]
             requestBody:
@@ -864,10 +867,17 @@ paths:
                 `occurredOn`, `amountCents`, `bankAccountId` e `notes`; ao menos um campo.
                 `amountCents` e `bankAccountId` de receita recebida são 409. Trocar conta ou
                 valor de receita não recebida não move saldo. Em parcela, `bankAccountId` vale para
-                todas as parcelas não recebidas do grupo; os demais campos, só para ela. `kind`, `status`, `receivedOn` e
+                todas as parcelas não recebidas do grupo; os demais campos, só para ela. Numa
+                ocorrência de série, altera só ela; com `?scope=following`, `description`,
+                `earningTypeId`, `amountCents`, `bankAccountId` e `notes` valem também para o
+                modelo da série e para as ocorrências seguintes ainda em `FORECAST` (as
+                anteriores, promovidas e recebidas não mudam). `scope=following` em receita sem
+                série, ou outro valor, é 400 citando `scope`. `kind`, `status`, `receivedOn` e
                 `installment*` são 400 citando o campo (o status muda por `PATCH …/status`).
             operationId: updateEarning
             security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/MutationScope'
             requestBody:
                 required: true
                 content:
@@ -893,7 +903,10 @@ paths:
             description: |
                 Exige perfil `ADMIN` ou `BILLER`. Só receita não recebida: a recebida é
                 desfeita antes, para que o saldo volte explicitamente. Não move saldo. Excluir uma
-                parcela exclui também as não recebidas do grupo; as recebidas ficam.
+                parcela exclui também as não recebidas do grupo; as recebidas ficam. Excluir uma
+                ocorrência de série exclui também as seguintes não recebidas, na mesma transação,
+                e a série recebe `endsOn` igual ao dia anterior à ocorrência excluída; as
+                recebidas e as anteriores ficam.
             operationId: deleteEarning
             security: [{ bearerAuth: [] }]
             responses:
@@ -909,6 +922,86 @@ paths:
                     $ref: '#/components/responses/EarningNotFound'
                 '409':
                     $ref: '#/components/responses/EarningConflict'
+
+    /earning-recurrences:
+        get:
+            tags: [Earnings]
+            summary: Lista as séries de receitas
+            description: |
+                Qualquer perfil lê. Da mais recente para a mais antiga. `active=true` tira as
+                séries com `endsOn` passado.
+            operationId: listEarningRecurrences
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: active
+                  in: query
+                  required: false
+                  description: '`true` devolve só as séries sem `endsOn` passado.'
+                  schema: { type: string, enum: ['true', 'false'] }
+            responses:
+                '200':
+                    description: As séries
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/EarningRecurrenceResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+
+    /earning-recurrences/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        get:
+            tags: [Earnings]
+            summary: Consulta uma série de receitas
+            description: Qualquer perfil lê.
+            operationId: getEarningRecurrence
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/EarningRecurrence'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningRecurrenceNotFound'
+        patch:
+            tags: [Earnings]
+            summary: Encerra uma série de receitas
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Aceita só `endsOn` (qualquer outro campo é 400
+                citando-o; `endsOn` anterior a `startsOn` é 400). Exclui, na mesma transação, as
+                ocorrências `FORECAST` posteriores a `endsOn`; as demais permanecem e a extensão
+                para de gerar. O modelo muda pelo `?scope=following` de uma ocorrência.
+            operationId: endEarningRecurrence
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/EndRecurrence'
+            responses:
+                '200':
+                    $ref: '#/components/responses/EarningRecurrence'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/EarningRecurrenceNotFound'
 
     /earnings/{id}/status:
         parameters:
@@ -1753,7 +1846,7 @@ components:
             required: false
             description: |
                 `following` estende a alteração ao modelo da série e às ocorrências seguintes
-                ainda em `FORECAST` (spec 0017). Só vale em despesa de série.
+                ainda em `FORECAST` (spec 0017). Só vale em despesa ou receita de série.
             schema:
                 type: string
                 enum: [following]
@@ -1897,6 +1990,21 @@ components:
                         properties:
                             data:
                                 $ref: '#/components/schemas/EarningResponse'
+        EarningRecurrence:
+            description: A série
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/EarningRecurrenceResponse'
+        EarningRecurrenceNotFound:
+            description: '`EARNING_RECURRENCE_NOT_FOUND`'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
         EarningNotFound:
             description: '`EARNING_NOT_FOUND`, `EARNING_TYPE_NOT_FOUND` ou `BANK_ACCOUNT_NOT_FOUND`'
             content:
@@ -2323,6 +2431,12 @@ components:
                         `splitCents` (resto na primeira), a partir de `occurredOn`, com o dia
                         original preservado (31/01, 28/02, 31/03).
                 notes: { type: string, minLength: 1, maxLength: 1000 }
+                recurrenceEndsOn:
+                    type: string
+                    format: date
+                    description: |
+                        Só em `FIXED` (400 nos demais); não anterior a `occurredOn`. Última data
+                        da série; sem ele a série não tem fim.
 
         UpdateEarning:
             type: object
@@ -2358,6 +2472,7 @@ components:
                     occurredOn,
                     receivedOn,
                     notes,
+                    recurrenceId,
                     earningType,
                     bankAccountId,
                     installment,
@@ -2383,6 +2498,48 @@ components:
                         groupId: { type: string, format: uuid }
                         number: { type: integer }
                         total: { type: integer }
+                recurrenceId:
+                    type: string
+                    format: uuid
+                    nullable: true
+                    description: A série (`/earning-recurrences`); só em `FIXED`.
+                createdAt: { type: string, format: date-time }
+                updatedAt: { type: string, format: date-time }
+
+        EarningRecurrenceResponse:
+            type: object
+            required:
+                [
+                    id,
+                    description,
+                    typeId,
+                    amountCents,
+                    dayOfMonth,
+                    bankAccountId,
+                    startsOn,
+                    endsOn,
+                    nextOccurrenceOn,
+                    createdAt,
+                    updatedAt,
+                ]
+            properties:
+                id: { type: string, format: uuid }
+                description: { type: string, description: O modelo dos meses seguintes. }
+                typeId: { type: string, format: uuid }
+                amountCents: { type: integer }
+                dayOfMonth: { type: integer, minimum: 1, maximum: 31 }
+                bankAccountId: { type: string, format: uuid }
+                startsOn: { type: string, format: date }
+                endsOn:
+                    type: string
+                    format: date
+                    nullable: true
+                    description: Última data admitida; nulo é série sem fim.
+                nextOccurrenceOn:
+                    type: string
+                    format: date
+                    nullable: true
+                    description: A primeira ocorrência de hoje em diante, se houver.
                 createdAt: { type: string, format: date-time }
                 updatedAt: { type: string, format: date-time }
 

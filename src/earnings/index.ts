@@ -16,3 +16,9 @@ export { EarningController } from './earning.controller';
 export { EarningRoutes } from './earning.routes';
 export { toEarningResponse, type EarningResponse } from './earning.response';
 export { EarningJobs, EarningJobsSymbol } from './earning-jobs';
+export { EarningRecurrenceController } from './earning-recurrence.controller';
+export { EarningRecurrenceRoutes } from './earning-recurrence.routes';
+export {
+    EarningRecurrenceService,
+    EarningRecurrenceServiceSymbol,
+} from './earning-recurrence.service';

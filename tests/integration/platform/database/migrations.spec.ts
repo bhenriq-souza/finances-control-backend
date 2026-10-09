@@ -204,11 +204,14 @@ describe('migrations no banco real', () => {
             'ck_earnings_installment',
             'ck_earnings_kind',
             'ck_earnings_received_on',
+            'ck_earnings_recurrence',
             'ck_earnings_status',
             'fk_earnings_bank_account_id',
             'fk_earnings_earning_type_id',
+            'fk_earnings_recurrence_id',
             'pk_earnings',
             'uq_earnings_installment_group_id_installment_number',
+            'uq_earnings_recurrence_id_occurred_on',
         ]);
 
         const types = await dataSource.query<{ name: string }[]>(
@@ -227,11 +230,16 @@ describe('migrations no banco real', () => {
             ].sort(),
         );
 
-        // Reverte e reaplica a própria migration, sem depender de qual é a última.
+        // Reverte e reaplica a própria migration, sem depender de qual é a última. A série de
+        // receitas (spec 0017) depende de `earning_types`, então sai antes e volta depois.
+        const { CreateEarningRecurrences1791800000000 } =
+            await import('../../../../src/platform/database/migrations/1791800000000-CreateEarningRecurrences');
         const runner = dataSource.createQueryRunner();
         try {
             const migration = new CreateEarningsTables1791306866742();
+            const recurrences = new CreateEarningRecurrences1791800000000();
 
+            await recurrences.down(runner);
             await migration.down(runner);
             const gone = await dataSource.query<{ count: string }[]>(
                 `SELECT count(*) FROM information_schema.tables
@@ -241,6 +249,7 @@ describe('migrations no banco real', () => {
             expect(Number(gone[0]!.count)).toBe(0);
 
             await migration.up(runner);
+            await recurrences.up(runner);
             const back = await dataSource.query<{ count: string }[]>(
                 'SELECT count(*) FROM earning_types;',
             );

@@ -15,6 +15,8 @@ const JOBS = [
     'expenses.extend-recurrences',
     'expenses.promote-recurrences',
     'earnings.mark-overdue',
+    'earnings.extend-recurrences',
+    'earnings.promote-recurrences',
 ];
 
 /** Só `Date` é falsificado: o driver do Postgres precisa dos timers reais. */

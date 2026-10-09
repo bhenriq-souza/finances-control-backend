@@ -5,3 +5,5 @@ export const EarningTypeRoutesSymbol = Symbol.for('EarningTypeRoutes');
 export const EarningServiceSymbol = Symbol.for('EarningService');
 export const EarningControllerSymbol = Symbol.for('EarningController');
 export const EarningRoutesSymbol = Symbol.for('EarningRoutes');
+export const EarningRecurrenceControllerSymbol = Symbol.for('EarningRecurrenceController');
+export const EarningRecurrenceRoutesSymbol = Symbol.for('EarningRecurrenceRoutes');
