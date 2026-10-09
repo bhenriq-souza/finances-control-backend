@@ -1,0 +1,1697 @@
+{
+    "info": {
+        "name": "Finances Control API",
+        "description": "Gerada de `docs/openapi.yaml` por `npm run postman`. Não edite à mão: mude o contrato e regere. Uso em `docs/postman/README.md`.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{idToken}}", "type": "string" }]
+    },
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "const zone = 'America/Sao_Paulo';",
+                    "const today = new Date().toLocaleDateString('en-CA', { timeZone: zone });",
+                    "pm.environment.set('today', today);",
+                    "pm.environment.set('currentMonth', today.slice(0, 7));",
+                    "",
+                    "if (pm.request.auth && pm.request.auth.type === 'noauth') return;",
+                    "",
+                    "const apiKey = pm.environment.get('firebaseApiKey');",
+                    "const email = pm.environment.get('email');",
+                    "const password = pm.environment.get('password');",
+                    "const expiresAt = Number(pm.environment.get('idTokenExpiresAt') || 0);",
+                    "",
+                    "if (pm.environment.get('idToken') && Date.now() < expiresAt - 60000) return;",
+                    "",
+                    "if (!apiKey || !email || !password) {",
+                    "    console.warn('Preencha firebaseApiKey, email e password no ambiente para obter o token.');",
+                    "    return;",
+                    "}",
+                    "",
+                    "pm.sendRequest(",
+                    "    {",
+                    "        url: `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,",
+                    "        method: 'POST',",
+                    "        header: { 'Content-Type': 'application/json' },",
+                    "        body: { mode: 'raw', raw: JSON.stringify({ email, password, returnSecureToken: true }) },",
+                    "    },",
+                    "    (err, res) => {",
+                    "        if (err || res.code !== 200) {",
+                    "            console.error('Falha ao obter o ID token do Firebase', err || res.json());",
+                    "            return;",
+                    "        }",
+                    "",
+                    "        const { idToken, expiresIn } = res.json();",
+                    "        pm.environment.set('idToken', idToken);",
+                    "        pm.environment.set('idTokenExpiresAt', String(Date.now() + Number(expiresIn) * 1000));",
+                    "    },",
+                    ");"
+                ]
+            }
+        }
+    ],
+    "item": [
+        {
+            "name": "Platform",
+            "description": "Endpoints de infraestrutura",
+            "item": [
+                {
+                    "name": "Liveness da aplicação",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/health",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["health"]
+                        },
+                        "description": "Responde se o processo está de pé. Não verifica dependências —\nchecagens de banco pertencem a um endpoint de readiness separado.",
+                        "auth": { "type": "noauth" }
+                    }
+                },
+                {
+                    "name": "Readiness da aplicação",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/health/ready",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["health", "ready"]
+                        },
+                        "description": "Verifica as dependências externas — hoje, a conexão com o PostgreSQL,\npor `SELECT 1` com teto de 2 segundos e sem cache entre requisições.\nResponde 503 enquanto alguma delas estiver fora, para tirar o pod do\nbalanceamento sem que o kubelet o reinicie.",
+                        "auth": { "type": "noauth" }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Identity",
+            "description": "Usuários, autenticação e concessão de perfil",
+            "item": [
+                {
+                    "name": "O próprio usuário",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/me",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["users", "me"]
+                        },
+                        "description": "Única rota que responde a quem ainda não tem perfil — é por ela que o\ncliente descobre que a conta está aguardando aprovação de um Admin.\nO registro local é criado aqui, no primeiro acesso autenticado."
+                    }
+                },
+                {
+                    "name": "Lista os usuários",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["users"]
+                        },
+                        "description": "Exige perfil `ADMIN`. Ordenados por data de criação."
+                    }
+                },
+                {
+                    "name": "Concede ou troca o perfil de um usuário",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/:id/profile",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["users", ":id", "profile"],
+                            "variable": [{ "key": "id", "value": "{{userId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN`. O perfil passa a valer na requisição seguinte do\nalvo, sem troca de token — ele é lido do banco a cada chamada.\nNinguém altera o próprio perfil, e a operação que deixaria a plataforma\nsem nenhum `ADMIN` é recusada.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"profile\": \"ADMIN\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Revoga o perfil de um usuário",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/:id/profile",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["users", ":id", "profile"],
+                            "variable": [{ "key": "id", "value": "{{userId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN`. Devolve o usuário ao estado pendente, sem acesso a\nrecurso de domínio algum. Mesmas travas do `PATCH`."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Accounts",
+            "description": "Bancos, contas bancárias e cartões de crédito",
+            "item": [
+                {
+                    "name": "Lista os bancos",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/banks",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["banks"],
+                            "query": [
+                                {
+                                    "key": "archived",
+                                    "value": "true",
+                                    "description": "`true` inclui os arquivados na listagem; o padrão os esconde.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Lista os bancos"
+                    }
+                },
+                {
+                    "name": "Cadastra um banco",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/banks",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["banks"]
+                        },
+                        "description": "Exige perfil `ADMIN`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"febrabanCode\": \"999\",\n    \"name\": \"Exemplo name\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('bankId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Altera um banco",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/banks/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["banks", ":id"],
+                            "variable": [{ "key": "id", "value": "{{bankId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN`. Só o nome é alterável: trocar o código FEBRABAN\nfaria do registro outro banco, e as contas e cartões ligados a ele\ncontinuariam apontando para o antigo.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Exemplo name\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Arquiva um banco",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/banks/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["banks", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{bankId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN`. Registro financeiro não se apaga: arquivar o tira\nda listagem padrão e o mantém sustentando o histórico. A operação é\nidempotente. Um banco arquivado não recebe conta nem cartão novo."
+                    }
+                },
+                {
+                    "name": "Desarquiva um banco",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/banks/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["banks", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{bankId}}" }]
+                        },
+                        "description": "Desarquiva um banco"
+                    }
+                },
+                {
+                    "name": "Lista as contas bancárias",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-accounts",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-accounts"],
+                            "query": [
+                                {
+                                    "key": "archived",
+                                    "value": "true",
+                                    "description": "`true` inclui os arquivados na listagem; o padrão os esconde.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Lista as contas bancárias"
+                    }
+                },
+                {
+                    "name": "Cadastra uma conta bancária",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-accounts",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-accounts"]
+                        },
+                        "description": "Exige perfil `ADMIN`. O saldo corrente nasce igual ao de abertura e **não\né informável**: daí em diante, só lançamento o move.\n\nCampos opcionais do corpo: `overdraftLimitCents`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"bankId\": \"{{bankId}}\",\n    \"type\": \"CHECKING\",\n    \"accountNumber\": \"Exemplo accountNumber\",\n    \"description\": \"Exemplo description\",\n    \"openingBalanceCents\": 10000\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('bankAccountId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Consulta uma conta bancária",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-accounts/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-accounts", ":id"],
+                            "variable": [{ "key": "id", "value": "{{bankAccountId}}" }]
+                        },
+                        "description": "Consulta uma conta bancária"
+                    }
+                },
+                {
+                    "name": "Altera uma conta bancária",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-accounts/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-accounts", ":id"],
+                            "variable": [{ "key": "id", "value": "{{bankAccountId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN`. `currentBalanceCents`, `openingBalanceCents` e\n`bankId` não são aceitos: o primeiro só muda por lançamento, o segundo é\nimutável, e trocar a conta de banco é cadastrar outra conta.\n\nCampos opcionais do corpo: `type`, `accountNumber`, `description`, `overdraftLimitCents`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"description\": \"Exemplo description\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Arquiva uma conta bancária",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-accounts/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-accounts", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{bankAccountId}}" }]
+                        },
+                        "description": "Arquiva uma conta bancária"
+                    }
+                },
+                {
+                    "name": "Desarquiva uma conta bancária",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-accounts/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-accounts", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{bankAccountId}}" }]
+                        },
+                        "description": "Desarquiva uma conta bancária"
+                    }
+                },
+                {
+                    "name": "Lista as transferências entre contas",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-transfers",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-transfers"],
+                            "query": [
+                                {
+                                    "key": "bankAccountId",
+                                    "value": "{{bankAccountId}}",
+                                    "description": "Transferências que saem **ou** entram na conta.",
+                                    "disabled": true
+                                },
+                                { "key": "status", "value": "SCHEDULED", "disabled": true },
+                                {
+                                    "key": "from",
+                                    "value": "{{today}}",
+                                    "description": "`occurredOn` mínimo, inclusivo. Maior que `to` é 400.",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "{{today}}",
+                                    "description": "`occurredOn` máximo, inclusivo.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Em ordem de `occurredOn` e depois de criação. Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Registra uma transferência entre contas",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-transfers",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-transfers"]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. `status` default `COMPLETED`: move o\nsaldo das duas contas na mesma transação e publica `TransferCompleted`.\n`SCHEDULED` não move saldo. Saldo negativo é aceito.\n\nCampos opcionais do corpo: `status`, `completedOn`, `notes`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"fromBankAccountId\": \"{{bankAccountId}}\",\n    \"toBankAccountId\": \"{{toBankAccountId}}\",\n    \"amountCents\": 10000,\n    \"occurredOn\": \"{{today}}\",\n    \"description\": \"Exemplo description\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('bankTransferId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Consulta uma transferência",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-transfers/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-transfers", ":id"],
+                            "variable": [{ "key": "id", "value": "{{bankTransferId}}" }]
+                        },
+                        "description": "Consulta uma transferência"
+                    }
+                },
+                {
+                    "name": "Altera uma transferência",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-transfers/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-transfers", ":id"],
+                            "variable": [{ "key": "id", "value": "{{bankTransferId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. `description` e `notes` sempre; contas,\nvalor e data só em `SCHEDULED` (a concluída é desfeita antes). `status` e\n`completedOn` são 400.\n\nCampos opcionais do corpo: `fromBankAccountId`, `toBankAccountId`, `amountCents`, `occurredOn`, `description`, `notes`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"description\": \"Exemplo description\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Exclui uma transferência agendada",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-transfers/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-transfers", ":id"],
+                            "variable": [{ "key": "id", "value": "{{bankTransferId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Só `SCHEDULED`: a concluída é desfeita\nantes, para que os saldos voltem explicitamente."
+                    }
+                },
+                {
+                    "name": "Conclui ou desfaz uma transferência",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/bank-transfers/:id/status",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["bank-transfers", ":id", "status"],
+                            "variable": [{ "key": "id", "value": "{{bankTransferId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. `SCHEDULED → COMPLETED` conclui e move as\nduas contas (publica `TransferCompleted`); `COMPLETED → SCHEDULED` desfaz e\ndevolve os saldos. Repetir o status atual é 409. Conta arquivada é aceita aqui.\n\nCampos opcionais do corpo: `completedOn`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"SCHEDULED\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Lista os cartões de crédito",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-cards",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-cards"],
+                            "query": [
+                                {
+                                    "key": "archived",
+                                    "value": "true",
+                                    "description": "`true` inclui os arquivados na listagem; o padrão os esconde.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Lista os cartões de crédito"
+                    }
+                },
+                {
+                    "name": "Cadastra um cartão de crédito",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-cards",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-cards"]
+                        },
+                        "description": "Exige perfil `ADMIN`. O limite disponível nasce igual ao total e não é\ninformável. O cartão já responde com o ciclo de fatura corrente — não\nexiste cartão cadastrado e não operante.\n\nCampos opcionais do corpo: `paymentBankAccountId`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"bankId\": \"{{bankId}}\",\n    \"name\": \"Exemplo name\",\n    \"creditLimitCents\": 10000,\n    \"closingDay\": 1,\n    \"dueDay\": 1\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('creditCardId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Consulta um cartão de crédito",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-cards/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-cards", ":id"],
+                            "variable": [{ "key": "id", "value": "{{creditCardId}}" }]
+                        },
+                        "description": "Consulta um cartão de crédito"
+                    }
+                },
+                {
+                    "name": "Altera um cartão de crédito",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-cards/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-cards", ":id"],
+                            "variable": [{ "key": "id", "value": "{{creditCardId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN`. Alterar `creditLimitCents` move o limite disponível\nna mesma medida, preservando o quanto já foi gasto; o disponível pode\nficar negativo se o novo limite for menor que o uso atual. Alterar os dias\ndo ciclo vale para ciclos ainda não fechados.\n\nCampos opcionais do corpo: `name`, `creditLimitCents`, `closingDay`, `dueDay`, `paymentBankAccountId`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Exemplo name\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Arquiva um cartão de crédito",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-cards/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-cards", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{creditCardId}}" }]
+                        },
+                        "description": "Arquiva um cartão de crédito"
+                    }
+                },
+                {
+                    "name": "Desarquiva um cartão de crédito",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-cards/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-cards", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{creditCardId}}" }]
+                        },
+                        "description": "Desarquiva um cartão de crédito"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Earnings",
+            "description": "Receitas",
+            "item": [
+                {
+                    "name": "Lista os tipos de receita",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/earning-types",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earning-types"],
+                            "query": [
+                                {
+                                    "key": "archived",
+                                    "value": "true",
+                                    "description": "`true` inclui os arquivados na listagem; o padrão os esconde.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Qualquer perfil. Ordenados por nome."
+                    }
+                },
+                {
+                    "name": "Cadastra um tipo de receita",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/earning-types",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earning-types"]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. O nome é único sem diferenciar\nmaiúsculas (ERR-0014-01).",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Exemplo name\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('earningTypeId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Renomeia um tipo de receita",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/earning-types/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earning-types", ":id"],
+                            "variable": [{ "key": "id", "value": "{{earningTypeId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Só o nome é alterável; `archivedAt` muda\nsó pelo arquivamento.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Exemplo name\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Arquiva um tipo de receita",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/earning-types/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earning-types", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{earningTypeId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Arquivar o tira da listagem padrão e o\nmantém sustentando os lançamentos antigos; um tipo arquivado não recebe\nlançamento novo. Idempotente (ERR-0014-14)."
+                    }
+                },
+                {
+                    "name": "Desarquiva um tipo de receita",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/earning-types/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earning-types", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{earningTypeId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Idempotente."
+                    }
+                },
+                {
+                    "name": "Lista as receitas",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/earnings",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earnings"],
+                            "query": [
+                                {
+                                    "key": "from",
+                                    "value": "{{today}}",
+                                    "description": "`occurredOn` mínimo, inclusivo. Maior que `to` é 400.",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "{{today}}",
+                                    "description": "`occurredOn` máximo, inclusivo.",
+                                    "disabled": true
+                                },
+                                { "key": "status", "value": "OPEN", "disabled": true },
+                                { "key": "kind", "value": "FIXED", "disabled": true },
+                                {
+                                    "key": "earningTypeId",
+                                    "value": "{{earningTypeId}}",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "bankAccountId",
+                                    "value": "{{bankAccountId}}",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "installmentGroupId",
+                                    "value": "{{installmentGroupId}}",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Em ordem de `occurredOn` e depois de criação. Filtros opcionais, combinados por\nE. Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Lança uma receita",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/earnings",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earnings"]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Criar nunca move o saldo da conta; `status`\ndefault `OPEN`. Devolve uma lista com uma receita (`VARIABLE`) ou com\n`installmentTotal` parcelas, em ordem (`INSTALLMENT`), todas na mesma transação,\ne publica um `EarningCreated` por receita. `FIXED` cria a série (spec 0017): a\nprimeira ocorrência com o `status` informado e as dos meses seguintes como\n`FORECAST`, até o último dia do 12º mês depois do mês de hoje (ou até\n`recurrenceEndsOn`), em ordem de data.\n\nCampos opcionais do corpo: `status`, `installmentTotal`, `notes`, `recurrenceEndsOn`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"description\": \"Exemplo description\",\n    \"earningTypeId\": \"{{earningTypeId}}\",\n    \"kind\": \"FIXED\",\n    \"amountCents\": 10000,\n    \"occurredOn\": \"{{today}}\",\n    \"bankAccountId\": \"{{bankAccountId}}\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('earningId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Consulta uma receita",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/earnings/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earnings", ":id"],
+                            "variable": [{ "key": "id", "value": "{{earningId}}" }]
+                        },
+                        "description": "Consulta uma receita"
+                    }
+                },
+                {
+                    "name": "Altera uma receita",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/earnings/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earnings", ":id"],
+                            "query": [
+                                {
+                                    "key": "scope",
+                                    "value": "following",
+                                    "description": "`following` estende a alteração ao modelo da série e às ocorrências seguintes\nainda em `FORECAST` (spec 0017). Só vale em despesa ou receita de série.",
+                                    "disabled": true
+                                }
+                            ],
+                            "variable": [{ "key": "id", "value": "{{earningId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Aceita `description`, `earningTypeId`,\n`occurredOn`, `amountCents`, `bankAccountId` e `notes`; ao menos um campo.\n`amountCents` e `bankAccountId` de receita recebida são 409. Trocar conta ou\nvalor de receita não recebida não move saldo. Em parcela, `bankAccountId` vale para\ntodas as parcelas não recebidas do grupo; os demais campos, só para ela. Numa\nocorrência de série, altera só ela; com `?scope=following`, `description`,\n`earningTypeId`, `amountCents`, `bankAccountId` e `notes` valem também para o\nmodelo da série e para as ocorrências seguintes ainda em `FORECAST` (as\nanteriores, promovidas e recebidas não mudam). `scope=following` em receita sem\nsérie, ou outro valor, é 400 citando `scope`. `kind`, `status`, `receivedOn` e\n`installment*` são 400 citando o campo (o status muda por `PATCH …/status`).\n\nCampos opcionais do corpo: `description`, `earningTypeId`, `occurredOn`, `amountCents`, `bankAccountId`, `notes`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"description\": \"Exemplo description\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Exclui uma receita não recebida",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/earnings/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earnings", ":id"],
+                            "variable": [{ "key": "id", "value": "{{earningId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Só receita não recebida: a recebida é\ndesfeita antes, para que o saldo volte explicitamente. Não move saldo. Excluir uma\nparcela exclui também as não recebidas do grupo; as recebidas ficam. Excluir uma\nocorrência de série exclui também as seguintes não recebidas, na mesma transação,\ne a série recebe `endsOn` igual ao dia anterior à ocorrência excluída; as\nrecebidas e as anteriores ficam."
+                    }
+                },
+                {
+                    "name": "Lista as séries de receitas",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/earning-recurrences",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earning-recurrences"],
+                            "query": [
+                                {
+                                    "key": "active",
+                                    "value": "true",
+                                    "description": "`true` devolve só as séries sem `endsOn` passado.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Qualquer perfil lê. Da mais recente para a mais antiga. `active=true` tira as\nséries com `endsOn` passado."
+                    }
+                },
+                {
+                    "name": "Consulta uma série de receitas",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/earning-recurrences/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earning-recurrences", ":id"],
+                            "variable": [{ "key": "id", "value": "{{earningRecurrenceId}}" }]
+                        },
+                        "description": "Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Encerra uma série de receitas",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/earning-recurrences/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earning-recurrences", ":id"],
+                            "variable": [{ "key": "id", "value": "{{earningRecurrenceId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Aceita só `endsOn` (qualquer outro campo é 400\ncitando-o; `endsOn` anterior a `startsOn` é 400). Exclui, na mesma transação, as\nocorrências `FORECAST` posteriores a `endsOn`; as demais permanecem e a extensão\npara de gerar. O modelo muda pelo `?scope=following` de uma ocorrência.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"endsOn\": \"{{today}}\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Muda o status de uma receita",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/earnings/:id/status",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["earnings", ":id", "status"],
+                            "variable": [{ "key": "id", "value": "{{earningId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Receber soma `amountCents` ao saldo da conta\nna mesma transação (publica `EarningReceived`); `RECEIVED → OPEN` devolve o\nsaldo. `FORECAST` e `OVERDUE` não são alvo válido.\n\nCampos opcionais do corpo: `receivedOn`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"OPEN\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Expenses",
+            "description": "Despesas e tipos de despesa",
+            "item": [
+                {
+                    "name": "Lista os tipos de despesa",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/expense-types",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expense-types"],
+                            "query": [
+                                {
+                                    "key": "archived",
+                                    "value": "true",
+                                    "description": "`true` inclui os arquivados na listagem; o padrão os esconde.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Qualquer perfil. Ordenados por nome."
+                    }
+                },
+                {
+                    "name": "Cadastra um tipo de despesa",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/expense-types",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expense-types"]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. O nome é único sem diferenciar\nmaiúsculas (ERR-0012-01).",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Exemplo name\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('expenseTypeId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Renomeia um tipo de despesa",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/expense-types/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expense-types", ":id"],
+                            "variable": [{ "key": "id", "value": "{{expenseTypeId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Só o nome é alterável; `archivedAt` muda\nsó pelo arquivamento.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Exemplo name\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Arquiva um tipo de despesa",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/expense-types/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expense-types", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{expenseTypeId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Arquivar o tira da listagem padrão e o\nmantém sustentando os lançamentos antigos; um tipo arquivado não recebe\nlançamento novo. Idempotente (ERR-0012-16)."
+                    }
+                },
+                {
+                    "name": "Desarquiva um tipo de despesa",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/expense-types/:id/archive",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expense-types", ":id", "archive"],
+                            "variable": [{ "key": "id", "value": "{{expenseTypeId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Idempotente."
+                    }
+                },
+                {
+                    "name": "Lista as despesas",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/expenses",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expenses"],
+                            "query": [
+                                {
+                                    "key": "from",
+                                    "value": "{{today}}",
+                                    "description": "`occurredOn` mínimo, inclusivo. Maior que `to` é 400.",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "{{today}}",
+                                    "description": "`occurredOn` máximo, inclusivo.",
+                                    "disabled": true
+                                },
+                                { "key": "status", "value": "OPEN", "disabled": true },
+                                { "key": "kind", "value": "FIXED", "disabled": true },
+                                {
+                                    "key": "expenseTypeId",
+                                    "value": "{{expenseTypeId}}",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "bankAccountId",
+                                    "value": "{{bankAccountId}}",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "creditCardId",
+                                    "value": "{{creditCardId}}",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "installmentGroupId",
+                                    "value": "{{installmentGroupId}}",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Filtros opcionais, combinados por E. Sem filtro, devolve tudo. Em ordem de\n`occurredOn` e depois de criação. Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Lança uma despesa",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/expenses",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expenses"]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Devolve uma lista com um elemento\n(`VARIABLE`) ou com `installmentTotal` parcelas, em ordem de parcela\n(`INSTALLMENT`), todas criadas na mesma transação; publica um `ExpenseCreated`\npor linha. `FIXED` cria a série (spec 0017): a primeira ocorrência com o `status`\ninformado e as dos meses seguintes como `FORECAST`, até o último dia do 12º mês\ndepois do mês de hoje (ou até `recurrenceEndsOn`), em ordem de data. Despesa de cartão `OPEN` ou `VERIFYING` abate o limite disponível na\nmesma transação (num parcelamento, o total de uma vez); `FORECAST` não. Saldo e\nlimite nunca barram o lançamento.\n\nCampos opcionais do corpo: `bankAccountId`, `creditCardId`, `postedOn`, `status`, `installmentTotal`, `notes`, `recurrenceEndsOn`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"description\": \"Exemplo description\",\n    \"expenseTypeId\": \"{{expenseTypeId}}\",\n    \"kind\": \"FIXED\",\n    \"amountCents\": 10000,\n    \"occurredOn\": \"{{today}}\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('expenseId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Consulta uma despesa",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/expenses/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expenses", ":id"],
+                            "variable": [{ "key": "id", "value": "{{expenseId}}" }]
+                        },
+                        "description": "Consulta uma despesa"
+                    }
+                },
+                {
+                    "name": "Altera uma despesa",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/expenses/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expenses", ":id"],
+                            "query": [
+                                {
+                                    "key": "scope",
+                                    "value": "following",
+                                    "description": "`following` estende a alteração ao modelo da série e às ocorrências seguintes\nainda em `FORECAST` (spec 0017). Só vale em despesa ou receita de série.",
+                                    "disabled": true
+                                }
+                            ],
+                            "variable": [{ "key": "id", "value": "{{expenseId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Corpo estrito e não vazio: `kind`, `status`,\n`paidOn`, `bankAccountId`, `creditCardId` e `installment*` são 400 citando o\ncampo. `amountCents` de despesa paga é 409; em cartão abatido do limite, move\na diferença na mesma transação. Numa parcela, altera só aquela parcela. Numa\nocorrência de série, altera só ela; com `?scope=following`, `description`,\n`expenseTypeId`, `amountCents` e `notes` valem também para o modelo da série e\npara as ocorrências seguintes ainda em `FORECAST` (as anteriores, promovidas e\npagas não mudam). `scope=following` em despesa sem série, ou outro valor, é 400\ncitando `scope`.\n\nCampos opcionais do corpo: `description`, `expenseTypeId`, `occurredOn`, `amountCents`, `postedOn`, `notes`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"description\": \"Exemplo description\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Exclui uma despesa",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/expenses/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expenses", ":id"],
+                            "variable": [{ "key": "id", "value": "{{expenseId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Só despesa não paga; a paga é 409 (desfaça o\npagamento antes). Despesa de cartão devolve o limite. Excluir uma parcela exclui,\nna mesma transação, todas as parcelas não pagas do grupo; as pagas permanecem.\nExcluir uma ocorrência de série exclui, na mesma transação e com os mesmos\nefeitos de limite, ela e todas as seguintes não pagas; as seguintes pagas, as\nanteriores (pagas ou não) e as de cartão em fatura fechada permanecem, e a série\nrecebe `endsOn` igual ao dia anterior à ocorrência excluída (a série sem\nocorrência restante deixa de existir)."
+                    }
+                },
+                {
+                    "name": "Muda o status de uma despesa",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/expenses/:id/status",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expenses", ":id", "status"],
+                            "variable": [{ "key": "id", "value": "{{expenseId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Pagar despesa de conta abate o saldo e grava\n`paidOn` (default: hoje, no fuso de negócio); desfazer devolve. Despesa de\ncartão não é paga por aqui. `FORECAST → OPEN` de cartão abate o limite.\n\nCampos opcionais do corpo: `paidOn`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"OPEN\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Troca a forma de pagamento de uma despesa",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/expenses/:id/payment-method",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expenses", ":id", "payment-method"],
+                            "query": [
+                                {
+                                    "key": "scope",
+                                    "value": "following",
+                                    "description": "`following` estende a alteração ao modelo da série e às ocorrências seguintes\nainda em `FORECAST` (spec 0017). Só vale em despesa ou receita de série.",
+                                    "disabled": true
+                                }
+                            ],
+                            "variable": [{ "key": "id", "value": "{{expenseId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Move uma despesa não paga para outra conta\nou outro cartão; o corpo leva exatamente um entre `bankAccountId` e\n`creditCardId` (`postedOn` só com `creditCardId`). Despesa paga é 409\n`EXPENSE_ALREADY_PAID`; destino arquivado é 409 `BANK_ACCOUNT_ARCHIVED` ou\n`CREDIT_CARD_ARCHIVED`; destino igual à origem responde 200 sem efeito.\nNuma parcela, vale para todas as parcelas do grupo que não estão pagas nem\nem fatura fechada; a resposta é sempre a lista das despesas movidas, em\nordem de parcela. Tudo na mesma transação: sair de um cartão devolve o\nlimite, entrar abate (`OPEN`, `VERIFYING`; `FORECAST` não move limite) e\n`OVERDUE` de conta chega ao cartão como `OPEN`. Entrando num cartão,\n`postedOn` é o informado (aplicado à despesa indicada; as demais parcelas\nusam o default) ou `max(occurredOn, último dia fechado + 1)`; saindo para\numa conta, volta a nulo. Despesa de cartão em fatura fechada, ou `postedOn`\ninformado dentro da janela fechada do destino, é 409 `STATEMENT_CLOSED`.\nSaldo de conta nunca se move. Numa ocorrência de série, troca só ela; com\n`?scope=following`, troca também o modelo da série e as ocorrências seguintes\nainda em `FORECAST` (as demais não mudam), com os mesmos efeitos de limite e de\njanela fechada. `scope=following` em despesa sem série é 400 citando `scope`.\n\nCampos opcionais do corpo: `bankAccountId`, `creditCardId`, `postedOn`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"bankAccountId\": \"{{bankAccountId}}\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Lista as séries de despesas",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/expense-recurrences",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expense-recurrences"],
+                            "query": [
+                                {
+                                    "key": "active",
+                                    "value": "true",
+                                    "description": "`true` devolve só as séries sem `endsOn` passado.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Qualquer perfil lê. Da mais recente para a mais antiga. `active=true` tira as\nséries com `endsOn` passado."
+                    }
+                },
+                {
+                    "name": "Consulta uma série de despesas",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/expense-recurrences/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expense-recurrences", ":id"],
+                            "variable": [{ "key": "id", "value": "{{expenseRecurrenceId}}" }]
+                        },
+                        "description": "Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Encerra uma série de despesas",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/expense-recurrences/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expense-recurrences", ":id"],
+                            "variable": [{ "key": "id", "value": "{{expenseRecurrenceId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Aceita só `endsOn` (qualquer outro campo é 400\ncitando-o; `endsOn` anterior a `startsOn` é 400). Exclui, na mesma transação, as\nocorrências `FORECAST` posteriores a `endsOn`; as demais permanecem e a extensão\npara de gerar. O modelo muda pelo `?scope=following` de uma ocorrência.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"endsOn\": \"{{today}}\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Statements",
+            "description": "Faturas de cartão, pagamentos de fatura e estornos",
+            "item": [
+                {
+                    "name": "Lista as faturas de um cartão",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/statements?creditCardId={{creditCardId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["statements"],
+                            "query": [
+                                { "key": "creditCardId", "value": "{{creditCardId}}" },
+                                {
+                                    "key": "from",
+                                    "value": "{{today}}",
+                                    "description": "`closesOn` mínimo, inclusivo.",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "{{today}}",
+                                    "description": "`closesOn` máximo, inclusivo.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Faturas do cartão com `closesOn` entre `from` e `to`, fechadas e projetadas, em\nordem de `closesOn`. `creditCardId` é obrigatório. Sem `from` e `to`, devolve as\nfechadas dos últimos doze meses e a aberta corrente. A janela cobre no máximo\n120 faturas (400 `VALIDATION_ERROR` acima disso) e `from` maior que `to` é 400.\nA fatura projetada (aberta) tem `id` e `closedAt` nulos e `status` `OPEN`.\nA listagem não traz `expenses`, `refunds` nem `payments`. Qualquer perfil lê.\nRegistra antes qualquer fechamento vencido do cartão."
+                    }
+                },
+                {
+                    "name": "Consulta a fatura aberta de hoje",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/statements/current?creditCardId={{creditCardId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["statements", "current"],
+                            "query": [{ "key": "creditCardId", "value": "{{creditCardId}}" }]
+                        },
+                        "description": "Fatura aberta do cartão (projetada), com o detalhe: `expenses`, `refunds` e\n`payments` (estes últimos, os pagamentos antecipados). `creditCardId` é\nobrigatório. Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Paga antecipadamente a fatura aberta",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/statements/current/payments",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["statements", "current", "payments"]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Debita a conta e libera o limite do cartão\nna mesma transação; o pagamento fica sem fatura (`statementId` nulo no evento)\naté o fechamento e nenhuma despesa é marcada como paga. `amountCents` vai de 1\nao `remainingCents` atual da fatura aberta (409\n`STATEMENT_PAYMENT_EXCEEDS_REMAINING`). Com fatura `CLOSED` pendente no cartão é\n409 `STATEMENT_PREVIOUS_UNPAID`. `paidOn` é opcional (default hoje), entre o\ninício da fatura aberta e hoje (400). Conta arquivada é 409\n`BANK_ACCOUNT_ARCHIVED`; saldo insuficiente não barra. Devolve a fatura aberta\ncom o detalhe.\n\nCampos opcionais do corpo: `bankAccountId`, `paidOn`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"creditCardId\": \"{{creditCardId}}\",\n    \"amountCents\": 10000\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('paymentId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Desfaz um pagamento antecipado",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/statements/current/payments/:paymentId?creditCardId={{creditCardId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["statements", "current", "payments", ":paymentId"],
+                            "query": [{ "key": "creditCardId", "value": "{{creditCardId}}" }],
+                            "variable": [{ "key": "paymentId", "value": "{{paymentId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Desfaz o **último** pagamento antecipado do\ncartão (`creditCardId` na query, obrigatório) enquanto a fatura não fecha: a\nconta recebe o valor de volta e o limite é consumido, na mesma transação. Outro\nque não o último é 409 `STATEMENT_PAYMENT_LOCKED`. Depois do fechamento, o\npagamento pertence à fatura registrada e segue a regra dela. Não publica evento."
+                    }
+                },
+                {
+                    "name": "Consulta uma fatura fechada",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/statements/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["statements", ":id"],
+                            "variable": [{ "key": "id", "value": "{{statementId}}" }]
+                        },
+                        "description": "Fatura persistida (`CLOSED`, `PAID` ou `ROLLED_OVER`), com o detalhe:\n`expenses` e `refunds` da janela, em ordem de `postedOn`, e `payments`. A\nfatura projetada não tem `id` e só se lê por `GET /statements` e\n`GET /statements/current`. Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Informa o pagamento mínimo da fatura",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/statements/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["statements", ":id"],
+                            "variable": [{ "key": "id", "value": "{{statementId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Grava o mínimo informado pelo cliente, sem\nrestrição quanto ao valor: só o formato de dinheiro (inteiro de centavos, não\nnegativo) é validado, e `null` o apaga. Vale para qualquer fatura persistida.\nO sistema não calcula mínimo; o informado só serve à resposta e ao cálculo de\n`overdue`. Devolve a fatura com o detalhe.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"minimumPaymentCents\": 10000\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Paga uma fatura fechada",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/statements/:id/payments",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["statements", ":id", "payments"],
+                            "variable": [{ "key": "id", "value": "{{statementId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Total, mínimo ou valor livre: para o backend,\num `amountCents` entre 1 e `remainingCents`. Uma fatura aceita vários\npagamentos. Na mesma transação, debita a conta, libera o limite do cartão e\npublica `StatementPaymentRegistered`; se o restante chegou a zero, a fatura\npassa a `PAID`, as despesas da cadeia em `OPEN` ou `VERIFYING` passam a `PAID`\ncom o `paidOn` do pagamento e `StatementPaid` é publicado. `paidOn` é opcional\n(default hoje), posterior ao `closesOn` e não posterior a hoje (400).\nErros 409: `STATEMENT_ALREADY_PAID`, `STATEMENT_ROLLED_OVER` (o restante está na\nfatura seguinte), `STATEMENT_PAYMENT_EXCEEDS_REMAINING` (mensagem com o\nrestante) e `BANK_ACCOUNT_ARCHIVED`. Saldo insuficiente não barra. Devolve a\nfatura com o detalhe.\n\nCampos opcionais do corpo: `bankAccountId`, `paidOn`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"amountCents\": 10000\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('paymentId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Desfaz o último pagamento de uma fatura",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/statements/:id/payments/:paymentId",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["statements", ":id", "payments", ":paymentId"],
+                            "variable": [
+                                { "key": "id", "value": "{{statementId}}" },
+                                { "key": "paymentId", "value": "{{paymentId}}" }
+                            ]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Só o **último** pagamento da fatura, e só\nenquanto a fatura seguinte não foi registrada; fora disso é 409\n`STATEMENT_PAYMENT_LOCKED`. Na mesma transação: a fatura `PAID` volta a `CLOSED`\ne as despesas da cadeia voltam a `OPEN` com `paidOn` nulo, a conta recebe o\nvalor de volta, o limite é consumido e o pagamento é apagado. Não publica evento."
+                    }
+                },
+                {
+                    "name": "Lista os estornos de cartão",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-card-refunds",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-card-refunds"],
+                            "query": [
+                                {
+                                    "key": "creditCardId",
+                                    "value": "{{creditCardId}}",
+                                    "disabled": true
+                                },
+                                { "key": "expenseId", "value": "{{expenseId}}", "disabled": true },
+                                {
+                                    "key": "from",
+                                    "value": "{{today}}",
+                                    "description": "`postedOn` mínimo, inclusivo.",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "{{today}}",
+                                    "description": "`postedOn` máximo, inclusivo.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Filtros opcionais, combinados por E; `from` e `to` incidem sobre `postedOn`,\ninclusivos (`from` maior que `to` é 400). Em ordem de `postedOn`. Qualquer\nperfil lê."
+                    }
+                },
+                {
+                    "name": "Lança um estorno de cartão",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-card-refunds",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-card-refunds"]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Devolve `amountCents` ao limite disponível na\nmesma transação, abate o total da fatura em que cai (a do `postedOn`) e publica\n`CreditCardRefundRegistered`. Sem `postedOn`, o default é\n`max(occurredOn, último dia fechado + 1)`; o informado não pode cair na janela\nfechada (409 `STATEMENT_CLOSED`) nem ser anterior a `occurredOn` (400).\n`expenseId`, opcional, aponta a compra estornada e precisa ser despesa do mesmo\ncartão (409 `REFUND_EXPENSE_MISMATCH`); a soma dos estornos da despesa não passa\ndo valor dela (409 `REFUND_EXCEEDS_EXPENSE`). Cartão arquivado aceita estorno.\n\nCampos opcionais do corpo: `postedOn`, `expenseId`, `notes`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"creditCardId\": \"{{creditCardId}}\",\n    \"description\": \"Exemplo description\",\n    \"amountCents\": 10000,\n    \"occurredOn\": \"{{today}}\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const id = pm.response.json()?.data?.id;",
+                                    "    if (id) pm.environment.set('creditCardRefundId', id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Consulta um estorno de cartão",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-card-refunds/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-card-refunds", ":id"],
+                            "variable": [{ "key": "id", "value": "{{creditCardRefundId}}" }]
+                        },
+                        "description": "Consulta um estorno de cartão"
+                    }
+                },
+                {
+                    "name": "Altera a descrição ou as observações de um estorno",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-card-refunds/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-card-refunds", ":id"],
+                            "variable": [{ "key": "id", "value": "{{creditCardRefundId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Corpo estrito e não vazio: só `description` e\n`notes`; qualquer outro campo é 400 citando o campo. Para corrigir valor ou\ndata, exclui-se e lança-se de novo, se a janela estiver aberta.\n\nCampos opcionais do corpo: `description`, `notes`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"description\": \"Exemplo description\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
+                    "name": "Exclui um estorno de cartão",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/credit-card-refunds/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["credit-card-refunds", ":id"],
+                            "variable": [{ "key": "id", "value": "{{creditCardRefundId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER`. Consome de novo o valor do limite disponível,\nna mesma transação. Estorno em janela fechada é 409 `STATEMENT_CLOSED`\n(mensagem com o último dia fechado)."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Reporting",
+            "description": "Relatórios somente de leitura (despesas e receitas por tipo, fluxo de caixa)",
+            "item": [
+                {
+                    "name": "Saldo mês a mês, realizado no passado e previsto daqui em diante",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/reports/balance?from=2026-03&to=2026-05",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["reports", "balance"],
+                            "query": [
+                                {
+                                    "key": "from",
+                                    "value": "2026-03",
+                                    "description": "Primeiro mês da janela, `YYYY-MM`. Maior que `to`, ou janela com mais de 120 meses,\né 400."
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "2026-05",
+                                    "description": "Último mês da janela, inclusivo, `YYYY-MM`."
+                                },
+                                {
+                                    "key": "bankAccountId",
+                                    "value": "{{bankAccountId}}",
+                                    "description": "Restringe o relatório a uma conta; inexistente é 404.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Um ponto por mês, de `from` a `to` (`YYYY-MM`, inclusivos, no máximo 120 meses), com\na data de referência no último dia do mês. Meses inteiramente passados são\n`REALIZED`: saldo realizado das contas, sem dívida de cartão (os campos de cartão\nvêm nulos). O mês corrente e os seguintes são `FORECAST`: saldo corrente mais as\nreceitas e despesas de conta pendentes (`OPEN`, `VERIFYING`, `OVERDUE` e\n`FORECAST`) e as transferências agendadas (`+` no destino, `-` na origem), com\ncarry-forward; o que tem data passada entra no mês corrente. Despesa de cartão não\nentra no saldo da conta: entra na dívida dos cartões, descontada da conta\npagadora do cartão (`balanceAfterCardsCents`); a dívida de cartão sem conta\npagadora aparece em `unassignedCardDebtCents`. `consolidatedCents` soma todas as\ncontas, arquivadas inclusive, menos a dívida de todos os cartões (nos pontos\n`REALIZED`, é a soma das contas). Com `bankAccountId`, só aquela conta, com a\ndívida dos cartões que ela paga, e os totais de cartão e `consolidatedCents`\nnulos. Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Despesas por mês e tipo",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/reports/expenses-by-type?from=2026-03&to=2026-05",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["reports", "expenses-by-type"],
+                            "query": [
+                                {
+                                    "key": "from",
+                                    "value": "2026-03",
+                                    "description": "Primeiro mês da janela, `YYYY-MM`. Maior que `to`, ou janela com mais de 120 meses,\né 400."
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "2026-05",
+                                    "description": "Último mês da janela, inclusivo, `YYYY-MM`."
+                                },
+                                {
+                                    "key": "includeForecast",
+                                    "value": "true",
+                                    "description": "`true` soma também os lançamentos `FORECAST`; ausente vale `false`.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Soma as despesas **comprometidas** (`OPEN`, `VERIFYING`, `OVERDUE`, `PAID`) por mês de\n`occurredOn` e por tipo; `FORECAST` entra só com `includeForecast=true`. Estornos de\ncartão aparecem em `refundsCents` por mês, sem abater o tipo. Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Receitas por mês e tipo",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/reports/earnings-by-type?from=2026-03&to=2026-05",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["reports", "earnings-by-type"],
+                            "query": [
+                                {
+                                    "key": "from",
+                                    "value": "2026-03",
+                                    "description": "Primeiro mês da janela, `YYYY-MM`. Maior que `to`, ou janela com mais de 120 meses,\né 400."
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "2026-05",
+                                    "description": "Último mês da janela, inclusivo, `YYYY-MM`."
+                                },
+                                {
+                                    "key": "includeForecast",
+                                    "value": "true",
+                                    "description": "`true` soma também os lançamentos `FORECAST`; ausente vale `false`.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Soma as receitas **comprometidas** (`OPEN`, `VERIFYING`, `OVERDUE`, `RECEIVED`) por mês\nde `occurredOn` e por tipo; `FORECAST` entra só com `includeForecast=true`. Não há\n`refundsCents`. Qualquer perfil lê."
+                    }
+                },
+                {
+                    "name": "Fluxo de caixa realizado por mês e conta",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/reports/cash-flow?from=2026-03&to=2026-05",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["reports", "cash-flow"],
+                            "query": [
+                                {
+                                    "key": "from",
+                                    "value": "2026-03",
+                                    "description": "Primeiro mês da janela, `YYYY-MM`. Maior que `to`, ou janela com mais de 120 meses,\né 400."
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "2026-05",
+                                    "description": "Último mês da janela, inclusivo, `YYYY-MM`."
+                                },
+                                {
+                                    "key": "bankAccountId",
+                                    "value": "{{bankAccountId}}",
+                                    "description": "Restringe o relatório a uma conta; inexistente é 404.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "O dinheiro que de fato se moveu, por mês e por conta, cada coluna pela sua data:\nreceitas `RECEIVED` por `receivedOn`, despesas de conta `PAID` por `paidOn`,\npagamentos de fatura por `paidOn` e transferências `COMPLETED` por `completedOn`.\nTodas as contas, arquivadas inclusive, aparecem em todos os meses, com zeros;\n`bankAccountId` restringe a uma. Qualquer perfil lê."
+                    }
+                }
+            ]
+        }
+    ]
+}

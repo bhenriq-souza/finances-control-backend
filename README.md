@@ -19,6 +19,7 @@ npm run start:local          # http://localhost:3000
 
 - `GET /health` — liveness da aplicação
 - `/docs` — Swagger UI a partir de `docs/openapi.yaml`
+- `docs/postman/` — collection e ambientes (local e dev) do Postman, gerados do mesmo contrato por `npm run postman`; uso em [`docs/postman/README.md`](docs/postman/README.md)
 
 ## Qualidade
 
