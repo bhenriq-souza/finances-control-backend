@@ -32,10 +32,10 @@ export const statementIdParamsSchema = z.object({ id: z.uuid() });
 /** Dinheiro entra como inteiro positivo de centavos (ERR-0013-15). */
 const paymentAmountCents = z.int().positive();
 
-/** `POST /statements/:id/payments`; `bankAccountId` é obrigatório nesta tarefa. */
+/** `POST /statements/:id/payments`; `bankAccountId` ausente cai na conta pagadora do cartão. */
 export const createStatementPaymentSchema = z
     .object({
-        bankAccountId: z.uuid(),
+        bankAccountId: z.uuid().optional(),
         amountCents: paymentAmountCents,
         paidOn: businessDate.optional(),
     })
@@ -47,7 +47,7 @@ export type CreateStatementPayment = z.infer<typeof createStatementPaymentSchema
 export const createEarlyPaymentSchema = z
     .object({
         creditCardId: z.uuid(),
-        bankAccountId: z.uuid(),
+        bankAccountId: z.uuid().optional(),
         amountCents: paymentAmountCents,
         paidOn: businessDate.optional(),
     })

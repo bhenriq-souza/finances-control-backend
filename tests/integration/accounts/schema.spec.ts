@@ -87,6 +87,7 @@ describe('schema de accounts (spec 0011)', () => {
                     'ck_credit_cards_credit_limit',
                     'ck_credit_cards_due_day',
                     'fk_credit_cards_bank_id',
+                    'fk_credit_cards_payment_bank_account_id',
                     'pk_credit_cards',
                     'uq_credit_cards_bank_id_name',
                 ],

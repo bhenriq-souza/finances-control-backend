@@ -64,6 +64,7 @@ describe('rotas de /credit-cards (spec 0011)', () => {
                 'closingDay',
                 'dueDay',
                 'currentCycle',
+                'paymentBankAccountId',
                 'archivedAt',
                 'createdAt',
             ]);
@@ -273,6 +274,108 @@ describe('rotas de /credit-cards (spec 0011)', () => {
                 .send({ name: 'Fantasma' });
 
             expect(response.status).toBe(404);
+        });
+    });
+
+    describe('conta pagadora (AC-0011-16)', () => {
+        const createAccount = async (): Promise<string> => {
+            const { body } = await request(ctx.app)
+                .post('/bank-accounts')
+                .set('Authorization', ADMIN)
+                .send({
+                    bankId,
+                    type: 'CHECKING',
+                    accountNumber: '12345-6',
+                    description: 'Conta pagadora',
+                    openingBalanceCents: 150000,
+                });
+
+            return body.data.id as string;
+        };
+
+        const archive = (accountId: string) =>
+            request(ctx.app)
+                .post(`/bank-accounts/${accountId}/archive`)
+                .set('Authorization', ADMIN);
+
+        const patch = (cardId: string, body: Record<string, unknown>) =>
+            request(ctx.app)
+                .patch(`/credit-cards/${cardId}`)
+                .set('Authorization', ADMIN)
+                .send(body);
+
+        afterEach(async () => {
+            await ctx.dataSource.query('DELETE FROM credit_cards');
+            await ctx.dataSource.query('DELETE FROM bank_accounts');
+        });
+
+        it('AC-0011-16: criar com paymentBankAccountId grava e devolve a conta; sem o campo, nasce null', async () => {
+            const accountId = await createAccount();
+
+            const com = await createCard({ paymentBankAccountId: accountId });
+            const sem = await createCard({ name: 'Black' });
+
+            expect(com.status).toBe(201);
+            expect(com.body.data.paymentBankAccountId).toBe(accountId);
+            expect(sem.body.data.paymentBankAccountId).toBeNull();
+        });
+
+        it('AC-0011-16: o PATCH altera a conta pagadora e null a remove', async () => {
+            const accountId = await createAccount();
+            const { body } = await createCard();
+
+            const definida = await patch(body.data.id, { paymentBankAccountId: accountId });
+            const lida = await request(ctx.app)
+                .get(`/credit-cards/${body.data.id}`)
+                .set('Authorization', ADMIN);
+            const removida = await patch(body.data.id, { paymentBankAccountId: null });
+
+            expect(definida.status).toBe(200);
+            expect(definida.body.data.paymentBankAccountId).toBe(accountId);
+            expect(lida.body.data.paymentBankAccountId).toBe(accountId);
+            expect(removida.status).toBe(200);
+            expect(removida.body.data.paymentBankAccountId).toBeNull();
+        });
+
+        it('ERR-0011-06: conta inexistente recebe 404 BANK_ACCOUNT_NOT_FOUND, na criação e no PATCH', async () => {
+            const missing = '00000000-0000-4000-8000-000000000000';
+            const { body } = await createCard();
+
+            const criacao = await createCard({ name: 'Outro', paymentBankAccountId: missing });
+            const alteracao = await patch(body.data.id, { paymentBankAccountId: missing });
+
+            expect(criacao.status).toBe(404);
+            expect(criacao.body.error.code).toBe('BANK_ACCOUNT_NOT_FOUND');
+            expect(alteracao.status).toBe(404);
+            expect(alteracao.body.error.code).toBe('BANK_ACCOUNT_NOT_FOUND');
+        });
+
+        it('ERR-0011-13: conta arquivada recebe 409 BANK_ACCOUNT_ARCHIVED, na criação e no PATCH', async () => {
+            const accountId = await createAccount();
+
+            await archive(accountId);
+
+            const { body } = await createCard();
+            const criacao = await createCard({ name: 'Outro', paymentBankAccountId: accountId });
+            const alteracao = await patch(body.data.id, { paymentBankAccountId: accountId });
+
+            expect(criacao.status).toBe(409);
+            expect(criacao.body.error.code).toBe('BANK_ACCOUNT_ARCHIVED');
+            expect(alteracao.status).toBe(409);
+            expect(alteracao.body.error.code).toBe('BANK_ACCOUNT_ARCHIVED');
+        });
+
+        it('arquivar a conta depois não altera o cartão', async () => {
+            const accountId = await createAccount();
+            const { body } = await createCard({ paymentBankAccountId: accountId });
+
+            expect((await archive(accountId)).status).toBe(200);
+
+            const lida = await request(ctx.app)
+                .get(`/credit-cards/${body.data.id}`)
+                .set('Authorization', ADMIN);
+
+            expect(lida.body.data.paymentBankAccountId).toBe(accountId);
         });
     });
 

@@ -124,12 +124,12 @@ export class StatementPaymentService {
 
             if (data.amountCents > remaining) throw exceedsRemaining(remaining);
 
-            await this.assertAccountIsUsable(data.bankAccountId);
+            const bankAccountId = await this.resolveAccount(data.bankAccountId, creditCardId);
 
             const payment = await this.record(scope, {
                 creditCardId,
                 statementId: statement.id,
-                bankAccountId: data.bankAccountId,
+                bankAccountId,
                 amountCents: data.amountCents,
                 paidOn,
                 remainingCents: remaining - data.amountCents,
@@ -209,11 +209,12 @@ export class StatementPaymentService {
 
             if (data.amountCents > remaining) throw exceedsRemaining(remaining);
 
-            await this.assertAccountIsUsable(data.bankAccountId);
+            const bankAccountId = await this.resolveAccount(data.bankAccountId, creditCardId);
+
             await this.record(scope, {
                 creditCardId,
                 statementId: null,
-                bankAccountId: data.bankAccountId,
+                bankAccountId,
                 amountCents: data.amountCents,
                 paidOn,
                 remainingCents: remaining - data.amountCents,
@@ -368,6 +369,33 @@ export class StatementPaymentService {
         });
 
         return saved;
+    }
+
+    /**
+     * The informed account, else the card's paying account (spec 0011); with neither,
+     * a validation error naming `bankAccountId`. Then ERR-0013-05 and ERR-0013-06.
+     */
+    private async resolveAccount(
+        informed: string | undefined,
+        creditCardId: string,
+    ): Promise<string> {
+        const bankAccountId =
+            informed ?? (await this.creditCards.findById(creditCardId)).paymentBankAccountId;
+
+        if (!bankAccountId) {
+            throw new ZodError([
+                {
+                    code: 'custom',
+                    path: ['bankAccountId'],
+                    message: 'bankAccountId is required when the card has no paying account',
+                    input: undefined,
+                },
+            ]);
+        }
+
+        await this.assertAccountIsUsable(bankAccountId);
+
+        return bankAccountId;
     }
 
     /** ERR-0013-05 and ERR-0013-06. */

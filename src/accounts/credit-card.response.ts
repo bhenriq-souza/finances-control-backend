@@ -17,6 +17,7 @@ export type CreditCardResponse = {
     closingDay: number;
     dueDay: number;
     currentCycle: BillingCycleResponse;
+    paymentBankAccountId: string | null;
     archivedAt: string | null;
     createdAt: string;
 };
@@ -48,6 +49,7 @@ export const toCreditCardResponse = (
             closesOn: asDate(cycle.closesOn),
             dueOn: asDate(cycle.dueOn),
         },
+        paymentBankAccountId: card.paymentBankAccountId,
         archivedAt: card.archivedAt?.toISOString() ?? null,
         createdAt: card.createdAt.toISOString(),
     };
