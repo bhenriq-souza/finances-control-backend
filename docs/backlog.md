@@ -362,7 +362,7 @@ receitas, que a espelha.
       varredura de vencidas de despesas e receitas
     - Where: `src/platform/api/`, `src/statements/`, `src/expenses/`, `src/earnings/`
     - Done when: `AC-0017-13` coberto; `INV-0017-01` e `INV-0017-02` verificados
-- [ ] **T-0017-03 — Série de despesas: criação, extensão e promoção** · #88
+- [x] **T-0017-03 — Série de despesas: criação, extensão e promoção** · #88
     - What: `expense_recurrences`, `recurrence_id` nas despesas, a criação `FIXED` até o horizonte,
       `extend` e `promote` com os seus jobs
     - Where: `src/expenses/`, `src/platform/database/migrations/`

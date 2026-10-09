@@ -75,6 +75,7 @@ describe('despesa: varredura de vencidas (spec 0012, AC-0012-11)', () => {
 
     afterEach(async () => {
         await ctx.dataSource.query('DELETE FROM expenses');
+        await ctx.dataSource.query('DELETE FROM expense_recurrences');
         await ctx.dataSource.query("DELETE FROM expense_types WHERE name LIKE 'T-%'");
         await ctx.dataSource.query('DELETE FROM credit_cards');
         await ctx.dataSource.query('DELETE FROM bank_accounts');

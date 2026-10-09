@@ -19,6 +19,7 @@ import { ExpenseType } from './expense-type.entity';
     'installmentGroupId',
     'installmentNumber',
 ])
+@Unique('uq_expenses_recurrence_id_occurred_on', ['recurrenceId', 'occurredOn'])
 @Check('ck_expenses_kind', "kind IN ('FIXED', 'VARIABLE', 'INSTALLMENT')")
 @Check('ck_expenses_status', "status IN ('OPEN', 'FORECAST', 'PAID', 'OVERDUE', 'VERIFYING')")
 @Check('ck_expenses_amount', 'amount_cents > 0')
@@ -28,6 +29,7 @@ import { ExpenseType } from './expense-type.entity';
     'ck_expenses_installment',
     "(kind = 'INSTALLMENT') = (installment_group_id IS NOT NULL AND installment_number IS NOT NULL AND installment_total IS NOT NULL) AND (installment_group_id IS NOT NULL OR (installment_number IS NULL AND installment_total IS NULL)) AND (kind <> 'INSTALLMENT' OR (installment_total >= 2 AND installment_number >= 1 AND installment_number <= installment_total))",
 )
+@Check('ck_expenses_recurrence', "(recurrence_id IS NOT NULL) = (kind = 'FIXED')")
 @Check(
     'ck_expenses_posted_on',
     '(posted_on IS NOT NULL) = (credit_card_id IS NOT NULL) AND (posted_on IS NULL OR posted_on >= occurred_on)',
@@ -89,6 +91,10 @@ export class Expense {
 
     @Column({ type: 'int', nullable: true })
     installmentTotal!: number | null;
+
+    /** Série da despesa `FIXED` (spec 0017); nulo nas demais. */
+    @Column({ type: 'uuid', nullable: true })
+    recurrenceId!: string | null;
 
     @Column({ type: 'text', nullable: true })
     notes!: string | null;

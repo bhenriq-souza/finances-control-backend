@@ -50,6 +50,8 @@ import {
     ExpenseJobsSymbol,
     ExpenseRoutes,
     ExpenseRoutesSymbol,
+    ExpenseRecurrenceService,
+    ExpenseRecurrenceServiceSymbol,
     ExpenseService,
     ExpenseServiceSymbol,
     ExpenseTypeController,
@@ -193,6 +195,11 @@ export const apiModules: ApiModule[] = [
         route: { token: ExpenseRoutesSymbol, clazz: ExpenseRoutes },
         provides: [
             { token: ExpenseServiceSymbol, clazz: ExpenseService, scope: ScopeTypes.SINGLETON },
+            {
+                token: ExpenseRecurrenceServiceSymbol,
+                clazz: ExpenseRecurrenceService,
+                scope: ScopeTypes.SINGLETON,
+            },
             {
                 token: ExpenseControllerSymbol,
                 clazz: ExpenseController,
