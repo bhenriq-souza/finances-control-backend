@@ -333,7 +333,7 @@ do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma reg
     - Where: `src/reporting/`, `src/statements/index.ts`, `src/api.config.ts`
     - Done when: `AC-0015-02` a `AC-0015-06` e `AC-0015-13` cobertos; `INV-0015-05` e `INV-0015-06`
       verificados
-- [ ] **T-0015-03 — Relatórios por tipo** · #83
+- [x] **T-0015-03 — Relatórios por tipo** · #83
     - What: `GET /reports/expenses-by-type` e `GET /reports/earnings-by-type`, por mês e tipo,
       com `includeForecast` e os estornos à parte
     - Where: `src/reporting/`

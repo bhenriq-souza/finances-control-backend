@@ -96,7 +96,16 @@ import {
     StatementRoutesSymbol,
     StatementService,
 } from './statements';
-import { RealizedBalanceService, RealizedBalanceServiceSymbol } from './reporting';
+import {
+    ByTypeReportService,
+    ByTypeReportServiceSymbol,
+    RealizedBalanceService,
+    RealizedBalanceServiceSymbol,
+    ReportController,
+    ReportControllerSymbol,
+    ReportRoutes,
+    ReportRoutesSymbol,
+} from './reporting';
 
 /**
  * Módulos publicados pela API. Cada módulo de domínio (ADR-0003) entra aqui com
@@ -283,10 +292,22 @@ export const apiModules: ApiModule[] = [
         ],
     },
     {
+        path: '/reports',
+        route: { token: ReportRoutesSymbol, clazz: ReportRoutes },
         provides: [
             {
                 token: RealizedBalanceServiceSymbol,
                 clazz: RealizedBalanceService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: ByTypeReportServiceSymbol,
+                clazz: ByTypeReportService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: ReportControllerSymbol,
+                clazz: ReportController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],

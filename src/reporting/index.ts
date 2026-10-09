@@ -4,4 +4,12 @@
  */
 export { COMPOSITION } from './composition';
 export { RealizedBalanceService } from './realized-balance.service';
-export { RealizedBalanceServiceSymbol } from './reporting.symbols';
+export { ByTypeReportService } from './by-type.service';
+export { ReportController } from './report.controller';
+export { ReportRoutes } from './report.routes';
+export {
+    ByTypeReportServiceSymbol,
+    RealizedBalanceServiceSymbol,
+    ReportControllerSymbol,
+    ReportRoutesSymbol,
+} from './reporting.symbols';
