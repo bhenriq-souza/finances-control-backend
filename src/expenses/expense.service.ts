@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
-import { In, type EntityManager, type FindOptionsWhere } from 'typeorm';
+import { In, MoreThan, MoreThanOrEqual, type EntityManager, type FindOptionsWhere } from 'typeorm';
 import { ZodError } from 'zod';
 
 import {
@@ -31,6 +31,7 @@ import type {
     ChangePaymentMethod,
     CreateExpense,
     ListExpensesQuery,
+    MutationScope,
     UpdateExpense,
 } from './expense.schemas';
 
@@ -434,10 +435,17 @@ export class ExpenseService {
      * (INV-0012-11); em cartão abatido do limite, move a diferença na mesma transação
      * (AC-0012-13). `postedOn` só existe em cartão (ERR-0012-17).
      */
-    update(id: string, changes: UpdateExpense): Promise<ExpenseWithType> {
+    update(
+        id: string,
+        changes: UpdateExpense,
+        mutationScope?: MutationScope,
+    ): Promise<ExpenseWithType> {
         return this.runner.run(async (scope) => {
             const { manager } = scope;
             const repository = manager.getRepository(Expense);
+
+            if (mutationScope === 'following') await this.lockSeriesOf(manager, id);
+
             const expense = await repository.findOne({
                 where: { id },
                 lock: { mode: 'for_no_key_update' },
@@ -530,6 +538,10 @@ export class ExpenseService {
 
             if (Object.keys(patch).length > 0) await repository.update({ id }, patch);
 
+            if (mutationScope === 'following') {
+                await this.applyModelToFollowing(manager, expense, changes);
+            }
+
             return (await repository.findOneOrFail({
                 where: { id },
                 relations: { expenseType: true },
@@ -544,10 +556,17 @@ export class ExpenseService {
      * (INV-0012-15); saldo de conta nunca (INV-0012-04). Devolve as despesas movidas, em
      * ordem de parcela; destino igual à origem responde sem efeito.
      */
-    changePaymentMethod(id: string, change: ChangePaymentMethod): Promise<ExpenseWithType[]> {
+    changePaymentMethod(
+        id: string,
+        change: ChangePaymentMethod,
+        mutationScope?: MutationScope,
+    ): Promise<ExpenseWithType[]> {
         return this.runner.run(async (scope) => {
             const { manager } = scope;
             const repository = manager.getRepository(Expense);
+            const following = mutationScope === 'following';
+
+            if (following) await this.lockSeriesOf(manager, id);
 
             // Leitura sem trava só para descobrir o grupo; a trava do grupo vem em ordem de
             // `id`, como na exclusão, para que duas trocas concorrentes nunca se travem
@@ -556,11 +575,20 @@ export class ExpenseService {
 
             if (!probe) throw expenseNotFound();
 
+            // Com `scope=following` (spec 0017): a ocorrência e as seguintes ainda em FORECAST.
             const locked = await repository.find({
-                where:
-                    probe.installmentGroupId !== null
-                        ? { installmentGroupId: probe.installmentGroupId }
-                        : { id },
+                where: following
+                    ? [
+                          { id },
+                          {
+                              recurrenceId: probe.recurrenceId as string,
+                              status: 'FORECAST',
+                              occurredOn: MoreThan(probe.occurredOn),
+                          },
+                      ]
+                    : probe.installmentGroupId !== null
+                      ? { installmentGroupId: probe.installmentGroupId }
+                      : { id },
                 order: { id: 'ASC' },
                 lock: { mode: 'for_no_key_update' },
             });
@@ -588,7 +616,7 @@ export class ExpenseService {
                     ? row.creditCardId === destCardId
                     : row.bankAccountId === destAccountId;
 
-            if (sameDestination(target)) return reload([id]);
+            if (sameDestination(target) && !following) return reload([id]);
 
             if (destCardId !== null) {
                 if ((await this.creditCards.findById(destCardId)).archivedAt) {
@@ -643,8 +671,8 @@ export class ExpenseService {
 
             const moved = locked.filter(
                 (row) =>
-                    row.id === id ||
-                    (row.status !== 'PAID' && !isClosed(row) && !sameDestination(row)),
+                    !sameDestination(row) &&
+                    (row.id === id || (row.status !== 'PAID' && !isClosed(row))),
             );
             const limitDeltas = new Map<string, number>();
             const addDelta = (cardId: string, cents: number): void => {
@@ -696,7 +724,16 @@ export class ExpenseService {
                     await this.creditCards.applyAvailableLimitDelta(manager, cardId, delta);
             }
 
-            return reload(moved.map((row) => row.id));
+            if (following) {
+                await manager
+                    .getRepository(ExpenseRecurrence)
+                    .update(
+                        { id: target.recurrenceId as string },
+                        { bankAccountId: destAccountId, creditCardId: destCardId },
+                    );
+            }
+
+            return reload([...new Set([id, ...moved.map((row) => row.id)])]);
         });
     }
 
@@ -717,10 +754,19 @@ export class ExpenseService {
 
             if (!probe) throw expenseNotFound();
 
-            const where: FindOptionsWhere<Expense> =
-                probe.installmentGroupId !== null
-                    ? { installmentGroupId: probe.installmentGroupId }
-                    : { id };
+            const inSeries = probe.recurrenceId !== null;
+
+            // Série (spec 0017): a ocorrência e todas as seguintes; a série é travada antes.
+            if (inSeries) await this.lockSeriesOf(manager, id);
+
+            const where: FindOptionsWhere<Expense> = inSeries
+                ? {
+                      recurrenceId: probe.recurrenceId as string,
+                      occurredOn: MoreThanOrEqual(probe.occurredOn),
+                  }
+                : probe.installmentGroupId !== null
+                  ? { installmentGroupId: probe.installmentGroupId }
+                  : { id };
             const locked = await repository.find({
                 where,
                 order: { id: 'ASC' },
@@ -732,17 +778,27 @@ export class ExpenseService {
             if (target.status === 'PAID') throw alreadyPaid();
 
             // Window closed for the card: a counting row there is as good as paid (spec 0013).
-            const closedThrough =
-                target.creditCardId !== null
-                    ? await this.closedThrough(manager, target.creditCardId)
-                    : null;
+            // Uma série pode ter ocorrências em cartões diferentes (troca sem `scope`).
+            const closedThrough = new Map<string, string>();
+
+            for (const row of locked) {
+                if (row.creditCardId !== null && !closedThrough.has(row.creditCardId)) {
+                    closedThrough.set(
+                        row.creditCardId,
+                        await this.closedThrough(manager, row.creditCardId),
+                    );
+                }
+            }
+
             const isClosed = (row: Expense): boolean =>
-                closedThrough !== null &&
+                row.creditCardId !== null &&
                 row.status !== 'FORECAST' &&
                 row.postedOn !== null &&
-                row.postedOn <= closedThrough;
+                row.postedOn <= (closedThrough.get(row.creditCardId) as string);
 
-            if (isClosed(target)) throw statementClosed(closedThrough as string);
+            if (isClosed(target)) {
+                throw statementClosed(closedThrough.get(target.creditCardId as string) as string);
+            }
 
             const doomed = locked.filter((row) => row.status !== 'PAID' && !isClosed(row));
             const releasedByCard = new Map<string, number>();
@@ -756,12 +812,113 @@ export class ExpenseService {
                 }
             }
 
-            for (const [cardId, cents] of releasedByCard) {
+            for (const [cardId, cents] of [...releasedByCard].sort(([a], [b]) =>
+                a < b ? -1 : 1,
+            )) {
                 await this.creditCards.applyAvailableLimitDelta(manager, cardId, cents);
             }
 
             await repository.delete({ id: In(doomed.map((row) => row.id)) });
+
+            if (inSeries) await this.endSeriesBefore(manager, probe);
         });
+    }
+
+    /**
+     * Trava a série da ocorrência `id` (antes de qualquer linha de despesa, como a extensão)
+     * e exige que ela exista: sem série, `?scope=following` é ERR-0017-02.
+     */
+    private async lockSeriesOf(manager: EntityManager, id: string): Promise<void> {
+        const probe = await manager.getRepository(Expense).findOne({ where: { id } });
+
+        if (!probe) throw expenseNotFound();
+
+        if (probe.recurrenceId === null) {
+            throw new ZodError([
+                {
+                    code: 'custom',
+                    path: ['scope'],
+                    message: 'scope=following requires an expense that belongs to a series',
+                    input: undefined,
+                },
+            ]);
+        }
+
+        await manager.getRepository(ExpenseRecurrence).findOne({
+            where: { id: probe.recurrenceId },
+            lock: { mode: 'for_no_key_update' },
+        });
+    }
+
+    /**
+     * `description`, `expenseTypeId`, `amountCents` e `notes` de `?scope=following`: valem
+     * também para o modelo e para as seguintes ainda em `FORECAST` (INV-0017-07). Previsto não
+     * consome limite, então não há efeito de limite a mover.
+     */
+    private async applyModelToFollowing(
+        manager: EntityManager,
+        origin: Expense,
+        changes: UpdateExpense,
+    ): Promise<void> {
+        const patch: Partial<
+            Pick<Expense, 'description' | 'expenseTypeId' | 'amountCents' | 'notes'>
+        > = {};
+
+        if (changes.description !== undefined) patch.description = changes.description;
+        if (changes.expenseTypeId !== undefined) patch.expenseTypeId = changes.expenseTypeId;
+        if (changes.amountCents !== undefined) patch.amountCents = changes.amountCents;
+        if (changes.notes !== undefined) patch.notes = changes.notes;
+
+        if (Object.keys(patch).length === 0) return;
+
+        await manager
+            .getRepository(ExpenseRecurrence)
+            .update({ id: origin.recurrenceId as string }, patch);
+        await manager.getRepository(Expense).update(
+            {
+                recurrenceId: origin.recurrenceId as string,
+                status: 'FORECAST',
+                occurredOn: MoreThan(origin.occurredOn),
+            },
+            patch,
+        );
+    }
+
+    /**
+     * Encerra a série na exclusão de `deleted` (spec 0017): `ends_on` é o dia anterior. A
+     * série sem ocorrência restante deixa de existir; sem dia anterior admitido (a primeira
+     * ocorrência excluída com outras que ficam), a série passa a começar e terminar na
+     * primeira que ficou, para que a extensão não recrie a excluída.
+     */
+    private async endSeriesBefore(manager: EntityManager, deleted: Expense): Promise<void> {
+        const recurrences = manager.getRepository(ExpenseRecurrence);
+        const recurrenceId = deleted.recurrenceId as string;
+        const series = await recurrences.findOneOrFail({ where: { id: recurrenceId } });
+        const endsOn = new Date(new Date(`${deleted.occurredOn}T00:00:00.000Z`).getTime() - DAY_MS)
+            .toISOString()
+            .slice(0, 10);
+
+        if (endsOn >= series.startsOn) {
+            await recurrences.update({ id: recurrenceId }, { endsOn });
+
+            return;
+        }
+
+        const first = await manager
+            .getRepository(Expense)
+            .createQueryBuilder('e')
+            .select('MIN(e.occurredOn)::text', 'first')
+            .where('e.recurrenceId = :recurrenceId', { recurrenceId })
+            .getRawOne<{ first: string | null }>();
+
+        if (first?.first) {
+            await recurrences.update(
+                { id: recurrenceId },
+                { startsOn: first.first, endsOn: first.first },
+            );
+        } else {
+            await recurrences.delete({ id: recurrenceId });
+        }
     }
 
     /**

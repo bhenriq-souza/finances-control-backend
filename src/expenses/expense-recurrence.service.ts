@@ -1,17 +1,25 @@
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
-import { IsNull, MoreThan, Or, type EntityManager } from 'typeorm';
+import { IsNull, MoreThan, MoreThanOrEqual, Or, type EntityManager } from 'typeorm';
+import { ZodError } from 'zod';
 
 import { EXPENSE_CREATED, type ExpenseCreated } from '../events';
 import { TransactionRunnerSymbol, businessToday, type TransactionRunner } from '../platform';
 import { nextBusinessDay, recurrenceHorizon, seriesDates } from './expense-recurrence.dates';
 import { ExpenseRecurrence } from './expense-recurrence.entity';
+import type { ExpenseRecurrenceView } from './expense-recurrence.response';
 import { Expense } from './expense.entity';
 import { ExpenseServiceSymbol } from './expenses.symbols';
+import type { EndRecurrence, ListRecurrencesQuery } from './expense.schemas';
 import type { ExpenseService } from './expense.service';
 import { StatementPeriodGuardSymbol, type StatementPeriodGuard } from './statement-period-guard';
 
 export const ExpenseRecurrenceServiceSymbol = Symbol.for('ExpenseRecurrenceService');
+
+const recurrenceNotFound = (): CustomError =>
+    CustomError.notFound('Expense recurrence not found', 'EXPENSE_RECURRENCE_NOT_FOUND', {
+        exposeMessage: true,
+    });
 
 /**
  * A série de despesas `FIXED` (spec 0017): extensão até o horizonte e promoção de
@@ -84,6 +92,101 @@ export class ExpenseRecurrenceService {
         }
 
         return promoted;
+    }
+
+    /** As séries, da mais recente para a mais antiga; `active` tira as de `ends_on` passado. */
+    list(query: ListRecurrencesQuery = {}): Promise<ExpenseRecurrenceView[]> {
+        const today = businessToday(new Date());
+
+        return this.runner.run(async ({ manager }) => {
+            const rows = await manager.getRepository(ExpenseRecurrence).find({
+                where: query.active ? { endsOn: Or(IsNull(), MoreThanOrEqual(today)) } : undefined,
+                order: { createdAt: 'DESC', id: 'ASC' },
+            });
+
+            return this.withNextOccurrence(manager, rows, today);
+        });
+    }
+
+    findById(id: string): Promise<ExpenseRecurrenceView> {
+        const today = businessToday(new Date());
+
+        return this.runner.run(async ({ manager }) => {
+            const series = await manager
+                .getRepository(ExpenseRecurrence)
+                .findOne({ where: { id } });
+
+            if (!series) throw recurrenceNotFound();
+
+            return (
+                await this.withNextOccurrence(manager, [series], today)
+            )[0] as ExpenseRecurrenceView;
+        });
+    }
+
+    /**
+     * Encerra a série em `endsOn` (spec 0017): exclui as ocorrências `FORECAST` posteriores,
+     * que não consomem limite; as demais ficam. `endsOn` antes de `starts_on` é ERR-0017-03.
+     */
+    end(id: string, change: EndRecurrence): Promise<ExpenseRecurrenceView> {
+        const today = businessToday(new Date());
+
+        return this.runner.run(async ({ manager }) => {
+            const recurrences = manager.getRepository(ExpenseRecurrence);
+            const series = await recurrences.findOne({
+                where: { id },
+                lock: { mode: 'for_no_key_update' },
+            });
+
+            if (!series) throw recurrenceNotFound();
+
+            if (change.endsOn < series.startsOn) {
+                throw new ZodError([
+                    {
+                        code: 'custom',
+                        path: ['endsOn'],
+                        message: 'endsOn must not be before startsOn',
+                        input: undefined,
+                    },
+                ]);
+            }
+
+            await manager.getRepository(Expense).delete({
+                recurrenceId: id,
+                status: 'FORECAST',
+                occurredOn: MoreThan(change.endsOn),
+            });
+            await recurrences.update({ id }, { endsOn: change.endsOn });
+
+            const updated = await recurrences.findOneOrFail({ where: { id } });
+
+            return (
+                await this.withNextOccurrence(manager, [updated], today)
+            )[0] as ExpenseRecurrenceView;
+        });
+    }
+
+    private async withNextOccurrence(
+        manager: EntityManager,
+        series: ExpenseRecurrence[],
+        today: string,
+    ): Promise<ExpenseRecurrenceView[]> {
+        if (series.length === 0) return [];
+
+        const next = await manager
+            .getRepository(Expense)
+            .createQueryBuilder('e')
+            .select('e.recurrenceId', 'id')
+            .addSelect('MIN(e.occurredOn)::text', 'next')
+            .where('e.recurrenceId IN (:...ids)', { ids: series.map((row) => row.id) })
+            .andWhere('e.occurredOn >= :today', { today })
+            .groupBy('e.recurrenceId')
+            .getRawMany<{ id: string; next: string }>();
+        const byId = new Map(next.map((row) => [row.id, row.next]));
+
+        return series.map((row) =>
+            Object.assign(row, { nextOccurrenceOn: byId.get(row.id) ?? null }),
+        );
     }
 
     private extendSeries(id: string, horizon: string): Promise<number> {

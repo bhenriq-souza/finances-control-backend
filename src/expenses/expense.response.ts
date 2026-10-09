@@ -17,6 +17,7 @@ export type ExpenseResponse = {
     creditCardId: string | null;
     postedOn: string | null;
     installment: { groupId: string; number: number; total: number } | null;
+    recurrenceId: string | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -47,6 +48,7 @@ export const toExpenseResponse = (
                   total: expense.installmentTotal,
               }
             : null,
+    recurrenceId: expense.recurrenceId,
     createdAt: expense.createdAt.toISOString(),
     updatedAt: expense.updatedAt.toISOString(),
 });

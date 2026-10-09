@@ -5,3 +5,5 @@ export const ExpenseTypeRoutesSymbol = Symbol.for('ExpenseTypeRoutes');
 export const ExpenseServiceSymbol = Symbol.for('ExpenseService');
 export const ExpenseControllerSymbol = Symbol.for('ExpenseController');
 export const ExpenseRoutesSymbol = Symbol.for('ExpenseRoutes');
+export const ExpenseRecurrenceControllerSymbol = Symbol.for('ExpenseRecurrenceController');
+export const ExpenseRecurrenceRoutesSymbol = Symbol.for('ExpenseRecurrenceRoutes');

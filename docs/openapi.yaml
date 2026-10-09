@@ -1071,9 +1071,16 @@ paths:
                 Exige perfil `ADMIN` ou `BILLER`. Corpo estrito e não vazio: `kind`, `status`,
                 `paidOn`, `bankAccountId`, `creditCardId` e `installment*` são 400 citando o
                 campo. `amountCents` de despesa paga é 409; em cartão abatido do limite, move
-                a diferença na mesma transação. Numa parcela, altera só aquela parcela.
+                a diferença na mesma transação. Numa parcela, altera só aquela parcela. Numa
+                ocorrência de série, altera só ela; com `?scope=following`, `description`,
+                `expenseTypeId`, `amountCents` e `notes` valem também para o modelo da série e
+                para as ocorrências seguintes ainda em `FORECAST` (as anteriores, promovidas e
+                pagas não mudam). `scope=following` em despesa sem série, ou outro valor, é 400
+                citando `scope`.
             operationId: updateExpense
             security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/MutationScope'
             requestBody:
                 required: true
                 content:
@@ -1100,6 +1107,11 @@ paths:
                 Exige perfil `ADMIN` ou `BILLER`. Só despesa não paga; a paga é 409 (desfaça o
                 pagamento antes). Despesa de cartão devolve o limite. Excluir uma parcela exclui,
                 na mesma transação, todas as parcelas não pagas do grupo; as pagas permanecem.
+                Excluir uma ocorrência de série exclui, na mesma transação e com os mesmos
+                efeitos de limite, ela e todas as seguintes não pagas; as seguintes pagas, as
+                anteriores (pagas ou não) e as de cartão em fatura fechada permanecem, e a série
+                recebe `endsOn` igual ao dia anterior à ocorrência excluída (a série sem
+                ocorrência restante deixa de existir).
             operationId: deleteExpense
             security: [{ bearerAuth: [] }]
             responses:
@@ -1167,9 +1179,14 @@ paths:
                 usam o default) ou `max(occurredOn, último dia fechado + 1)`; saindo para
                 uma conta, volta a nulo. Despesa de cartão em fatura fechada, ou `postedOn`
                 informado dentro da janela fechada do destino, é 409 `STATEMENT_CLOSED`.
-                Saldo de conta nunca se move.
+                Saldo de conta nunca se move. Numa ocorrência de série, troca só ela; com
+                `?scope=following`, troca também o modelo da série e as ocorrências seguintes
+                ainda em `FORECAST` (as demais não mudam), com os mesmos efeitos de limite e de
+                janela fechada. `scope=following` em despesa sem série é 400 citando `scope`.
             operationId: changeExpensePaymentMethod
             security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/MutationScope'
             requestBody:
                 required: true
                 content:
@@ -1634,6 +1651,86 @@ paths:
                 '409':
                     $ref: '#/components/responses/CreditCardRefundConflict'
 
+    /expense-recurrences:
+        get:
+            tags: [Expenses]
+            summary: Lista as séries de despesas
+            description: |
+                Qualquer perfil lê. Da mais recente para a mais antiga. `active=true` tira as
+                séries com `endsOn` passado.
+            operationId: listExpenseRecurrences
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: active
+                  in: query
+                  required: false
+                  description: '`true` devolve só as séries sem `endsOn` passado.'
+                  schema: { type: string, enum: ['true', 'false'] }
+            responses:
+                '200':
+                    description: As séries
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/RecurrenceResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+
+    /expense-recurrences/{id}:
+        parameters:
+            - $ref: '#/components/parameters/ResourceId'
+        get:
+            tags: [Expenses]
+            summary: Consulta uma série de despesas
+            description: Qualquer perfil lê.
+            operationId: getExpenseRecurrence
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    $ref: '#/components/responses/ExpenseRecurrence'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseRecurrenceNotFound'
+        patch:
+            tags: [Expenses]
+            summary: Encerra uma série de despesas
+            description: |
+                Exige perfil `ADMIN` ou `BILLER`. Aceita só `endsOn` (qualquer outro campo é 400
+                citando-o; `endsOn` anterior a `startsOn` é 400). Exclui, na mesma transação, as
+                ocorrências `FORECAST` posteriores a `endsOn`; as demais permanecem e a extensão
+                para de gerar. O modelo muda pelo `?scope=following` de uma ocorrência.
+            operationId: endExpenseRecurrence
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/EndRecurrence'
+            responses:
+                '200':
+                    $ref: '#/components/responses/ExpenseRecurrence'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/ExpenseRecurrenceNotFound'
+
 components:
     parameters:
         ResourceId:
@@ -1650,6 +1747,16 @@ components:
             schema:
                 type: string
                 format: uuid
+        MutationScope:
+            name: scope
+            in: query
+            required: false
+            description: |
+                `following` estende a alteração ao modelo da série e às ocorrências seguintes
+                ainda em `FORECAST` (spec 0017). Só vale em despesa de série.
+            schema:
+                type: string
+                enum: [following]
         IncludeArchived:
             name: archived
             in: query
@@ -1815,6 +1922,21 @@ components:
                         properties:
                             data:
                                 $ref: '#/components/schemas/ExpenseResponse'
+        ExpenseRecurrence:
+            description: A série
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            data:
+                                $ref: '#/components/schemas/RecurrenceResponse'
+        ExpenseRecurrenceNotFound:
+            description: '`EXPENSE_RECURRENCE_NOT_FOUND`'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
         ExpenseNotFound:
             description: |
                 `EXPENSE_NOT_FOUND`, `EXPENSE_TYPE_NOT_FOUND`, `BANK_ACCOUNT_NOT_FOUND` ou
@@ -2362,6 +2484,7 @@ components:
                     creditCardId,
                     postedOn,
                     installment,
+                    recurrenceId,
                     createdAt,
                     updatedAt,
                 ]
@@ -2386,6 +2509,54 @@ components:
                         groupId: { type: string, format: uuid }
                         number: { type: integer }
                         total: { type: integer }
+                recurrenceId:
+                    type: string
+                    format: uuid
+                    nullable: true
+                    description: A série (`/expense-recurrences`); só em `FIXED`.
+                createdAt: { type: string, format: date-time }
+                updatedAt: { type: string, format: date-time }
+
+        RecurrenceResponse:
+            type: object
+            required:
+                [
+                    id,
+                    description,
+                    typeId,
+                    amountCents,
+                    dayOfMonth,
+                    bankAccountId,
+                    creditCardId,
+                    startsOn,
+                    endsOn,
+                    nextOccurrenceOn,
+                    createdAt,
+                    updatedAt,
+                ]
+            properties:
+                id: { type: string, format: uuid }
+                description: { type: string, description: O modelo dos meses seguintes. }
+                typeId: { type: string, format: uuid }
+                amountCents: { type: integer }
+                dayOfMonth: { type: integer, minimum: 1, maximum: 31 }
+                bankAccountId: { type: string, format: uuid, nullable: true }
+                creditCardId:
+                    type: string
+                    format: uuid
+                    nullable: true
+                    description: Exatamente um entre `bankAccountId` e `creditCardId` é não nulo.
+                startsOn: { type: string, format: date }
+                endsOn:
+                    type: string
+                    format: date
+                    nullable: true
+                    description: Última data admitida; nulo é série sem fim.
+                nextOccurrenceOn:
+                    type: string
+                    format: date
+                    nullable: true
+                    description: A primeira ocorrência de hoje em diante, se houver.
                 createdAt: { type: string, format: date-time }
                 updatedAt: { type: string, format: date-time }
 
@@ -2639,6 +2810,16 @@ components:
             properties:
                 description: { type: string, minLength: 1, maxLength: 200 }
                 notes: { type: string, minLength: 1, maxLength: 1000, nullable: true }
+
+        EndRecurrence:
+            type: object
+            required: [endsOn]
+            additionalProperties: false
+            properties:
+                endsOn:
+                    type: string
+                    format: date
+                    description: Não anterior a `startsOn` da série.
 
         Error:
             type: object
