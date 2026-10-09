@@ -29,10 +29,12 @@ if (process.env.NODE_ENV === 'local') {
         });
     }
 
+    // O build registra os jobs dos módulos; o worker só começa a consumir depois (spec 0017).
+    const app = new App().build();
+
     // Depois do DataSource; falha vira `checks.jobs: down` e o processo segue (ERR-0017-06).
     await jobs.start();
 
-    const app = new App().build();
     const port = Number(process.env.SERVER_PORT);
 
     const server = app.listen(port, () => {

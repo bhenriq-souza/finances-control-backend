@@ -24,6 +24,14 @@ export interface JobQueue {
     ): Promise<string>;
 }
 
+/**
+ * Contrato que um módulo exporta na sua interface pública para registrar os seus jobs e
+ * agendamentos; é declarado em `jobs` de `ApiModule` e chamado uma vez (spec 0017).
+ */
+export interface JobRegistrar {
+    register(queue: JobQueue): void;
+}
+
 /** `up`: iniciado; `down`: falhou ao iniciar, ainda não iniciou ou parou; `disabled`: `JOBS_ENABLED=false`. */
 export type JobsStatus = 'up' | 'down' | 'disabled';
 

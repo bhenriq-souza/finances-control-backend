@@ -354,7 +354,7 @@ receitas, que a espelha.
     - Where: `src/platform/jobs/`, `src/platform/health/`, `.dependency-cruiser.cjs`, `package.json`
     - Done when: `AC-0017-01` a `AC-0017-05` cobertos; `INV-0017-03`, `INV-0017-08` e `INV-0017-09`
       verificados
-- [ ] **T-0017-02 — Registro pela composição e rotinas diárias** · #87
+- [x] **T-0017-02 — Registro pela composição e rotinas diárias** · #87
     - What: `JobRegistrar`, o campo `jobs` de `ApiModule`, e os jobs de fechamento de fatura e de
       varredura de vencidas de despesas e receitas
     - Where: `src/platform/api/`, `src/statements/`, `src/expenses/`, `src/earnings/`
