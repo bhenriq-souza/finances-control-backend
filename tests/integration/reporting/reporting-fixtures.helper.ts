@@ -116,23 +116,37 @@ export async function payExpense(
 }
 
 /**
- * Pagamento de fatura gravado direto no banco, com o mesmo efeito que a rota teria
- * sobre a conta: o pagamento retroativo exigiria congelar o relógio da fatura.
+ * Pagamento de fatura pela rota real: uma compra de cartão em 03/03 fecha a fatura de 10/03 e
+ * é paga em `paidOn`, o que debita a conta pela lógica do `statements`. Exige o relógio
+ * congelado em data igual ou posterior a `paidOn`.
  */
-export async function insertStatementPayment(
+export async function payStatement(
     fx: ReportingFixture,
     amountCents: number,
     paidOn: string,
 ): Promise<void> {
     await fx.ctx.dataSource.query(
-        `INSERT INTO credit_card_statement_payments (credit_card_id, bank_account_id, amount_cents, paid_on)
-         VALUES ($1, $2, $3::numeric / 100, $4::date)`,
-        [fx.cardId, fx.accountId, amountCents, paidOn],
+        "UPDATE credit_cards SET closing_day = 10, due_day = 20, created_at = '2026-01-15T12:00:00Z'",
     );
     await fx.ctx.dataSource.query(
-        'UPDATE bank_accounts SET current_balance_cents = current_balance_cents - $2::numeric / 100 WHERE id = $1',
-        [fx.accountId, amountCents],
+        `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents, occurred_on,
+                               credit_card_id, posted_on)
+         VALUES ('Compra', $1, 'VARIABLE', 'OPEN', $2::numeric / 100, '2026-03-03', $3, '2026-03-03')`,
+        [fx.expenseTypeId, amountCents, fx.cardId],
     );
+
+    const list = await request(fx.ctx.app)
+        .get(`/statements?creditCardId=${fx.cardId}&from=2026-03-10&to=2026-03-10`)
+        .set('Authorization', ADMIN);
+    const statement = (
+        list.body as { data: Array<{ id: string | null; closesOn: string }> }
+    ).data.find((item) => item.closesOn === '2026-03-10');
+    const res = await request(fx.ctx.app)
+        .post(`/statements/${statement?.id}/payments`)
+        .set('Authorization', ADMIN)
+        .send({ bankAccountId: fx.accountId, amountCents, paidOn });
+
+    if (res.status !== 201) throw new Error(`payment failed: ${JSON.stringify(res.body)}`);
 }
 
 export async function currentBalanceCents(fx: ReportingFixture): Promise<number> {

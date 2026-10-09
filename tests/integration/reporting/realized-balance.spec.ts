@@ -1,7 +1,7 @@
 import { stopApp } from '../app.helper';
 import {
     currentBalanceCents,
-    insertStatementPayment,
+    payStatement,
     payExpense,
     realizedBalanceService,
     receiveEarning,
@@ -11,21 +11,44 @@ import {
 
 const SCHEMA = 'test_reporting_realized_balance';
 
+/** Fixes only `Date`, so timers and the database driver keep working. */
+const DATE_ONLY = [
+    'hrtime',
+    'nextTick',
+    'performance',
+    'queueMicrotask',
+    'requestAnimationFrame',
+    'cancelAnimationFrame',
+    'requestIdleCallback',
+    'cancelIdleCallback',
+    'setImmediate',
+    'clearImmediate',
+    'setInterval',
+    'clearInterval',
+    'setTimeout',
+    'clearTimeout',
+] as const;
+
 describe('saldo realizado de uma conta (spec 0015, AC-0015-01, INV-0015-03)', () => {
     let fx: ReportingFixture;
 
     beforeAll(async () => {
         fx = await seedReporting(SCHEMA, 100000);
+        jest.useFakeTimers({
+            now: new Date('2026-03-31T15:00:00.000Z'),
+            doNotFake: [...DATE_ONLY],
+        });
     });
 
     afterAll(async () => {
+        jest.useRealTimers();
         await stopApp(fx?.ctx, SCHEMA);
     });
 
     it('AC-0015-01: 1000 em 09/03, 1500 em 10/03 e 1200 em 31/03, igual ao saldo corrente', async () => {
         await receiveEarning(fx, 50000, '2026-03-10');
         await payExpense(fx, 20000, '2026-03-15');
-        await insertStatementPayment(fx, 10000, '2026-03-20');
+        await payStatement(fx, 10000, '2026-03-20');
         const service = realizedBalanceService();
 
         expect(await service.balanceOn(fx.accountId, '2026-03-09')).toBe(100000);
