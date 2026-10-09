@@ -317,7 +317,7 @@ Tarefas da [spec 0015](../specs/0015-reporting.md), que fecha a issue de entrega
 0012, 0013 e 0014 implementadas. Ordem por dependência: a regra de composição e o realizado antes
 do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma regra.
 
-- [ ] **T-0015-01 — Módulo, regra de composição e saldo realizado** · #81
+- [x] **T-0015-01 — Módulo, regra de composição e saldo realizado** · #81
     - What: o módulo `reporting` só de leitura, os conjuntos realizado/pendente/comprometido num
       lugar só, e o saldo realizado de uma conta em qualquer data
     - Where: `src/reporting/`, `.dependency-cruiser.cjs`
