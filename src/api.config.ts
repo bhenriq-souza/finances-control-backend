@@ -46,6 +46,8 @@ import {
 import {
     ExpenseController,
     ExpenseControllerSymbol,
+    ExpenseJobs,
+    ExpenseJobsSymbol,
     ExpenseRoutes,
     ExpenseRoutesSymbol,
     ExpenseService,
@@ -66,11 +68,14 @@ import {
     EarningTypeServiceSymbol,
     EarningController,
     EarningControllerSymbol,
+    EarningJobs,
+    EarningJobsSymbol,
     EarningRoutes,
     EarningRoutesSymbol,
     EarningService,
     EarningServiceSymbol,
 } from './earnings';
+import { StatementJobs, StatementJobsSymbol, StatementService } from './statements';
 
 /**
  * Módulos publicados pela API. Cada módulo de domínio (ADR-0003) entra aqui com
@@ -180,6 +185,7 @@ export const apiModules: ApiModule[] = [
                 scope: ScopeTypes.SINGLETON,
             },
         ],
+        jobs: [{ token: ExpenseJobsSymbol, clazz: ExpenseJobs }],
     },
     {
         path: '/earnings',
@@ -192,6 +198,14 @@ export const apiModules: ApiModule[] = [
                 scope: ScopeTypes.SINGLETON,
             },
         ],
+        jobs: [{ token: EarningJobsSymbol, clazz: EarningJobs }],
+    },
+    {
+        // Sem rotas até a consulta de faturas: só o serviço e a rotina de fechamento.
+        provides: [
+            { token: StatementService, clazz: StatementService, scope: ScopeTypes.SINGLETON },
+        ],
+        jobs: [{ token: StatementJobsSymbol, clazz: StatementJobs }],
     },
     {
         path: '/bank-transfers',

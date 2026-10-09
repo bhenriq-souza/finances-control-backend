@@ -15,3 +15,4 @@ export { EarningService } from './earning.service';
 export { EarningController } from './earning.controller';
 export { EarningRoutes } from './earning.routes';
 export { toEarningResponse, type EarningResponse } from './earning.response';
+export { EarningJobs, EarningJobsSymbol } from './earning-jobs';

@@ -14,3 +14,4 @@ export {
     type ChainAnchor,
 } from './statement-chain';
 export { StatementService, lockCreditCard } from './statement.service';
+export { StatementJobs, StatementJobsSymbol } from './statement-jobs';

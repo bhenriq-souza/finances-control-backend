@@ -35,6 +35,6 @@ export type { TransactionScope, TransactionRunner } from './events/transaction-r
 export { splitCents } from './money';
 export { BUSINESS_TIME_ZONE, businessToday } from './business-date';
 export { addMonths, monthlyInstallmentDates } from './monthly-dates';
-export type { JobQueue, JobHandler } from './jobs/job-queue';
+export type { JobQueue, JobHandler, JobRegistrar } from './jobs/job-queue';
 export { archivedFilter, needsArchiveChange, listQuerySchema } from './archiving';
 export { asConflict } from './unique-violation';

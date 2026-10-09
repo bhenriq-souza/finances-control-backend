@@ -3,7 +3,7 @@ import type { Express } from 'express';
 import { container as rootContainer } from 'tsyringe';
 import { ScopeTypes } from '@bhs-dev/typescript-common-types';
 
-import { DomainEventDispatcherSymbol } from '../../../src/platform/symbols';
+import { DomainEventDispatcherSymbol, JobQueueSymbol } from '../../../src/platform/symbols';
 import { registerApiModules, type ApiModule } from '../../../src/platform/api/register-api-modules';
 
 class FakeRoutes {
@@ -137,6 +137,85 @@ describe('registerApiModules', () => {
 
             expect(app.use).toHaveBeenCalledWith('/fake', 'router');
             expect(container.isRegistered(DomainEventDispatcherSymbol)).toBe(false);
+        });
+    });
+
+    describe('jobs e módulo sem rotas (spec 0017)', () => {
+        const queue = { register: jest.fn(), schedule: jest.fn(), enqueue: jest.fn() };
+        const jobsToken = Symbol.for('FakeJobs');
+        const register = jest.fn();
+
+        class FakeJobs {
+            register = register;
+        }
+
+        beforeEach(() => {
+            queue.register.mockClear();
+            register.mockClear();
+            container.registerInstance(JobQueueSymbol, queue);
+        });
+
+        it('chama register(queue) uma vez por registrar quando JOBS_ENABLED não é false', () => {
+            const app = buildApp();
+
+            registerApiModules(
+                app,
+                [moduleWith({ jobs: [{ token: jobsToken, clazz: FakeJobs }] })],
+                {} as NodeJS.ProcessEnv,
+                container,
+            );
+
+            expect(register).toHaveBeenCalledTimes(1);
+            expect(register).toHaveBeenCalledWith(queue);
+        });
+
+        it('com JOBS_ENABLED=false não registra nem resolve a fila', () => {
+            const app = buildApp();
+            const empty = rootContainer.createChildContainer();
+
+            registerApiModules(
+                app,
+                [moduleWith({ jobs: [{ token: jobsToken, clazz: FakeJobs }] })],
+                { JOBS_ENABLED: 'false' } as NodeJS.ProcessEnv,
+                empty,
+            );
+
+            expect(register).not.toHaveBeenCalled();
+            expect(empty.isRegistered(jobsToken)).toBe(false);
+        });
+
+        it('módulo sem path e sem route registra providers e jobs e não publica router', () => {
+            const app = buildApp();
+            const token = Symbol.for('RoutelessService');
+
+            registerApiModules(
+                app,
+                [
+                    {
+                        provides: [{ token, clazz: FakeService, scope: ScopeTypes.SINGLETON }],
+                        jobs: [{ token: jobsToken, clazz: FakeJobs }],
+                    },
+                ],
+                {} as NodeJS.ProcessEnv,
+                container,
+            );
+
+            expect(app.use).not.toHaveBeenCalled();
+            expect(container.resolve(token)).toBeInstanceOf(FakeService);
+            expect(register).toHaveBeenCalledTimes(1);
+        });
+
+        it('path sem route, ou route sem path, é erro de configuração na partida', () => {
+            const app = buildApp();
+            const route = { token: Symbol.for('FakeRoutes'), clazz: FakeRoutes };
+
+            expect(() =>
+                registerApiModules(app, [{ path: '/fake' } as ApiModule], process.env, container),
+            ).toThrow(/path.*route/);
+            expect(() =>
+                registerApiModules(app, [{ route } as ApiModule], process.env, container),
+            ).toThrow(/path.*route/);
+            expect(app.use).not.toHaveBeenCalled();
         });
     });
 });

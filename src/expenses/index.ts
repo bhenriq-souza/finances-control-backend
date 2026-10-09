@@ -16,3 +16,4 @@ export { ExpenseRoutes } from './expense.routes';
 export { toExpenseResponse, type ExpenseResponse } from './expense.response';
 export * from './expenses.symbols';
 export type { PostingWindow } from './expense.service';
+export { ExpenseJobs, ExpenseJobsSymbol } from './expense-jobs';
