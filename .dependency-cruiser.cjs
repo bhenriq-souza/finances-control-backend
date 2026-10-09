@@ -52,7 +52,7 @@ module.exports = {
             comment:
                 'ADR-0003 regras 2 e 3: módulos de domínio não dependem uns dos outros. ' +
                 'Efeitos entre contextos viajam como evento de domínio. `reporting` é a ' +
-                'única exceção (regra 5), e apenas para leitura.',
+                'única exceção (regra 5), e apenas para leitura, pela regra seguinte.',
             from: {
                 path: `^src/(${DOMAIN})/`,
                 pathNot: ['^src/reporting/', `^src/(?:${ACCOUNTS_API_CLIENTS})/`],
@@ -89,6 +89,21 @@ module.exports = {
             to: {
                 path: `^src/(?:${DOMAIN})/`,
                 pathNot: ['^src/$1/', '^src/accounts/index\\.ts$', '^src/expenses/index\\.ts$'],
+            },
+        },
+        {
+            name: 'reporting-reads-statements-public-api',
+            severity: 'error',
+            comment:
+                'Spec 0015 (INV-0015-01): `reporting` lê os outros contextos por SQL próprio com o ' +
+                '`DataSource` da plataforma, sem entidade nem repositório deles. O único módulo de ' +
+                'domínio que importa é `src/statements/index.ts`, para as faturas futuras ' +
+                '(`StatementService.list`); nenhum módulo importa `reporting` ' +
+                '(regra `no-cross-domain-dependency`).',
+            from: { path: '^src/(reporting)/' },
+            to: {
+                path: `^src/(?:${DOMAIN})/`,
+                pathNot: ['^src/$1/', '^src/statements/index\\.ts$'],
             },
         },
         {
