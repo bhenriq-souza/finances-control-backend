@@ -189,7 +189,7 @@ usar; criação antes de parcelas e de status; consulta, alteração e OpenAPI p
     - Where: `src/expenses/`, `src/events/expenses.events.ts`, `src/api.config.ts`
     - Done when: `AC-0012-03`, `AC-0012-04`, `AC-0012-15`, `AC-0012-17`, `AC-0012-19` e
       `AC-0012-21` cobertos; `INV-0012-03` e `INV-0012-09` verificados
-- [ ] **T-0012-05 — Parcelamento** · #57
+- [x] **T-0012-05 — Parcelamento** · #57
     - What: `kind: INSTALLMENT` gerando as parcelas na mesma transação, com rateio por `splitCents`,
       datas mensais com dia preservado e limite abatido pelo total
     - Where: `src/expenses/`

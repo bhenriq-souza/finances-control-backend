@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 import { In, type EntityManager, type FindOptionsWhere } from 'typeorm';
@@ -10,7 +12,13 @@ import {
     type CreditCardService,
 } from '../accounts';
 import { EXPENSE_CREATED, EXPENSE_PAID, type ExpenseCreated } from '../events';
-import { TransactionRunnerSymbol, businessToday, type TransactionRunner } from '../platform';
+import {
+    TransactionRunnerSymbol,
+    businessToday,
+    monthlyInstallmentDates,
+    splitCents,
+    type TransactionRunner,
+} from '../platform';
 import { ExpenseType } from './expense-type.entity';
 import { Expense } from './expense.entity';
 import type { ExpenseStatus } from './expense-status';
@@ -108,56 +116,72 @@ export class ExpenseService {
                     (data.occurredOn > earliestOpen ? data.occurredOn : earliestOpen);
             }
 
-            const repository = manager.getRepository(Expense);
-            const saved = await repository.save(
-                repository.create({
-                    description: data.description,
-                    expenseTypeId: data.expenseTypeId,
-                    kind: data.kind,
-                    status: data.status,
-                    amountCents: data.amountCents,
-                    occurredOn: data.occurredOn,
-                    paidOn: null,
-                    bankAccountId: data.bankAccountId ?? null,
-                    creditCardId: data.creditCardId ?? null,
-                    postedOn,
-                    installmentGroupId: null,
-                    installmentNumber: null,
-                    installmentTotal: null,
-                    notes: data.notes ?? null,
-                }),
-            );
+            // INSTALLMENT: `installmentTotal` linhas rateadas por `splitCents`, datas mensais com
+            // o dia original preservado; a de cartão segue o `postedOn` da primeira (INV-0012-06).
+            const isInstallment = data.kind === 'INSTALLMENT';
+            const total = isInstallment ? (data.installmentTotal as number) : 1;
+            const groupId = isInstallment ? randomUUID() : null;
+            const amounts = splitCents(data.amountCents, total);
+            const occurredDates = monthlyInstallmentDates(data.occurredOn, total);
+            const postedDates = postedOn === null ? null : monthlyInstallmentDates(postedOn, total);
 
-            // Conta: despesa aberta é compromisso, não saída; só cartão consome limite.
-            if (saved.creditCardId && saved.status !== 'FORECAST') {
+            const repository = manager.getRepository(Expense);
+            const ids: string[] = [];
+
+            for (let index = 0; index < total; index += 1) {
+                const saved = await repository.save(
+                    repository.create({
+                        description: data.description,
+                        expenseTypeId: data.expenseTypeId,
+                        kind: data.kind,
+                        status: data.status,
+                        amountCents: amounts[index] as number,
+                        occurredOn: occurredDates[index] as string,
+                        paidOn: null,
+                        bankAccountId: data.bankAccountId ?? null,
+                        creditCardId: data.creditCardId ?? null,
+                        postedOn: postedDates === null ? null : (postedDates[index] as string),
+                        installmentGroupId: groupId,
+                        installmentNumber: groupId === null ? null : index + 1,
+                        installmentTotal: groupId === null ? null : total,
+                        notes: data.notes ?? null,
+                    }),
+                );
+
+                scope.publish({
+                    name: EXPENSE_CREATED,
+                    payload: {
+                        expenseId: saved.id,
+                        kind: saved.kind,
+                        status: saved.status as ExpenseCreated['payload']['status'],
+                        amountCents: saved.amountCents,
+                        occurredOn: saved.occurredOn,
+                        bankAccountId: saved.bankAccountId,
+                        creditCardId: saved.creditCardId,
+                        postedOn: saved.postedOn,
+                        installmentGroupId: saved.installmentGroupId,
+                    },
+                });
+                ids.push(saved.id);
+            }
+
+            // Conta: despesa aberta é compromisso, não saída; só cartão consome limite, e
+            // consome o total de uma vez.
+            if (data.creditCardId && data.status !== 'FORECAST') {
                 await this.creditCards.applyAvailableLimitDelta(
                     manager,
-                    saved.creditCardId,
-                    -saved.amountCents,
+                    data.creditCardId,
+                    -data.amountCents,
                 );
             }
 
-            scope.publish({
-                name: EXPENSE_CREATED,
-                payload: {
-                    expenseId: saved.id,
-                    kind: saved.kind,
-                    status: saved.status as ExpenseCreated['payload']['status'],
-                    amountCents: saved.amountCents,
-                    occurredOn: saved.occurredOn,
-                    bankAccountId: saved.bankAccountId,
-                    creditCardId: saved.creditCardId,
-                    postedOn: saved.postedOn,
-                    installmentGroupId: saved.installmentGroupId,
-                },
-            });
-
-            const loaded = await repository.findOneOrFail({
-                where: { id: saved.id },
+            const loaded = await repository.find({
+                where: { id: In(ids) },
                 relations: { expenseType: true },
             });
+            const byId = new Map(loaded.map((row) => [row.id, row]));
 
-            return [loaded as ExpenseWithType];
+            return ids.map((id) => byId.get(id) as ExpenseWithType);
         });
     }
 
