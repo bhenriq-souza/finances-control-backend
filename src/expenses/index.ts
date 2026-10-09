@@ -22,3 +22,4 @@ export {
     StatementPeriodGuardSymbol,
     type StatementPeriodGuard,
 } from './statement-period-guard';
+export type { CardExpenseSummary } from './card-expense-summary';

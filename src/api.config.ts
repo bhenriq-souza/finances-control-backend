@@ -82,8 +82,12 @@ import {
     CreditCardRefundRoutesSymbol,
     CreditCardRefundService,
     CreditCardRefundServiceSymbol,
+    StatementController,
+    StatementControllerSymbol,
     StatementJobs,
     StatementJobsSymbol,
+    StatementRoutes,
+    StatementRoutesSymbol,
     StatementService,
 } from './statements';
 
@@ -211,9 +215,15 @@ export const apiModules: ApiModule[] = [
         jobs: [{ token: EarningJobsSymbol, clazz: EarningJobs }],
     },
     {
-        // Sem rotas até a consulta de faturas: só o serviço e a rotina de fechamento.
+        path: '/statements',
+        route: { token: StatementRoutesSymbol, clazz: StatementRoutes },
         provides: [
             { token: StatementService, clazz: StatementService, scope: ScopeTypes.SINGLETON },
+            {
+                token: StatementControllerSymbol,
+                clazz: StatementController,
+                scope: ScopeTypes.SINGLETON,
+            },
         ],
         jobs: [{ token: StatementJobsSymbol, clazz: StatementJobs }],
     },
