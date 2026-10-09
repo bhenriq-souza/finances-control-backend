@@ -216,7 +216,7 @@ export class StatementService {
     }
 
     /** `purchasesCents - refundsCents` of the window; nothing is stored (INV-0013-02). */
-    private async totalOf(
+    async totalOf(
         manager: EntityManager,
         creditCardId: string,
         startsOn: string,
@@ -241,7 +241,7 @@ export class StatementService {
     }
 
     /** `amountDueCents - paidCents` of a persisted statement, right now. */
-    private async remainingOf(
+    async remainingOf(
         manager: EntityManager,
         creditCardId: string,
         statement: CreditCardStatement,
@@ -366,7 +366,7 @@ export class StatementService {
     }
 
     /** Recorded statements plus the cycle of today, which follows the last of them. */
-    private async chainOf(
+    async chainOf(
         manager: EntityManager,
         card: CreditCard,
     ): Promise<{ persisted: CreditCardStatement[]; current: BillingCycle }> {

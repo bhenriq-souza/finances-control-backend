@@ -23,6 +23,21 @@ export type StatementPaid = DomainEvent<
     { statementId: string; creditCardId: string; paidOn: string }
 >;
 
+/** Publicado por pagamento de fatura; `statementId` nulo no pagamento antecipado (spec 0013). */
+export const STATEMENT_PAYMENT_REGISTERED = 'StatementPaymentRegistered' as const;
+export type StatementPaymentRegistered = DomainEvent<
+    typeof STATEMENT_PAYMENT_REGISTERED,
+    {
+        statementId: string | null;
+        paymentId: string;
+        creditCardId: string;
+        bankAccountId: string;
+        amountCents: number;
+        paidOn: string; // ISO date, `YYYY-MM-DD`
+        remainingCents: number;
+    }
+>;
+
 /** Publicado quando um estorno de cartão é lançado (spec 0013, Estornos). */
 export const CREDIT_CARD_REFUND_REGISTERED = 'CreditCardRefundRegistered' as const;
 export type CreditCardRefundRegistered = DomainEvent<

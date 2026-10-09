@@ -639,4 +639,47 @@ export class ExpenseService {
 
         return { count: result.affected ?? 0 };
     }
+
+    /**
+     * Desfaz a quitação: as despesas de cartão do cartão com `posted_on` na janela e status
+     * `PAID` voltam a `OPEN` com `paid_on` nulo (spec 0013, Desfazer). Mesmas regras do
+     * `markPaidByStatement`: usa o `manager` recebido, não abre transação, não publica
+     * evento e não toca saldo nem limite. Devolve quantas mudou.
+     */
+    async markUnpaidByStatement(
+        manager: EntityManager,
+        creditCardId: string,
+        window: PostingWindow,
+    ): Promise<{ count: number }> {
+        const result = await manager
+            .createQueryBuilder()
+            .update(Expense)
+            .set({ status: 'OPEN', paidOn: null })
+            .where('credit_card_id = :creditCardId', { creditCardId })
+            .andWhere('posted_on >= :from', { from: businessToday(window.from) })
+            .andWhere('posted_on <= :to', { to: businessToday(window.to) })
+            .andWhere('status = :status', { status: 'PAID' })
+            .execute();
+
+        return { count: result.affected ?? 0 };
+    }
+
+    /**
+     * A despesa de cartão `id`, lida com o `manager` recebido; `null` para despesa
+     * inexistente ou de conta (spec 0013, Interface pública).
+     */
+    async findCardExpense(
+        manager: EntityManager,
+        id: string,
+    ): Promise<{ id: string; creditCardId: string; amountCents: number } | null> {
+        const expense = await manager.getRepository(Expense).findOne({ where: { id } });
+
+        if (!expense || expense.creditCardId === null) return null;
+
+        return {
+            id: expense.id,
+            creditCardId: expense.creditCardId,
+            amountCents: expense.amountCents,
+        };
+    }
 }
