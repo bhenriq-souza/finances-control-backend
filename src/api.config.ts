@@ -92,6 +92,7 @@ import {
     StatementRoutesSymbol,
     StatementService,
 } from './statements';
+import { RealizedBalanceService, RealizedBalanceServiceSymbol } from './reporting';
 
 /**
  * Módulos publicados pela API. Cada módulo de domínio (ADR-0003) entra aqui com
@@ -262,6 +263,15 @@ export const apiModules: ApiModule[] = [
             {
                 token: CreditCardRefundControllerSymbol,
                 clazz: CreditCardRefundController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
+    },
+    {
+        provides: [
+            {
+                token: RealizedBalanceServiceSymbol,
+                clazz: RealizedBalanceService,
                 scope: ScopeTypes.SINGLETON,
             },
         ],
