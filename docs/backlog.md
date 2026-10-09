@@ -260,7 +260,7 @@ janela fechada antes de qualquer leitura que dependa dela; consulta antes do pag
     - Where: `src/statements/`, `src/expenses/`, `src/events/statements.events.ts`
     - Done when: `AC-0013-13` a `AC-0013-15`, `AC-0013-18` a `AC-0013-20` e
       `AC-0013-24` a `AC-0013-26` cobertos; `INV-0013-06` e `INV-0013-14` verificados
-- [ ] **T-0013-07 — Autorização e OpenAPI** · #67
+- [x] **T-0013-07 — Autorização e OpenAPI** · #67
     - What: o contrato no `openapi.yaml` e o `AC-0013-23` em `authorization.spec.ts` (as guardas de
       perfil das rotas de pagamento já vêm da T-0013-06)
     - Where: `docs/openapi.yaml`, `tests/integration/statements/authorization.spec.ts`
