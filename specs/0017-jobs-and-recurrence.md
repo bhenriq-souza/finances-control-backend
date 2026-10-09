@@ -105,6 +105,11 @@ interface JobRegistrar {
 `ApiModule` ganha o campo opcional `jobs: JobRegistrar[]`, tratado por `registerApiModules` quando
 `JOBS_ENABLED`, antes de o worker começar a consumir.
 
+`path` e `route` passam a ser opcionais, mas sempre juntos: um módulo sem rotas (como `statements`
+antes da consulta de faturas) entra em `api.config.ts` só com `provides`, `subscribers` e `jobs`.
+`registerApiModules` registra os providers, os subscribers e os jobs desse módulo e não publica
+router; `path` sem `route`, ou `route` sem `path`, é erro de configuração na partida.
+
 ### Rotinas diárias
 
 Todas agendadas para `15 0 * * *` (00h15 em `America/Sao_Paulo`), cada uma com `asOf` igual a
