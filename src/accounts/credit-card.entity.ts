@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 
 import { moneyTransformer } from '../platform';
+import { BankAccount } from './bank-account.entity';
 import { Bank } from './bank.entity';
 
 @Entity('credit_cards')
@@ -46,6 +47,17 @@ export class CreditCard {
 
     @Column({ type: 'int' })
     dueDay!: number;
+
+    /** Conta de onde a fatura costuma sair; default do pagamento (spec 0013). Opcional. */
+    @Column({ type: 'uuid', nullable: true })
+    paymentBankAccountId!: string | null;
+
+    @ManyToOne(() => BankAccount, { nullable: true, onDelete: 'RESTRICT' })
+    @JoinColumn({
+        name: 'payment_bank_account_id',
+        foreignKeyConstraintName: 'fk_credit_cards_payment_bank_account_id',
+    })
+    paymentBankAccount?: BankAccount | null;
 
     @Column({ type: 'timestamptz', nullable: true })
     archivedAt!: Date | null;

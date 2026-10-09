@@ -15,6 +15,7 @@ export const createCreditCardSchema = z
         creditLimitCents,
         closingDay: dayOfMonth,
         dueDay: dayOfMonth,
+        paymentBankAccountId: z.uuid().nullable().optional(),
     })
     .strict();
 
@@ -30,6 +31,7 @@ export const updateCreditCardSchema = z
         creditLimitCents: creditLimitCents.optional(),
         closingDay: dayOfMonth.optional(),
         dueDay: dayOfMonth.optional(),
+        paymentBankAccountId: z.uuid().nullable().optional(),
     })
     .strict();
 

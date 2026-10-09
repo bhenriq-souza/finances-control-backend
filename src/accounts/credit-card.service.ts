@@ -8,6 +8,7 @@ import {
     asConflict,
     needsArchiveChange,
 } from '../platform';
+import { BankAccount } from './bank-account.entity';
 import { Bank } from './bank.entity';
 import { CreditCard } from './credit-card.entity';
 
@@ -26,10 +27,11 @@ export type CreateCreditCard = {
     creditLimitCents: number;
     closingDay: number;
     dueDay: number;
+    paymentBankAccountId?: string | null;
 };
 
 export type UpdateCreditCard = Partial<
-    Pick<CreditCard, 'name' | 'creditLimitCents' | 'closingDay' | 'dueDay'>
+    Pick<CreditCard, 'name' | 'creditLimitCents' | 'closingDay' | 'dueDay' | 'paymentBankAccountId'>
 >;
 
 @injectable()
@@ -58,11 +60,13 @@ export class CreditCardService {
 
     async create(data: CreateCreditCard): Promise<CreditCardWithBank> {
         await this.assertBankIsUsable(data.bankId);
+        await this.assertPayingAccountIsUsable(data.paymentBankAccountId);
 
         const created = await asConflict(
             this.cards.save(
                 this.cards.create({
                     ...data,
+                    paymentBankAccountId: data.paymentBankAccountId ?? null,
                     // Nasce igual ao limite total: o cartão não tem gasto nenhum.
                     availableLimitCents: data.creditLimitCents,
                     archivedAt: null,
@@ -86,6 +90,8 @@ export class CreditCardService {
 
     async update(id: string, changes: UpdateCreditCard): Promise<CreditCardWithBank> {
         if (Object.keys(changes).length === 0) return this.findById(id);
+
+        await this.assertPayingAccountIsUsable(changes.paymentBankAccountId);
 
         await this.dataSource.transaction(async (manager) => {
             const card = await this.loadForUpdate(manager, id);
@@ -161,6 +167,27 @@ export class CreditCardService {
         if (!card) throw cardNotFound();
 
         return card;
+    }
+
+    /** Conta pagadora existe (ERR-0011-06) e não está arquivada (ERR-0011-13); `null` remove. */
+    private async assertPayingAccountIsUsable(accountId: string | null | undefined): Promise<void> {
+        if (!accountId) return;
+
+        const account = await this.dataSource
+            .getRepository(BankAccount)
+            .findOne({ where: { id: accountId } });
+
+        if (!account) {
+            throw CustomError.notFound('Account not found', 'BANK_ACCOUNT_NOT_FOUND', {
+                exposeMessage: true,
+            });
+        }
+
+        if (account.archivedAt) {
+            throw new CustomError(409, 'BANK_ACCOUNT_ARCHIVED', 'This account is archived', {
+                exposeMessage: true,
+            });
+        }
     }
 
     /** Banco arquivado não recebe cartão novo (ERR-0011-07). */

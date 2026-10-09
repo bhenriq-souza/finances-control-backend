@@ -704,6 +704,13 @@ paths:
                                     type: integer
                                     minimum: 1
                                     maximum: 31
+                                paymentBankAccountId:
+                                    type: string
+                                    format: uuid
+                                    nullable: true
+                                    description: |
+                                        Conta pagadora padrão; `null` a remove. Precisa existir
+                                        (404) e não estar arquivada (409).
             responses:
                 '200':
                     $ref: '#/components/responses/CreditCard'
@@ -2238,6 +2245,13 @@ components:
                 creditLimitCents: { type: integer, exclusiveMinimum: 0 }
                 closingDay: { type: integer, minimum: 1, maximum: 31 }
                 dueDay: { type: integer, minimum: 1, maximum: 31 }
+                paymentBankAccountId:
+                    type: string
+                    format: uuid
+                    nullable: true
+                    description: |
+                        Conta pagadora padrão, default do pagamento de fatura. Precisa existir
+                        (404) e não estar arquivada (409).
 
         BillingCycle:
             type: object
@@ -2263,6 +2277,7 @@ components:
                     closingDay,
                     dueDay,
                     currentCycle,
+                    paymentBankAccountId,
                     archivedAt,
                     createdAt,
                 ]
@@ -2279,6 +2294,7 @@ components:
                 closingDay: { type: integer, minimum: 1, maximum: 31 }
                 dueDay: { type: integer, minimum: 1, maximum: 31 }
                 currentCycle: { $ref: '#/components/schemas/BillingCycle' }
+                paymentBankAccountId: { type: string, format: uuid, nullable: true }
                 archivedAt: { type: string, format: date-time, nullable: true }
                 createdAt: { type: string, format: date-time }
 
@@ -2716,9 +2732,13 @@ components:
         CreateStatementPayment:
             type: object
             additionalProperties: false
-            required: [bankAccountId, amountCents]
+            required: [amountCents]
             properties:
-                bankAccountId: { type: string, format: uuid }
+                bankAccountId:
+                    type: string
+                    format: uuid
+                    description: |
+                        Default: a conta pagadora do cartão. Sem os dois, 400 citando o campo.
                 amountCents:
                     type: integer
                     minimum: 1
@@ -2731,10 +2751,14 @@ components:
         CreateEarlyStatementPayment:
             type: object
             additionalProperties: false
-            required: [creditCardId, bankAccountId, amountCents]
+            required: [creditCardId, amountCents]
             properties:
                 creditCardId: { type: string, format: uuid }
-                bankAccountId: { type: string, format: uuid }
+                bankAccountId:
+                    type: string
+                    format: uuid
+                    description: |
+                        Default: a conta pagadora do cartão. Sem os dois, 400 citando o campo.
                 amountCents:
                     type: integer
                     minimum: 1

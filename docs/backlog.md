@@ -322,11 +322,11 @@ do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma reg
       lugar só, e o saldo realizado de uma conta em qualquer data
     - Where: `src/reporting/`, `.dependency-cruiser.cjs`
     - Done when: `AC-0015-01` e `AC-0015-12` cobertos; `INV-0015-01` a `INV-0015-04` verificados
-- [ ] **T-0015-05 — Conta pagadora do cartão** · #92
+- [x] **T-0015-05 — Conta pagadora do cartão** · #92
     - What: `payment_bank_account_id` em `credit_cards` com migration, aceito na criação e no `PATCH`
       do cartão (emenda à spec 0011) e default de conta no pagamento de fatura (spec 0013)
     - Where: `src/accounts/`, `src/statements/`, `src/platform/database/migrations/`
-    - Done when: `AC-0011-16` coberto; o default de conta do pagamento coberto em `AC-0015-13`
+    - Done when: `AC-0011-16` coberto; o default de conta do pagamento coberto (spec 0013, Pagamento)
 - [ ] **T-0015-02 — Saldo previsto, dívida dos cartões e série mensal** · #82
     - What: `GET /reports/balance`, com o previsto por conta, a dívida dos cartões sobre
       `StatementService.list` (exportado pelo `statements`) e o consolidado mês a mês
