@@ -55,3 +55,6 @@ export const includeForecastParam = z
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true');
+
+/** `bankAccountId` (ERR-0015-03 quando inexistente): opcional, UUID; compartilhado pelos relatórios. */
+export const bankAccountIdParam = z.uuid().optional();

@@ -109,6 +109,8 @@ import {
     ByTypeReportServiceSymbol,
     CardDebtService,
     CardDebtServiceSymbol,
+    CashFlowReportService,
+    CashFlowReportServiceSymbol,
     ForecastBalanceService,
     ForecastBalanceServiceSymbol,
     RealizedBalanceService,
@@ -346,6 +348,11 @@ export const apiModules: ApiModule[] = [
             {
                 token: BalanceReportServiceSymbol,
                 clazz: BalanceReportService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: CashFlowReportServiceSymbol,
+                clazz: CashFlowReportService,
                 scope: ScopeTypes.SINGLETON,
             },
             {

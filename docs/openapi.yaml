@@ -26,6 +26,8 @@ tags:
       description: Despesas e tipos de despesa
     - name: Statements
       description: Faturas de cartão, pagamentos de fatura e estornos
+    - name: Reporting
+      description: Relatórios somente de leitura (despesas e receitas por tipo, fluxo de caixa)
 
 paths:
     /health:
@@ -1875,26 +1877,142 @@ paths:
                 '404':
                     $ref: '#/components/responses/BankAccountNotFound'
 
+    /reports/expenses-by-type:
+        get:
+            tags: [Reporting]
+            summary: Despesas por mês e tipo
+            description: |
+                Soma as despesas **comprometidas** (`OPEN`, `VERIFYING`, `OVERDUE`, `PAID`) por mês de
+                `occurredOn` e por tipo; `FORECAST` entra só com `includeForecast=true`. Estornos de
+                cartão aparecem em `refundsCents` por mês, sem abater o tipo. Qualquer perfil lê.
+            operationId: getExpensesByTypeReport
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/ReportFrom'
+                - $ref: '#/components/parameters/ReportTo'
+                - $ref: '#/components/parameters/ReportIncludeForecast'
+            responses:
+                '200':
+                    description: Um item por mês da janela, inclusive os sem lançamento
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/ByTypeReport'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+
+    /reports/earnings-by-type:
+        get:
+            tags: [Reporting]
+            summary: Receitas por mês e tipo
+            description: |
+                Soma as receitas **comprometidas** (`OPEN`, `VERIFYING`, `OVERDUE`, `RECEIVED`) por mês
+                de `occurredOn` e por tipo; `FORECAST` entra só com `includeForecast=true`. Não há
+                `refundsCents`. Qualquer perfil lê.
+            operationId: getEarningsByTypeReport
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/ReportFrom'
+                - $ref: '#/components/parameters/ReportTo'
+                - $ref: '#/components/parameters/ReportIncludeForecast'
+            responses:
+                '200':
+                    description: Um item por mês da janela, inclusive os sem lançamento
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/ByTypeReport'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+
+    /reports/cash-flow:
+        get:
+            tags: [Reporting]
+            summary: Fluxo de caixa realizado por mês e conta
+            description: |
+                O dinheiro que de fato se moveu, por mês e por conta, cada coluna pela sua data:
+                receitas `RECEIVED` por `receivedOn`, despesas de conta `PAID` por `paidOn`,
+                pagamentos de fatura por `paidOn` e transferências `COMPLETED` por `completedOn`.
+                Todas as contas, arquivadas inclusive, aparecem em todos os meses, com zeros;
+                `bankAccountId` restringe a uma. Qualquer perfil lê.
+            operationId: getCashFlowReport
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/ReportFrom'
+                - $ref: '#/components/parameters/ReportTo'
+                - $ref: '#/components/parameters/ReportBankAccountId'
+            responses:
+                '200':
+                    description: Um item por mês da janela
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/CashFlowReport'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/BankAccountNotFound'
+
 components:
     parameters:
         ReportFrom:
             name: from
             in: query
             required: true
-            description: Primeiro mês da janela, `YYYY-MM`.
-            schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+            description: |
+                Primeiro mês da janela, `YYYY-MM`. Maior que `to`, ou janela com mais de 120 meses,
+                é 400.
+            schema:
+                type: string
+                pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+                example: 2026-03
         ReportTo:
             name: to
             in: query
             required: true
-            description: Último mês da janela, `YYYY-MM`; não anterior a `from`, no máximo 120 meses.
-            schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+            description: Último mês da janela, inclusivo, `YYYY-MM`.
+            schema:
+                type: string
+                pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+                example: 2026-05
+        ReportIncludeForecast:
+            name: includeForecast
+            in: query
+            required: false
+            description: '`true` soma também os lançamentos `FORECAST`; ausente vale `false`.'
+            schema:
+                type: string
+                enum: ['true', 'false']
+                default: 'false'
         ReportBankAccountId:
             name: bankAccountId
             in: query
             required: false
-            description: Restringe o relatório a uma conta.
-            schema: { type: string, format: uuid }
+            description: Restringe o relatório a uma conta; inexistente é 404.
+            schema:
+                type: string
+                format: uuid
         ResourceId:
             name: id
             in: path
@@ -3152,6 +3270,91 @@ components:
                                 description: |
                                     `accountsTotalCents - cardDebtCents`. Nulo com
                                     `bankAccountId`.
+
+        ByTypeReport:
+            type: object
+            required: [from, to, includeForecast, months]
+            properties:
+                from: { type: string, example: 2026-03 }
+                to: { type: string, example: 2026-05 }
+                includeForecast: { type: boolean }
+                months:
+                    type: array
+                    items:
+                        type: object
+                        required: [month, totalCents, byType]
+                        properties:
+                            month: { type: string, example: 2026-03 }
+                            totalCents:
+                                type: integer
+                                description: Soma de `byType`, sempre.
+                            refundsCents:
+                                type: integer
+                                description: |
+                                    Estornos de cartão do mês, pelo `occurredOn` do estorno. Só em
+                                    despesas; não abate o tipo.
+                            byType:
+                                type: array
+                                description: Por `totalCents` decrescente, depois `name`.
+                                items:
+                                    type: object
+                                    required: [typeId, name, totalCents]
+                                    properties:
+                                        typeId: { type: string, format: uuid }
+                                        name: { type: string }
+                                        totalCents: { type: integer }
+
+        CashFlowReport:
+            type: object
+            required: [from, to, months]
+            properties:
+                from: { type: string, example: 2026-03 }
+                to: { type: string, example: 2026-05 }
+                months:
+                    type: array
+                    items:
+                        type: object
+                        required: [month, accounts, netCents]
+                        properties:
+                            month: { type: string, example: 2026-03 }
+                            accounts:
+                                type: array
+                                description: Todas as contas, arquivadas inclusive, por ordem de criação.
+                                items:
+                                    type: object
+                                    required:
+                                        - bankAccountId
+                                        - inflowsCents
+                                        - expensesPaidCents
+                                        - statementPaymentsCents
+                                        - transfersInCents
+                                        - transfersOutCents
+                                        - netCents
+                                    properties:
+                                        bankAccountId: { type: string, format: uuid }
+                                        inflowsCents:
+                                            type: integer
+                                            description: Receitas `RECEIVED` com `receivedOn` no mês.
+                                        expensesPaidCents:
+                                            type: integer
+                                            description: Despesas de conta `PAID` com `paidOn` no mês.
+                                        statementPaymentsCents:
+                                            type: integer
+                                            description: Pagamentos de fatura com `paidOn` no mês.
+                                        transfersInCents:
+                                            type: integer
+                                            description: Transferências `COMPLETED` que entram, por `completedOn`.
+                                        transfersOutCents:
+                                            type: integer
+                                            description: Transferências `COMPLETED` que saem, por `completedOn`.
+                                        netCents:
+                                            type: integer
+                                            description: |
+                                                `inflowsCents + transfersInCents − expensesPaidCents −
+                                                statementPaymentsCents − transfersOutCents`.
+                            netCents:
+                                type: integer
+                                description: Soma do `netCents` das contas; as transferências se anulam.
 
         Error:
             type: object
