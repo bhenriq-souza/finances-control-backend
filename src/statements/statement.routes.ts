@@ -23,9 +23,11 @@ export class StatementRoutes extends BaseRoute {
     }
 
     routes(): RouteDef[] {
+        const write = [this.requireAuthentication, this.requireProfile('ADMIN', 'BILLER')];
         const read = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
 
         // `/current` precisa vir antes de `/:id`, senão o Express lê "current" como id.
+        // Vale também para `/current/payments`, que `/:id/payments` engoliria.
         return [
             {
                 method: 'GET',
@@ -44,6 +46,36 @@ export class StatementRoutes extends BaseRoute {
                 path: '/:id',
                 middlewares: read,
                 handler: this.bind(this.controller, this.controller.handleGetStatement),
+            },
+            {
+                method: 'POST',
+                path: '/current/payments',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handlePayEarly),
+            },
+            {
+                method: 'DELETE',
+                path: '/current/payments/:paymentId',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleUndoEarlyPayment),
+            },
+            {
+                method: 'PATCH',
+                path: '/:id',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleUpdateStatement),
+            },
+            {
+                method: 'POST',
+                path: '/:id/payments',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handlePayStatement),
+            },
+            {
+                method: 'DELETE',
+                path: '/:id/payments/:paymentId',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleUndoStatementPayment),
             },
         ];
     }

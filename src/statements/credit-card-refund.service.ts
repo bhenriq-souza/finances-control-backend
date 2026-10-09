@@ -35,6 +35,14 @@ const statementClosed = (closedThrough: string): CustomError =>
         { exposeMessage: true },
     );
 
+const refundExpenseMismatch = (): CustomError =>
+    new CustomError(
+        409,
+        'REFUND_EXPENSE_MISMATCH',
+        'The refunded expense must be a charge of the same credit card',
+        { exposeMessage: true },
+    );
+
 @injectable()
 export class CreditCardRefundService {
     constructor(
@@ -211,15 +219,16 @@ export class CreditCardRefundService {
         amountCents: number,
         manager: EntityManager,
     ): Promise<void> {
-        const expense = await this.expenses.findById(expenseId);
+        const expense = await this.expenses.findCardExpense(manager, expenseId);
+
+        if (expense === null) {
+            // `null` covers a missing expense (404) and an account expense (409).
+            await this.expenses.findById(expenseId);
+            throw refundExpenseMismatch();
+        }
 
         if (expense.creditCardId !== creditCardId) {
-            throw new CustomError(
-                409,
-                'REFUND_EXPENSE_MISMATCH',
-                'The refunded expense must be a charge of the same credit card',
-                { exposeMessage: true },
-            );
+            throw refundExpenseMismatch();
         }
 
         const existing = await manager
