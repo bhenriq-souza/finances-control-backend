@@ -75,7 +75,17 @@ import {
     EarningService,
     EarningServiceSymbol,
 } from './earnings';
-import { StatementJobs, StatementJobsSymbol, StatementService } from './statements';
+import {
+    CreditCardRefundController,
+    CreditCardRefundControllerSymbol,
+    CreditCardRefundRoutes,
+    CreditCardRefundRoutesSymbol,
+    CreditCardRefundService,
+    CreditCardRefundServiceSymbol,
+    StatementJobs,
+    StatementJobsSymbol,
+    StatementService,
+} from './statements';
 
 /**
  * Módulos publicados pela API. Cada módulo de domínio (ADR-0003) entra aqui com
@@ -219,6 +229,22 @@ export const apiModules: ApiModule[] = [
             {
                 token: BankTransferControllerSymbol,
                 clazz: BankTransferController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
+    },
+    {
+        path: '/credit-card-refunds',
+        route: { token: CreditCardRefundRoutesSymbol, clazz: CreditCardRefundRoutes },
+        provides: [
+            {
+                token: CreditCardRefundServiceSymbol,
+                clazz: CreditCardRefundService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: CreditCardRefundControllerSymbol,
+                clazz: CreditCardRefundController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],
