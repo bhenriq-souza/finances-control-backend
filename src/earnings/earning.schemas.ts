@@ -23,9 +23,27 @@ export const createEarningSchema = z
         status: z.enum(CREATION_STATUSES).optional(),
         installmentTotal: z.int().min(2).max(120).optional(),
         notes: z.string().trim().min(1).max(1000).optional(),
+        /** Última data da série; só em `FIXED` (spec 0017). */
+        recurrenceEndsOn: z.iso.date().optional(),
     })
     .strict()
     .superRefine((data, ctx) => {
+        if (data.recurrenceEndsOn !== undefined) {
+            if (data.kind !== 'FIXED') {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['recurrenceEndsOn'],
+                    message: 'recurrenceEndsOn is only allowed for FIXED',
+                });
+            } else if (data.recurrenceEndsOn < data.occurredOn) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['recurrenceEndsOn'],
+                    message: 'recurrenceEndsOn must not be before occurredOn',
+                });
+            }
+        }
+
         // ERR-0014-07: obrigatório em INSTALLMENT, proibido nos demais.
         if (data.kind === 'INSTALLMENT' && data.installmentTotal === undefined) {
             ctx.addIssue({
@@ -115,3 +133,30 @@ export const listEarningsQuerySchema = z
     });
 
 export type ListEarningsQuery = z.infer<typeof listEarningsQuerySchema>;
+
+/**
+ * `?scope=following` de `PATCH /earnings/:id` (spec 0017). Outro valor ou outro parâmetro é
+ * `400` citando a chave; a falta de série é ERR-0017-02, no serviço.
+ */
+export const mutationScopeQuerySchema = z
+    .object({ scope: z.enum(['following']).optional() })
+    .strict();
+
+export type MutationScope = 'following';
+
+/** Filtro de `GET /earning-recurrences`. */
+export const listRecurrencesQuerySchema = z
+    .object({
+        active: z
+            .enum(['true', 'false'])
+            .transform((value) => value === 'true')
+            .optional(),
+    })
+    .strict();
+
+export type ListRecurrencesQuery = z.infer<typeof listRecurrencesQuerySchema>;
+
+/** `PATCH /earning-recurrences/:id`: só `endsOn` (ERR-0017-03). */
+export const endRecurrenceSchema = z.object({ endsOn: z.iso.date() }).strict();
+
+export type EndRecurrence = z.infer<typeof endRecurrenceSchema>;

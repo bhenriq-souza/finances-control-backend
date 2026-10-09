@@ -71,6 +71,7 @@ describe('POST /earnings (spec 0014)', () => {
 
     afterEach(async () => {
         await ctx.dataSource.query('DELETE FROM earnings');
+        await ctx.dataSource.query('DELETE FROM earning_recurrences');
         await ctx.dataSource.query('DELETE FROM bank_accounts');
         await ctx.dataSource.query('DELETE FROM banks');
         await ctx.dataSource.query("DELETE FROM earning_types WHERE name LIKE 'Teste%'");
@@ -91,6 +92,7 @@ describe('POST /earnings (spec 0014)', () => {
                 'occurredOn',
                 'receivedOn',
                 'notes',
+                'recurrenceId',
                 'earningType',
                 'bankAccountId',
                 'installment',

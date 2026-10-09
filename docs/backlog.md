@@ -373,12 +373,16 @@ receitas, que a espelha.
       `/expense-recurrences`
     - Where: `src/expenses/`, `docs/openapi.yaml`
     - Done when: `AC-0017-09` a `AC-0017-11` cobertos; `INV-0017-06` e `INV-0017-07` verificados
-- [ ] **T-0017-05 — Série de receitas e schema `pgboss` no cluster** · #90
-    - What: as mesmas regras de série para receitas, as rotas de `/earning-recurrences`, e o
-      `jobs:migrate` no initContainer com o schema provisionado, evidência colada no PR
-    - Where: `src/earnings/`, `docs/openapi.yaml`, `homelab-gitops`
-    - Done when: `AC-0017-12` coberto e `INV-0017-09` verificado no cluster; última tarefa: fecha
-      FCB-015 e muda o `status` para `implemented`
+- [x] **T-0017-05 — Série de receitas** · #90
+    - What: as mesmas regras de série para receitas e as rotas de `/earning-recurrences`
+    - Where: `src/earnings/`, `docs/openapi.yaml`, `src/platform/database/migrations/`
+    - Done when: `AC-0017-12` coberto
+- [ ] **T-0017-06 — Schema `pgboss` no cluster** · #147
+    - What: o `jobs:migrate` no initContainer, depois de `migration:run`, com o schema `pgboss`
+      provisionado no banco do cluster, evidência colada no PR
+    - Where: `homelab-gitops`, provisionamento da spec 0003
+    - Done when: `INV-0017-09` verificado no cluster; última tarefa: fecha FCB-015 e muda o
+      `status` para `implemented`
 
 ## Transfers
 

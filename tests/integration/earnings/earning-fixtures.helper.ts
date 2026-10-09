@@ -107,6 +107,7 @@ export const useEarningFixtures = (schema: string): EarningFixtures => {
 
     afterEach(async () => {
         await ctx.dataSource.query('DELETE FROM earnings');
+        await ctx.dataSource.query('DELETE FROM earning_recurrences');
         await ctx.dataSource.query('DELETE FROM bank_accounts');
         await ctx.dataSource.query('DELETE FROM banks');
         await ctx.dataSource.query("DELETE FROM earning_types WHERE name LIKE 'Teste%'");

@@ -2,7 +2,16 @@ import { randomUUID } from 'node:crypto';
 
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
-import { In, type DataSource, type FindOptionsWhere, type Repository } from 'typeorm';
+import {
+    In,
+    MoreThan,
+    MoreThanOrEqual,
+    type DataSource,
+    type EntityManager,
+    type FindOptionsWhere,
+    type Repository,
+} from 'typeorm';
+import { ZodError } from 'zod';
 
 import { BankAccountService, BankAccountServiceSymbol } from '../accounts';
 import {
@@ -19,6 +28,8 @@ import {
     splitCents,
 } from '../platform';
 import type { TransactionRunner } from '../platform';
+import { recurrenceHorizon, seriesDates } from './earning-recurrence.dates';
+import { EarningRecurrence } from './earning-recurrence.entity';
 import { Earning } from './earning.entity';
 import { EarningTypeServiceSymbol } from './earnings.symbols';
 import type { EarningStatus } from './earning-status';
@@ -26,6 +37,7 @@ import type {
     ChangeEarningStatusInput,
     CreateEarningInput,
     ListEarningsQuery,
+    MutationScope,
     UpdateEarningInput,
 } from './earning.schemas';
 import type { EarningTypeService } from './earning-type.service';
@@ -40,6 +52,8 @@ const ALLOWED_TRANSITIONS: Readonly<Record<EarningStatus, readonly EarningStatus
     VERIFYING: ['OPEN', 'RECEIVED'],
     RECEIVED: ['OPEN'],
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const earningNotFound = (): CustomError =>
     CustomError.notFound('Earning not found', 'EARNING_NOT_FOUND', { exposeMessage: true });
@@ -87,24 +101,55 @@ export class EarningService {
 
         // INSTALLMENT: `installmentTotal` linhas, rateadas por `splitCents` e esperadas mês a
         // mês, todas na mesma transação (INV-0014-09); as demais são uma linha.
-        const total = input.kind === 'INSTALLMENT' ? (input.installmentTotal ?? 1) : 1;
+        // FIXED: a série até o horizonte (spec 0017); a primeira leva o `status` informado e
+        // as demais nascem `FORECAST`.
+        const isFixed = input.kind === 'FIXED';
+        const dates = isFixed
+            ? seriesDates(
+                  input.occurredOn,
+                  input.recurrenceEndsOn ?? null,
+                  recurrenceHorizon(businessToday()),
+              )
+            : monthlyInstallmentDates(
+                  input.occurredOn,
+                  input.kind === 'INSTALLMENT' ? (input.installmentTotal ?? 1) : 1,
+              );
+        const total = dates.length;
         const groupId = input.kind === 'INSTALLMENT' ? randomUUID() : null;
-        const amounts = splitCents(input.amountCents, total);
-        const dates = monthlyInstallmentDates(input.occurredOn, total);
+        const amounts = isFixed
+            ? dates.map(() => input.amountCents)
+            : splitCents(input.amountCents, total);
 
         const ids = await this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
             const created: string[] = [];
+            const recurrenceId = isFixed
+                ? (
+                      await scope.manager.getRepository(EarningRecurrence).save(
+                          scope.manager.getRepository(EarningRecurrence).create({
+                              description: input.description,
+                              earningTypeId: input.earningTypeId,
+                              amountCents: input.amountCents,
+                              dayOfMonth: Number(input.occurredOn.slice(8, 10)),
+                              bankAccountId: input.bankAccountId,
+                              notes: input.notes ?? null,
+                              startsOn: input.occurredOn,
+                              endsOn: input.recurrenceEndsOn ?? null,
+                          }),
+                      )
+                  ).id
+                : null;
 
             for (let index = 0; index < total; index += 1) {
                 const amountCents = amounts[index]!;
                 const occurredOn = dates[index]!;
+                const rowStatus = isFixed && index > 0 ? 'FORECAST' : status;
                 const saved = await repository.save(
                     repository.create({
                         description: input.description,
                         earningTypeId: input.earningTypeId,
                         kind: input.kind,
-                        status,
+                        status: rowStatus,
                         amountCents,
                         occurredOn,
                         receivedOn: null,
@@ -112,6 +157,7 @@ export class EarningService {
                         installmentGroupId: groupId,
                         installmentNumber: groupId === null ? null : index + 1,
                         installmentTotal: groupId === null ? null : total,
+                        recurrenceId,
                         notes: input.notes ?? null,
                     }),
                 );
@@ -121,7 +167,7 @@ export class EarningService {
                     payload: {
                         earningId: saved.id,
                         kind: input.kind,
-                        status,
+                        status: rowStatus,
                         amountCents,
                         occurredOn,
                         bankAccountId: input.bankAccountId,
@@ -188,9 +234,16 @@ export class EarningService {
      * não está no saldo de conta nenhuma, então trocar conta ou valor não move nada.
      * Existência (404) antes de arquivamento (409), conta antes de tipo.
      */
-    async update(id: string, changes: UpdateEarningInput): Promise<EarningWithType> {
+    async update(
+        id: string,
+        changes: UpdateEarningInput,
+        mutationScope?: MutationScope,
+    ): Promise<EarningWithType> {
         await this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
+
+            if (mutationScope === 'following') await this.lockSeriesOf(scope.manager, id);
+
             const locked = await this.lockGroup(repository, id);
             const earning = locked.find((row) => row.id === id);
 
@@ -237,6 +290,10 @@ export class EarningService {
 
             await repository.update({ id }, changes);
 
+            if (mutationScope === 'following') {
+                await this.applyModelToFollowing(scope.manager, earning, changes);
+            }
+
             // Trocar a conta de uma parcela troca a de todas as não recebidas do grupo; as
             // recebidas ficam onde entraram (INV-0014-10). Nada move saldo.
             if (changes.bankAccountId !== undefined) {
@@ -264,7 +321,25 @@ export class EarningService {
     delete(id: string): Promise<void> {
         return this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
-            const locked = await this.lockGroup(repository, id);
+            const probe = await repository.findOne({ where: { id } });
+
+            if (!probe) throw earningNotFound();
+
+            const inSeries = probe.recurrenceId !== null;
+
+            // Série (spec 0017): a ocorrência e todas as seguintes; a série é travada antes.
+            if (inSeries) await this.lockSeriesOf(scope.manager, id);
+
+            const locked = inSeries
+                ? await repository.find({
+                      where: {
+                          recurrenceId: probe.recurrenceId as string,
+                          occurredOn: MoreThanOrEqual(probe.occurredOn),
+                      },
+                      order: { id: 'ASC' },
+                      lock: { mode: 'for_no_key_update' },
+                  })
+                : await this.lockGroup(repository, id);
             const target = locked.find((row) => row.id === id);
 
             if (!target) throw earningNotFound();
@@ -273,7 +348,110 @@ export class EarningService {
             const doomed = locked.filter((row) => row.status !== 'RECEIVED');
 
             await repository.delete({ id: In(doomed.map((row) => row.id)) });
+
+            if (inSeries) await this.endSeriesBefore(scope.manager, probe);
         });
+    }
+
+    /**
+     * Trava a série da ocorrência `id` (antes de qualquer linha de receita, como a extensão)
+     * e exige que ela exista: sem série, `?scope=following` é ERR-0017-02.
+     */
+    private async lockSeriesOf(manager: EntityManager, id: string): Promise<void> {
+        const probe = await manager.getRepository(Earning).findOne({ where: { id } });
+
+        if (!probe) throw earningNotFound();
+
+        if (probe.recurrenceId === null) {
+            throw new ZodError([
+                {
+                    code: 'custom',
+                    path: ['scope'],
+                    message: 'scope=following requires an earning that belongs to a series',
+                    input: undefined,
+                },
+            ]);
+        }
+
+        await manager.getRepository(EarningRecurrence).findOne({
+            where: { id: probe.recurrenceId },
+            lock: { mode: 'for_no_key_update' },
+        });
+    }
+
+    /**
+     * `description`, `earningTypeId`, `amountCents`, `bankAccountId` e `notes` de
+     * `?scope=following`: valem também para o modelo e para as seguintes ainda em `FORECAST`
+     * (INV-0017-07). Previsto não está no saldo, então nada move.
+     */
+    private async applyModelToFollowing(
+        manager: EntityManager,
+        origin: Earning,
+        changes: UpdateEarningInput,
+    ): Promise<void> {
+        const patch: Partial<
+            Pick<
+                Earning,
+                'description' | 'earningTypeId' | 'amountCents' | 'bankAccountId' | 'notes'
+            >
+        > = {};
+
+        if (changes.description !== undefined) patch.description = changes.description;
+        if (changes.earningTypeId !== undefined) patch.earningTypeId = changes.earningTypeId;
+        if (changes.amountCents !== undefined) patch.amountCents = changes.amountCents;
+        if (changes.bankAccountId !== undefined) patch.bankAccountId = changes.bankAccountId;
+        if (changes.notes !== undefined) patch.notes = changes.notes;
+
+        if (Object.keys(patch).length === 0) return;
+
+        await manager
+            .getRepository(EarningRecurrence)
+            .update({ id: origin.recurrenceId as string }, patch);
+        await manager.getRepository(Earning).update(
+            {
+                recurrenceId: origin.recurrenceId as string,
+                status: 'FORECAST',
+                occurredOn: MoreThan(origin.occurredOn),
+            },
+            patch,
+        );
+    }
+
+    /**
+     * Encerra a série na exclusão de `deleted` (spec 0017): `ends_on` é o dia anterior. A
+     * série sem ocorrência restante deixa de existir; sem dia anterior admitido (a primeira
+     * ocorrência excluída com outras que ficam), a série passa a começar e terminar na
+     * primeira que ficou, para que a extensão não recrie a excluída.
+     */
+    private async endSeriesBefore(manager: EntityManager, deleted: Earning): Promise<void> {
+        const recurrences = manager.getRepository(EarningRecurrence);
+        const recurrenceId = deleted.recurrenceId as string;
+        const series = await recurrences.findOneOrFail({ where: { id: recurrenceId } });
+        const endsOn = new Date(new Date(`${deleted.occurredOn}T00:00:00.000Z`).getTime() - DAY_MS)
+            .toISOString()
+            .slice(0, 10);
+
+        if (endsOn >= series.startsOn) {
+            await recurrences.update({ id: recurrenceId }, { endsOn });
+
+            return;
+        }
+
+        const first = await manager
+            .getRepository(Earning)
+            .createQueryBuilder('e')
+            .select('MIN(e.occurredOn)::text', 'first')
+            .where('e.recurrenceId = :recurrenceId', { recurrenceId })
+            .getRawOne<{ first: string | null }>();
+
+        if (first?.first) {
+            await recurrences.update(
+                { id: recurrenceId },
+                { startsOn: first.first, endsOn: first.first },
+            );
+        } else {
+            await recurrences.delete({ id: recurrenceId });
+        }
     }
 
     /**

@@ -8,6 +8,7 @@ import {
     createEarningSchema,
     earningIdParamsSchema,
     listEarningsQuerySchema,
+    mutationScopeQuerySchema,
     updateEarningSchema,
 } from './earning.schemas';
 import type { EarningService } from './earning.service';
@@ -48,8 +49,12 @@ export class EarningController {
     async handleUpdateEarning(req: Request, res: Response): Promise<Response> {
         const { id } = earningIdParamsSchema.parse(req.params);
         const changes = updateEarningSchema.parse(req.body);
+        const { scope } = mutationScopeQuerySchema.parse(req.query);
 
-        return HttpResponses.ok(res, toEarningResponse(await this.service.update(id, changes)));
+        return HttpResponses.ok(
+            res,
+            toEarningResponse(await this.service.update(id, changes, scope)),
+        );
     }
 
     async handleDeleteEarning(req: Request, res: Response): Promise<Response> {

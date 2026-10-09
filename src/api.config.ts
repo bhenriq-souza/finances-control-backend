@@ -78,6 +78,12 @@ import {
     EarningJobsSymbol,
     EarningRoutes,
     EarningRoutesSymbol,
+    EarningRecurrenceController,
+    EarningRecurrenceControllerSymbol,
+    EarningRecurrenceRoutes,
+    EarningRecurrenceRoutesSymbol,
+    EarningRecurrenceService,
+    EarningRecurrenceServiceSymbol,
     EarningService,
     EarningServiceSymbol,
 } from './earnings';
@@ -239,12 +245,28 @@ export const apiModules: ApiModule[] = [
         provides: [
             { token: EarningServiceSymbol, clazz: EarningService, scope: ScopeTypes.SINGLETON },
             {
+                token: EarningRecurrenceServiceSymbol,
+                clazz: EarningRecurrenceService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
                 token: EarningControllerSymbol,
                 clazz: EarningController,
                 scope: ScopeTypes.SINGLETON,
             },
         ],
         jobs: [{ token: EarningJobsSymbol, clazz: EarningJobs }],
+    },
+    {
+        path: '/earning-recurrences',
+        route: { token: EarningRecurrenceRoutesSymbol, clazz: EarningRecurrenceRoutes },
+        provides: [
+            {
+                token: EarningRecurrenceControllerSymbol,
+                clazz: EarningRecurrenceController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
     },
     {
         path: '/statements',

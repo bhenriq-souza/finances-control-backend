@@ -12,6 +12,7 @@ export type EarningResponse = {
     occurredOn: string;
     receivedOn: string | null;
     notes: string | null;
+    recurrenceId: string | null;
     earningType: EarningTypeResponse;
     bankAccountId: string;
     installment: { groupId: string; number: number; total: number } | null;
@@ -31,6 +32,7 @@ export const toEarningResponse = (
     occurredOn: earning.occurredOn,
     receivedOn: earning.receivedOn,
     notes: earning.notes,
+    recurrenceId: earning.recurrenceId,
     earningType: toEarningTypeResponse(earning.earningType),
     bankAccountId: earning.bankAccountId,
     installment:
