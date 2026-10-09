@@ -46,6 +46,10 @@ import {
 import {
     ExpenseController,
     ExpenseControllerSymbol,
+    ExpenseRecurrenceController,
+    ExpenseRecurrenceControllerSymbol,
+    ExpenseRecurrenceRoutes,
+    ExpenseRecurrenceRoutesSymbol,
     ExpenseJobs,
     ExpenseJobsSymbol,
     ExpenseRoutes,
@@ -208,6 +212,17 @@ export const apiModules: ApiModule[] = [
             },
         ],
         jobs: [{ token: ExpenseJobsSymbol, clazz: ExpenseJobs }],
+    },
+    {
+        path: '/expense-recurrences',
+        route: { token: ExpenseRecurrenceRoutesSymbol, clazz: ExpenseRecurrenceRoutes },
+        provides: [
+            {
+                token: ExpenseRecurrenceControllerSymbol,
+                clazz: ExpenseRecurrenceController,
+                scope: ScopeTypes.SINGLETON,
+            },
+        ],
     },
     {
         path: '/earnings',

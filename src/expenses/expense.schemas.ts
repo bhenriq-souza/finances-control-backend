@@ -185,3 +185,30 @@ export const changePaymentMethodSchema = z
     });
 
 export type ChangePaymentMethod = z.infer<typeof changePaymentMethodSchema>;
+
+/**
+ * `?scope=following` de `PATCH /expenses/:id` e `/payment-method` (spec 0017). Outro valor
+ * ou outro parâmetro é `400` citando a chave; a falta de série é ERR-0017-02, no serviço.
+ */
+export const mutationScopeQuerySchema = z
+    .object({ scope: z.enum(['following']).optional() })
+    .strict();
+
+export type MutationScope = 'following';
+
+/** Filtro de `GET /expense-recurrences`. */
+export const listRecurrencesQuerySchema = z
+    .object({
+        active: z
+            .enum(['true', 'false'])
+            .transform((value) => value === 'true')
+            .optional(),
+    })
+    .strict();
+
+export type ListRecurrencesQuery = z.infer<typeof listRecurrencesQuerySchema>;
+
+/** `PATCH /expense-recurrences/:id`: só `endsOn` (ERR-0017-03). */
+export const endRecurrenceSchema = z.object({ endsOn: businessDate }).strict();
+
+export type EndRecurrence = z.infer<typeof endRecurrenceSchema>;

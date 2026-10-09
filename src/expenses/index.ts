@@ -28,3 +28,6 @@ export {
     ExpenseRecurrenceService,
     ExpenseRecurrenceServiceSymbol,
 } from './expense-recurrence.service';
+export { ExpenseRecurrenceController } from './expense-recurrence.controller';
+export { ExpenseRecurrenceRoutes } from './expense-recurrence.routes';
+export { toRecurrenceResponse, type RecurrenceResponse } from './expense-recurrence.response';

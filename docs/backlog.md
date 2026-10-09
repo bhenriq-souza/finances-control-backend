@@ -368,7 +368,7 @@ receitas, que a espelha.
       `extend` e `promote` com os seus jobs
     - Where: `src/expenses/`, `src/platform/database/migrations/`
     - Done when: `AC-0017-06` a `AC-0017-08` cobertos; `INV-0017-04` e `INV-0017-05` verificados
-- [ ] **T-0017-04 — Série de despesas: alteração, encerramento e rotas** · #89
+- [x] **T-0017-04 — Série de despesas: alteração, encerramento e rotas** · #89
     - What: `?scope=following`, a exclusão dos futuros não pagos com `ends_on`, e as rotas de
       `/expense-recurrences`
     - Where: `src/expenses/`, `docs/openapi.yaml`

@@ -9,6 +9,7 @@ import {
     createExpenseSchema,
     expenseIdParamsSchema,
     listExpensesQuerySchema,
+    mutationScopeQuerySchema,
     updateExpenseSchema,
 } from './expense.schemas';
 import type { ExpenseService } from './expense.service';
@@ -49,17 +50,22 @@ export class ExpenseController {
     async handleUpdateExpense(req: Request, res: Response): Promise<Response> {
         const { id } = expenseIdParamsSchema.parse(req.params);
         const changes = updateExpenseSchema.parse(req.body);
+        const { scope } = mutationScopeQuerySchema.parse(req.query);
 
-        return HttpResponses.ok(res, toExpenseResponse(await this.service.update(id, changes)));
+        return HttpResponses.ok(
+            res,
+            toExpenseResponse(await this.service.update(id, changes, scope)),
+        );
     }
 
     async handleChangePaymentMethod(req: Request, res: Response): Promise<Response> {
         const { id } = expenseIdParamsSchema.parse(req.params);
         const change = changePaymentMethodSchema.parse(req.body);
+        const { scope } = mutationScopeQuerySchema.parse(req.query);
 
         return HttpResponses.ok(
             res,
-            (await this.service.changePaymentMethod(id, change)).map(toExpenseResponse),
+            (await this.service.changePaymentMethod(id, change, scope)).map(toExpenseResponse),
         );
     }
 
