@@ -11,28 +11,39 @@ const businessDate = z.iso.date();
 /** Só os status atribuíveis na criação (ERR-0012-14). */
 const CREATION_STATUSES = ['OPEN', 'FORECAST', 'VERIFYING'] as const;
 
-/** `INSTALLMENT` pertence à tarefa de parcelamento; aqui só as despesas de uma linha. */
-const SINGLE_ROW_KINDS = ['FIXED', 'VARIABLE'] as const;
-
 export const createExpenseSchema = z
     .object({
         description: z.string().trim().min(1).max(200),
         expenseTypeId: z.uuid(),
-        kind: z.enum(SINGLE_ROW_KINDS),
+        kind: z.enum(EXPENSE_KINDS),
         amountCents,
         occurredOn: businessDate,
         bankAccountId: z.uuid().optional(),
         creditCardId: z.uuid().optional(),
         postedOn: businessDate.optional(),
         status: z.enum(CREATION_STATUSES).default('OPEN'),
-        /** Proibido fora de `INSTALLMENT` (ERR-0012-07). */
-        installmentTotal: z
-            .never({ error: 'installmentTotal is only allowed for INSTALLMENT' })
-            .optional(),
+        /** Obrigatório em `INSTALLMENT`, proibido nos demais (ERR-0012-07). */
+        installmentTotal: z.int().min(2).max(120).optional(),
         notes: z.string().trim().min(1).max(1000).optional(),
     })
     .strict()
     .superRefine((data, ctx) => {
+        if (data.kind === 'INSTALLMENT' && data.installmentTotal === undefined) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['installmentTotal'],
+                message: 'installmentTotal is required for INSTALLMENT',
+            });
+        }
+
+        if (data.kind !== 'INSTALLMENT' && data.installmentTotal !== undefined) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['installmentTotal'],
+                message: 'installmentTotal is only allowed for INSTALLMENT',
+            });
+        }
+
         if ((data.bankAccountId === undefined) === (data.creditCardId === undefined)) {
             const message = 'Exactly one of bankAccountId and creditCardId is required';
 

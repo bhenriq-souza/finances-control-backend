@@ -280,17 +280,6 @@ describe('POST /expenses (spec 0012, criação)', () => {
             expect(JSON.stringify(res.body)).toContain('installmentTotal');
         });
 
-        it.each([undefined, 1, 3, 121])(
-            'recusa kind INSTALLMENT (installmentTotal %p) citando kind, até a T-0012-05',
-            async (installmentTotal) => {
-                const res = await create({ kind: 'INSTALLMENT', installmentTotal });
-
-                expect(res.status).toBe(400);
-                expect(res.body.error.code).toBe('VALIDATION_ERROR');
-                expect(JSON.stringify(res.body)).toContain('kind');
-            },
-        );
-
         it('recusa campo desconhecido, como saldo ou paidOn', async () => {
             const res = await create({ paidOn: '2026-03-10' });
 

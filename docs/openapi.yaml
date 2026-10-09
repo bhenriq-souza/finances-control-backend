@@ -1006,9 +1006,12 @@ paths:
             tags: [Expenses]
             summary: Lança uma despesa
             description: |
-                Exige perfil `ADMIN` ou `BILLER`. Devolve uma lista de um elemento. Despesa
-                de cartão `OPEN` ou `VERIFYING` abate o limite disponível na mesma
-                transação; `FORECAST` não. Saldo e limite nunca barram o lançamento.
+                Exige perfil `ADMIN` ou `BILLER`. Devolve uma lista com um elemento
+                (`FIXED`/`VARIABLE`) ou com `installmentTotal` parcelas, em ordem de parcela
+                (`INSTALLMENT`), todas criadas na mesma transação; publica um `ExpenseCreated`
+                por linha. Despesa de cartão `OPEN` ou `VERIFYING` abate o limite disponível na
+                mesma transação (num parcelamento, o total de uma vez); `FORECAST` não. Saldo e
+                limite nunca barram o lançamento.
             operationId: createExpense
             security: [{ bearerAuth: [] }]
             requestBody:
@@ -1742,6 +1745,16 @@ components:
                     type: string
                     enum: [OPEN, FORECAST, VERIFYING]
                     default: OPEN
+                installmentTotal:
+                    type: integer
+                    minimum: 2
+                    maximum: 120
+                    description: |
+                        Obrigatório em `INSTALLMENT` e proibido nos demais (400). `amountCents`
+                        é o **total**: vira `installmentTotal` parcelas mensais rateadas por
+                        `splitCents` (resto na primeira), a partir de `occurredOn`, com o dia
+                        original preservado (31/01, 28/02, 31/03). No cartão, `postedOn` da
+                        parcela `k` é o da primeira mais `k − 1` meses.
                 notes: { type: string }
 
         UpdateExpense:
