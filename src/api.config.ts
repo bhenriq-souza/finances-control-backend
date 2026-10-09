@@ -103,8 +103,14 @@ import {
     StatementService,
 } from './statements';
 import {
+    BalanceReportService,
+    BalanceReportServiceSymbol,
     ByTypeReportService,
     ByTypeReportServiceSymbol,
+    CardDebtService,
+    CardDebtServiceSymbol,
+    ForecastBalanceService,
+    ForecastBalanceServiceSymbol,
     RealizedBalanceService,
     RealizedBalanceServiceSymbol,
     ReportController,
@@ -325,6 +331,21 @@ export const apiModules: ApiModule[] = [
             {
                 token: ByTypeReportServiceSymbol,
                 clazz: ByTypeReportService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: ForecastBalanceServiceSymbol,
+                clazz: ForecastBalanceService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: CardDebtServiceSymbol,
+                clazz: CardDebtService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: BalanceReportServiceSymbol,
+                clazz: BalanceReportService,
                 scope: ScopeTypes.SINGLETON,
             },
             {

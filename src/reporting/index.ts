@@ -5,10 +5,16 @@
 export { COMPOSITION } from './composition';
 export { RealizedBalanceService } from './realized-balance.service';
 export { ByTypeReportService } from './by-type.service';
+export { ForecastBalanceService } from './forecast-balance.service';
+export { CardDebtService } from './card-debt.service';
+export { BalanceReportService } from './balance-report.service';
 export { ReportController } from './report.controller';
 export { ReportRoutes } from './report.routes';
 export {
+    BalanceReportServiceSymbol,
     ByTypeReportServiceSymbol,
+    CardDebtServiceSymbol,
+    ForecastBalanceServiceSymbol,
     RealizedBalanceServiceSymbol,
     ReportControllerSymbol,
     ReportRoutesSymbol,
