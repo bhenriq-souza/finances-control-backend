@@ -404,7 +404,7 @@ da spec 0004 implementada; a parte de relatórios, da spec 0015.
     - Where: `src/accounts/`, `docs/openapi.yaml`
     - Done when: `AC-0018-06`, `AC-0018-11` e `AC-0018-12` cobertos; `INV-0018-06` e `INV-0018-08`
       verificados
-- [ ] **T-0018-03 — Transferências nos relatórios** · #96
+- [x] **T-0018-03 — Transferências nos relatórios** · #96
     - What: o quarto caminho no saldo realizado e a verificação das transferências no previsto e
       no fluxo de caixa, que já as somam desde as T-0015-02 e T-0015-04
     - Where: `src/reporting/`
@@ -415,9 +415,9 @@ da spec 0004 implementada; a parte de relatórios, da spec 0015.
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
 
-| Issue   | Spec prevista  | Requisito      | Situação                                  |
-| ------- | -------------- | -------------- | ----------------------------------------- |
-| FCB-013 | `0016` imports | importação CSV | **adiada** pelo responsável em 2026-10-06 |
+| Issue   | Spec prevista  | Requisito      | Situação                                                              |
+| ------- | -------------- | -------------- | --------------------------------------------------------------------- |
+| FCB-013 | `0016` imports | importação CSV | **fora da primeira versão**, por decisão do responsável em 2026-10-09 |
 
 A importação de CSV não tem utilidade imediata e fica para um segundo momento. Não escreva a spec
 `0016` nem crie tarefas para ela até o responsável retomá-la; as specs que a citam continuam
