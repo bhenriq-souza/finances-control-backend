@@ -1831,8 +1831,70 @@ paths:
                 '404':
                     $ref: '#/components/responses/ExpenseRecurrenceNotFound'
 
+    /reports/balance:
+        get:
+            tags: [Reporting]
+            summary: Saldo mês a mês, realizado no passado e previsto daqui em diante
+            description: |
+                Um ponto por mês, de `from` a `to` (`YYYY-MM`, inclusivos, no máximo 120 meses), com
+                a data de referência no último dia do mês. Meses inteiramente passados são
+                `REALIZED`: saldo realizado das contas, sem dívida de cartão (os campos de cartão
+                vêm nulos). O mês corrente e os seguintes são `FORECAST`: saldo corrente mais as
+                receitas e despesas de conta pendentes (`OPEN`, `VERIFYING`, `OVERDUE` e
+                `FORECAST`) e as transferências agendadas (`+` no destino, `-` na origem), com
+                carry-forward; o que tem data passada entra no mês corrente. Despesa de cartão não
+                entra no saldo da conta: entra na dívida dos cartões, descontada da conta
+                pagadora do cartão (`balanceAfterCardsCents`); a dívida de cartão sem conta
+                pagadora aparece em `unassignedCardDebtCents`. `consolidatedCents` soma todas as
+                contas, arquivadas inclusive, menos a dívida de todos os cartões (nos pontos
+                `REALIZED`, é a soma das contas). Com `bankAccountId`, só aquela conta, com a
+                dívida dos cartões que ela paga, e os totais de cartão e `consolidatedCents`
+                nulos. Qualquer perfil lê.
+            operationId: getBalanceReport
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - $ref: '#/components/parameters/ReportFrom'
+                - $ref: '#/components/parameters/ReportTo'
+                - $ref: '#/components/parameters/ReportBankAccountId'
+            responses:
+                '200':
+                    description: A série mensal
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/BalanceReport'
+                '400':
+                    $ref: '#/components/responses/ValidationError'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/BankAccountNotFound'
+
 components:
     parameters:
+        ReportFrom:
+            name: from
+            in: query
+            required: true
+            description: Primeiro mês da janela, `YYYY-MM`.
+            schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        ReportTo:
+            name: to
+            in: query
+            required: true
+            description: Último mês da janela, `YYYY-MM`; não anterior a `from`, no máximo 120 meses.
+            schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        ReportBankAccountId:
+            name: bankAccountId
+            in: query
+            required: false
+            description: Restringe o relatório a uma conta.
+            schema: { type: string, format: uuid }
         ResourceId:
             name: id
             in: path
@@ -2123,6 +2185,12 @@ components:
                 para despesa de conta ou de outro cartão; `REFUND_EXCEEDS_EXPENSE` quando os
                 estornos da despesa passariam do valor dela (mensagem com o valor ainda
                 estornável).
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        BankAccountNotFound:
+            description: '`BANK_ACCOUNT_NOT_FOUND`'
             content:
                 application/json:
                     schema:
@@ -3001,6 +3069,89 @@ components:
                     type: string
                     format: date
                     description: Não anterior a `startsOn` da série.
+
+        BalanceReport:
+            type: object
+            required: [from, to, points]
+            properties:
+                from: { type: string, example: '2026-03' }
+                to: { type: string, example: '2026-05' }
+                points:
+                    type: array
+                    items:
+                        type: object
+                        required:
+                            - month
+                            - kind
+                            - accounts
+                            - accountsTotalCents
+                            - cardDebtCents
+                            - unassignedCardDebtCents
+                            - cardDueCents
+                            - consolidatedCents
+                        properties:
+                            month: { type: string, example: '2026-03' }
+                            kind:
+                                type: string
+                                enum: [REALIZED, FORECAST]
+                                description: |
+                                    `REALIZED` para meses inteiramente passados; `FORECAST` para o
+                                    corrente e os seguintes.
+                            accounts:
+                                type: array
+                                items:
+                                    type: object
+                                    required: [bankAccountId, balanceCents]
+                                    properties:
+                                        bankAccountId: { type: string, format: uuid }
+                                        balanceCents:
+                                            type: integer
+                                            description: Saldo realizado ou previsto no fim do mês.
+                                        pendingEarningsCents:
+                                            type: integer
+                                            description: |
+                                                Só em `FORECAST`: receitas pendentes do mês (no mês
+                                                corrente, também as de data passada).
+                                        pendingExpensesCents:
+                                            type: integer
+                                            description: |
+                                                Só em `FORECAST`: despesas de conta pendentes do mês.
+                                        cardDebtCents:
+                                            type: integer
+                                            description: |
+                                                Só em `FORECAST`: dívida dos cartões que a conta
+                                                paga. Negativa quando há crédito.
+                                        balanceAfterCardsCents:
+                                            type: integer
+                                            description: |
+                                                Só em `FORECAST`: `balanceCents - cardDebtCents`.
+                            accountsTotalCents:
+                                type: integer
+                                description: Soma de `balanceCents` das contas do ponto.
+                            cardDebtCents:
+                                type: integer
+                                nullable: true
+                                description: |
+                                    Dívida de todos os cartões. Nulo em `REALIZED` e com
+                                    `bankAccountId`.
+                            unassignedCardDebtCents:
+                                type: integer
+                                nullable: true
+                                description: |
+                                    Dívida dos cartões sem conta pagadora. Nulo em `REALIZED` e
+                                    com `bankAccountId`.
+                            cardDueCents:
+                                type: integer
+                                nullable: true
+                                description: |
+                                    Dívida das faturas que vencem no mês. Nulo em `REALIZED` e
+                                    com `bankAccountId`.
+                            consolidatedCents:
+                                type: integer
+                                nullable: true
+                                description: |
+                                    `accountsTotalCents - cardDebtCents`. Nulo com
+                                    `bankAccountId`.
 
         Error:
             type: object

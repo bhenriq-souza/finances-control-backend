@@ -327,12 +327,13 @@ do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma reg
       do cartão (emenda à spec 0011) e default de conta no pagamento de fatura (spec 0013)
     - Where: `src/accounts/`, `src/statements/`, `src/platform/database/migrations/`
     - Done when: `AC-0011-16` coberto; o default de conta do pagamento coberto (spec 0013, Pagamento)
-- [ ] **T-0015-02 — Saldo previsto, dívida dos cartões e série mensal** · #82
-    - What: `GET /reports/balance`, com o previsto por conta, a dívida dos cartões sobre
-      `StatementService.list` (exportado pelo `statements`) e o consolidado mês a mês
-    - Where: `src/reporting/`, `src/statements/index.ts`, `src/api.config.ts`
-    - Done when: `AC-0015-02` a `AC-0015-06` e `AC-0015-13` cobertos; `INV-0015-05` e `INV-0015-06`
-      verificados
+- [x] **T-0015-02 — Saldo previsto, dívida dos cartões e série mensal** · #82
+    - What: `GET /reports/balance`, com o previsto por conta (transferências agendadas inclusive,
+      emenda da spec 0018), a dívida dos cartões sobre `StatementService.list` (exportado pelo
+      `statements`), o consolidado mês a mês e o contrato de `/reports/balance` no `openapi.yaml`
+    - Where: `src/reporting/`, `src/api.config.ts`, `docs/openapi.yaml`
+    - Done when: `AC-0015-02` a `AC-0015-06` e `AC-0015-13` cobertos, mais os casos de
+      `/reports/balance` em `AC-0015-10` e `AC-0015-11`; `INV-0015-05` e `INV-0015-06` verificados
 - [x] **T-0015-03 — Relatórios por tipo** · #83
     - What: `GET /reports/expenses-by-type` e `GET /reports/earnings-by-type`, por mês e tipo,
       com `includeForecast` e os estornos à parte
