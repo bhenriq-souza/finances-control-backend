@@ -8,12 +8,14 @@ export { ByTypeReportService } from './by-type.service';
 export { ForecastBalanceService } from './forecast-balance.service';
 export { CardDebtService } from './card-debt.service';
 export { BalanceReportService } from './balance-report.service';
+export { CashFlowReportService } from './cash-flow.service';
 export { ReportController } from './report.controller';
 export { ReportRoutes } from './report.routes';
 export {
     BalanceReportServiceSymbol,
     ByTypeReportServiceSymbol,
     CardDebtServiceSymbol,
+    CashFlowReportServiceSymbol,
     ForecastBalanceServiceSymbol,
     RealizedBalanceServiceSymbol,
     ReportControllerSymbol,

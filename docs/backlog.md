@@ -339,12 +339,13 @@ do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma reg
       com `includeForecast` e os estornos à parte
     - Where: `src/reporting/`
     - Done when: `AC-0015-07` e `AC-0015-08` cobertos; `INV-0015-07` verificado
-- [ ] **T-0015-04 — Fluxo de caixa, validação, autorização e OpenAPI** · #84
-    - What: `GET /reports/cash-flow`, a validação comum dos parâmetros, as guardas de perfil e o
-      contrato dos quatro relatórios no `openapi.yaml`
+- [x] **T-0015-04 — Fluxo de caixa, validação, autorização e OpenAPI** · #84
+    - What: `GET /reports/cash-flow` com as colunas de transferência (emenda da spec 0018), a
+      validação comum dos parâmetros, as guardas de perfil e o contrato dos relatórios por tipo e
+      do fluxo de caixa no `openapi.yaml`
     - Where: `src/reporting/`, `docs/openapi.yaml`
-    - Done when: `AC-0015-09` a `AC-0015-11` cobertos; última tarefa: fecha FCB-012 e muda o
-      `status` para `implemented`
+    - Done when: `AC-0015-09` a `AC-0015-11` cobertos (os casos de `/reports/balance` são da T-0015-02);
+      última tarefa: fecha FCB-012 e muda o `status` para `implemented`
 
 ## Jobs e recorrência
 
@@ -404,9 +405,9 @@ da spec 0004 implementada; a parte de relatórios, da spec 0015.
     - Done when: `AC-0018-06`, `AC-0018-11` e `AC-0018-12` cobertos; `INV-0018-06` e `INV-0018-08`
       verificados
 - [ ] **T-0018-03 — Transferências nos relatórios** · #96
-    - What: o quarto caminho no saldo realizado, as agendadas no previsto e as colunas de
-      transferência no fluxo de caixa da spec 0015
-    - Where: `src/reporting/`, `docs/openapi.yaml`
+    - What: o quarto caminho no saldo realizado e a verificação das transferências no previsto e
+      no fluxo de caixa, que já as somam desde as T-0015-02 e T-0015-04
+    - Where: `src/reporting/`
     - Done when: `AC-0018-08` a `AC-0018-10` cobertos; `INV-0018-07` verificado; última tarefa:
       fecha FCB-018 e muda o `status` para `implemented`
 

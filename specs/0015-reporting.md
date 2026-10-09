@@ -1,7 +1,7 @@
 ---
 id: '0015'
 title: Reporting — saldo realizado, saldo previsto e relatórios
-status: approved
+status: implemented
 depends_on: ['0000', '0003', '0010', '0011', '0012', '0013', '0014']
 ---
 
