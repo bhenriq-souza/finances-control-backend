@@ -48,10 +48,13 @@ As duas primeiras chegam do GCP Secret Manager por ExternalSecret, na convençã
 
 ### Projeto Firebase
 
-A identidade vive no projeto Firebase **`homelab-492918`**, o mesmo projeto GCP do cluster, por
-decisão do responsável em 2026-10-10. Ele substitui o `financial-control-472211`, que o
-`T-0010-06` usou. Em `dev`, `FIREBASE_PROJECT_ID` vale `homelab-492918`, e a service account do
-`firebase-admin` é desse projeto.
+A identidade de `dev` vive no projeto Firebase próprio da plataforma, o **`dev-financial-control`**,
+por decisão do responsável em 2026-10-10
+([ADR-0009](https://github.com/bhenriq-souza/finances-control/blob/main/docs/adr/ADR-0009-firebase-project.md)).
+Ele substitui o `financial-control-472211`, que o `T-0010-06` usou. Em `dev`,
+`FIREBASE_PROJECT_ID` vale `dev-financial-control`, e a service account do `firebase-admin` é
+desse projeto. A chave continua no Secret Manager do `homelab-492918`, como versão 2 de
+`homelab-dev-finances-firebase-service-account`.
 
 Os UIDs mudam de um projeto para o outro, e quem já tem linha em `users` volta com outro UID e o
 mesmo email. Isso se resolve pelo re-vínculo do provisionamento (INV-0010-11), sem script
@@ -248,8 +251,8 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
   linha existente não muda.
 - **AC-0010-17:** `UserResponse` traz `emailVerified`, que acompanha a claim do último token do
   usuário. O contrato no `openapi.yaml` declara o campo.
-- **AC-0010-18:** em `dev`, com `FIREBASE_PROJECT_ID=homelab-492918`, um token emitido pelo projeto
-  `homelab-492918` recebe `200` em `GET /users/me`. Um token do projeto anterior recebe
+- **AC-0010-18:** em `dev`, com `FIREBASE_PROJECT_ID=dev-financial-control`, um token emitido pelo
+  projeto `dev-financial-control` recebe `200` em `GET /users/me`. Um token do projeto anterior recebe
   `401 UNAUTHENTICATED` (ERR-0010-02). A evidência vai colada no PR.
 
 ## Test mapping
