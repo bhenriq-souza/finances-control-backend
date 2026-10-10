@@ -81,11 +81,46 @@ dependência: o envelope e o dispatcher antes do escopo de transação, e os doi
     - Done when: `AC-0004-10` e `AC-0004-11` cobertos; `INV-0004-07` e `INV-0004-10` verificados;
       última tarefa da spec: fecha FCB-014 e muda o `status` para `implemented`
 
+## Plataforma HTTP
+
+Tarefas da [spec 0005](../specs/0005-http-platform.md), que fecha a issue de entrega
+[FCB-020](https://github.com/bhenriq-souza/finances-control-backend/issues/158) e prepara a API para o
+frontend da Fase 3. Ordem por dependência: os erros de protocolo antes do contrato que os enumera, o
+contrato antes do prefixo, e o prefixo publicado no código antes do ingress.
+
+- [ ] **T-0005-01 — Erros de protocolo em JSON** · #159
+    - What: `INVALID_JSON` e `PAYLOAD_TOO_LARGE` no handler global, pelo `type` do erro do
+      body-parser, e o catch-all `ROUTE_NOT_FOUND` em `src/app.ts`, entre os módulos e os error handlers
+    - Where: `src/platform/middlewares/error-handler.middleware.ts`, `src/app.ts`, `tests/platform/http/`
+    - Done when: `AC-0005-01`, `AC-0005-02`, `AC-0005-03` e `AC-0005-06` cobertos; `INV-0005-01` verificado
+- [ ] **T-0005-02 — Contrato de erros no OpenAPI** · #160
+    - What: `ErrorCode`, `ValidationError`, as respostas reutilizáveis, `401`/`403` em toda operação
+      que os devolve, `checks.jobs` no `ReadinessReport` e as verificações no teste de contrato
+    - Where: `docs/openapi.yaml`, `tests/openapi.spec.ts`, `docs/postman/` (se a collection mudar)
+    - Done when: `AC-0005-04`, `AC-0005-05` e `AC-0005-07` cobertos; `INV-0005-02` e `INV-0005-03`
+      verificados; se a revisão da spec 0010 entrar antes, `EMAIL_NOT_VERIFIED` já está no enum
+- [ ] **T-0005-03 — Prefixo `/api` no contrato, no Postman e no Swagger** · #161
+    - What: `servers` Dev com `/api`, o ambiente `dev` de `scripts/postman.mjs` e a collection
+      regenerada, e o redirect de `/docs` que respeita `X-Forwarded-Prefix: /api`
+    - Where: `docs/openapi.yaml`, `scripts/postman.mjs`, `docs/postman/`, `src/app.ts`, `tests/platform/http/`
+    - Done when: `AC-0005-08` e `AC-0005-09` cobertos; `INV-0005-04` e `INV-0005-05` verificados
+- [ ] **T-0005-04 — Ingress `/api` com `stripPrefix` no cluster** · #162
+    - What: `Middleware` `finances-backend-strip-api` e `Ingress` `finances-backend-api` no
+      `homelab-gitops`, mantendo a regra `/` atual; executada pelo líder, como a cluster part da
+      spec 0017, depois que a anterior estiver em `dev`
+    - Where: `homelab-gitops`, `clusters/homelab/workloads/dev/manifests/finances-backend/`; evidência no PR deste repositório
+    - Done when: `AC-0005-10` verificado em `dev`; última tarefa da spec: fecha FCB-020 e muda o
+      `status` para `implemented`
+
 ## Identity (F001)
 
 Tarefas da [spec 0010](../specs/0010-identity.md), que fecha a issue de entrega
 [FCB-007](https://github.com/bhenriq-souza/finances-control-backend/issues/7). Ordem por dependência:
 o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
+
+A revisão de 2026-10-10 reabriu a entrega com duas tarefas: o email verificado, que protege o
+bootstrap e permite o re-vínculo, e a troca do projeto Firebase para `homelab-492918`, que depende
+do re-vínculo já estar em `dev`.
 
 - [x] **T-0010-01 — Tabela `users` e migration**
     - What: entidade `User` no módulo `identity`, com o perfil como `text` sob CHECK, e a migration
@@ -121,6 +156,21 @@ o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
     - Done when: a aplicação em `dev` autentica uma requisição real e `GET /users/me` responde,
       respeitando `INV-0003-07`; por ser a última tarefa da spec, fecha FCB-007 e muda o `status` da
       spec 0010 para `implemented`
+- [ ] **T-0010-07 — Email verificado, re-vínculo por email e bootstrap só com email verificado** · #163
+    - What: `emailVerified` no `VerifiedToken`, a coluna `email_verified` com migration, o
+      re-vínculo do provisionamento, o erro `EMAIL_NOT_VERIFIED`, a condição nova do bootstrap e
+      `emailVerified` no `UserResponse` e no contrato
+    - Where: `src/identity/`, `src/platform/database/migrations/`, `docs/openapi.yaml`
+    - Done when: `AC-0010-14` a `AC-0010-17` cobertos; `INV-0010-10` e `INV-0010-11` verificados
+- [ ] **T-0010-08 — Projeto Firebase `homelab-492918` em `dev`** · #164
+    - What: trocar `FIREBASE_PROJECT_ID` no deployment e o projeto citado no README do Postman,
+      depois dos pré-requisitos do responsável e com a tarefa anterior já em `dev`; executada pelo líder
+    - Where: `homelab-gitops` (deployment do `finances-backend`), `docs/postman/README.md`
+    - Done when: `AC-0010-18` verificado em `dev`, com o re-vínculo do `INV-0010-11` observado no
+      primeiro acesso; última tarefa da revisão: fecha FCB-007 e devolve o `status` a `implemented`
+    - Pré-requisitos do responsável: Firebase ativado no projeto `homelab-492918`, provedores
+      email/senha e Google, `finances.dev.homelab.local` nos domínios autorizados e uma nova versão
+      do secret `homelab-dev-finances-firebase-service-account` com a service account desse projeto
 
 ## Accounts (F002)
 
