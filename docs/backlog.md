@@ -88,23 +88,23 @@ Tarefas da [spec 0005](../specs/0005-http-platform.md), que fecha a issue de ent
 frontend da Fase 3. Ordem por dependência: os erros de protocolo antes do contrato que os enumera, o
 contrato antes do prefixo, e o prefixo publicado no código antes do ingress.
 
-- [ ] **T-0005-01 — Erros de protocolo em JSON**
+- [ ] **T-0005-01 — Erros de protocolo em JSON** · #159
     - What: `INVALID_JSON` e `PAYLOAD_TOO_LARGE` no handler global, pelo `type` do erro do
       body-parser, e o catch-all `ROUTE_NOT_FOUND` em `src/app.ts`, entre os módulos e os error handlers
     - Where: `src/platform/middlewares/error-handler.middleware.ts`, `src/app.ts`, `tests/platform/http/`
     - Done when: `AC-0005-01`, `AC-0005-02`, `AC-0005-03` e `AC-0005-06` cobertos; `INV-0005-01` verificado
-- [ ] **T-0005-02 — Contrato de erros no OpenAPI**
+- [ ] **T-0005-02 — Contrato de erros no OpenAPI** · #160
     - What: `ErrorCode`, `ValidationError`, as respostas reutilizáveis, `401`/`403` em toda operação
       que os devolve, `checks.jobs` no `ReadinessReport` e as verificações no teste de contrato
     - Where: `docs/openapi.yaml`, `tests/openapi.spec.ts`, `docs/postman/` (se a collection mudar)
     - Done when: `AC-0005-04`, `AC-0005-05` e `AC-0005-07` cobertos; `INV-0005-02` e `INV-0005-03`
       verificados; se a revisão da spec 0010 entrar antes, `EMAIL_NOT_VERIFIED` já está no enum
-- [ ] **T-0005-03 — Prefixo `/api` no contrato, no Postman e no Swagger**
+- [ ] **T-0005-03 — Prefixo `/api` no contrato, no Postman e no Swagger** · #161
     - What: `servers` Dev com `/api`, o ambiente `dev` de `scripts/postman.mjs` e a collection
       regenerada, e o redirect de `/docs` que respeita `X-Forwarded-Prefix: /api`
     - Where: `docs/openapi.yaml`, `scripts/postman.mjs`, `docs/postman/`, `src/app.ts`, `tests/platform/http/`
     - Done when: `AC-0005-08` e `AC-0005-09` cobertos; `INV-0005-04` e `INV-0005-05` verificados
-- [ ] **T-0005-04 — Ingress `/api` com `stripPrefix` no cluster**
+- [ ] **T-0005-04 — Ingress `/api` com `stripPrefix` no cluster** · #162
     - What: `Middleware` `finances-backend-strip-api` e `Ingress` `finances-backend-api` no
       `homelab-gitops`, mantendo a regra `/` atual; executada pelo líder, como a cluster part da
       spec 0017, depois que a anterior estiver em `dev`
@@ -156,13 +156,13 @@ do re-vínculo já estar em `dev`.
     - Done when: a aplicação em `dev` autentica uma requisição real e `GET /users/me` responde,
       respeitando `INV-0003-07`; por ser a última tarefa da spec, fecha FCB-007 e muda o `status` da
       spec 0010 para `implemented`
-- [ ] **T-0010-07 — Email verificado, re-vínculo por email e bootstrap só com email verificado**
+- [ ] **T-0010-07 — Email verificado, re-vínculo por email e bootstrap só com email verificado** · #163
     - What: `emailVerified` no `VerifiedToken`, a coluna `email_verified` com migration, o
       re-vínculo do provisionamento, o erro `EMAIL_NOT_VERIFIED`, a condição nova do bootstrap e
       `emailVerified` no `UserResponse` e no contrato
     - Where: `src/identity/`, `src/platform/database/migrations/`, `docs/openapi.yaml`
     - Done when: `AC-0010-14` a `AC-0010-17` cobertos; `INV-0010-10` e `INV-0010-11` verificados
-- [ ] **T-0010-08 — Projeto Firebase `homelab-492918` em `dev`**
+- [ ] **T-0010-08 — Projeto Firebase `homelab-492918` em `dev`** · #164
     - What: trocar `FIREBASE_PROJECT_ID` no deployment e o projeto citado no README do Postman,
       depois dos pré-requisitos do responsável e com a tarefa anterior já em `dev`; executada pelo líder
     - Where: `homelab-gitops` (deployment do `finances-backend`), `docs/postman/README.md`
