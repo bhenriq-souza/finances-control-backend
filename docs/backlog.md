@@ -104,7 +104,7 @@ contrato antes do prefixo, e o prefixo publicado no código antes do ingress.
       regenerada, e o redirect de `/docs` que respeita `X-Forwarded-Prefix: /api`
     - Where: `docs/openapi.yaml`, `scripts/postman.mjs`, `docs/postman/`, `src/app.ts`, `tests/platform/http/`
     - Done when: `AC-0005-08` e `AC-0005-09` cobertos; `INV-0005-04` e `INV-0005-05` verificados
-- [ ] **T-0005-04 — Ingress `/api` com `stripPrefix` no cluster** · #162
+- [x] **T-0005-04 — Ingress `/api` com `stripPrefix` no cluster** · #162
     - What: `Middleware` `finances-backend-strip-api` e `Ingress` `finances-backend-api` no
       `homelab-gitops`, mantendo a regra `/` atual; executada pelo líder, como a cluster part da
       spec 0017, depois que a anterior estiver em `dev`
