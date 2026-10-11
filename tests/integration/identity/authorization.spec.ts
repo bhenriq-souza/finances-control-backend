@@ -138,6 +138,7 @@ describe('autorização nas rotas de usuário (spec 0010)', () => {
             expect(Object.keys(response.body.data[0])).toEqual([
                 'id',
                 'email',
+                'emailVerified',
                 'name',
                 'profile',
                 'profileGrantedAt',

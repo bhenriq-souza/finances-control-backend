@@ -2654,7 +2654,7 @@ components:
 
         UserResponse:
             type: object
-            required: [id, email, name, profile, profileGrantedAt, createdAt]
+            required: [id, email, emailVerified, name, profile, profileGrantedAt, createdAt]
             properties:
                 id:
                     type: string
@@ -2662,6 +2662,9 @@ components:
                 email:
                     type: string
                     format: email
+                emailVerified:
+                    type: boolean
+                    description: Claim `email_verified` do último token do usuário.
                 name:
                     type: string
                 profile:

@@ -2,6 +2,8 @@
 export type VerifiedToken = {
     uid: string;
     email: string;
+    /** Claim `email_verified` do token; ausente conta como `false`. */
+    emailVerified: boolean;
     name: string | null;
 };
 

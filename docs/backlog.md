@@ -156,7 +156,7 @@ do re-vínculo já estar em `dev`.
     - Done when: a aplicação em `dev` autentica uma requisição real e `GET /users/me` responde,
       respeitando `INV-0003-07`; por ser a última tarefa da spec, fecha FCB-007 e muda o `status` da
       spec 0010 para `implemented`
-- [ ] **T-0010-07 — Email verificado, re-vínculo por email e bootstrap só com email verificado** · #163
+- [x] **T-0010-07 — Email verificado, re-vínculo por email e bootstrap só com email verificado** · #163
     - What: `emailVerified` no `VerifiedToken`, a coluna `email_verified` com migration, o
       re-vínculo do provisionamento, o erro `EMAIL_NOT_VERIFIED`, a condição nova do bootstrap e
       `emailVerified` no `UserResponse` e no contrato

@@ -17,6 +17,7 @@ const envWith = (bootstrap?: string): IEnvService => ({
 const token = (overrides: Partial<VerifiedToken> = {}): VerifiedToken => ({
     uid: 'firebase-uid-1',
     email: 'pessoa@exemplo.com',
+    emailVerified: true,
     name: 'Pessoa Comum',
     ...overrides,
 });
@@ -183,6 +184,86 @@ describe('provisionamento no primeiro acesso (spec 0010)', () => {
             const user = await serviceWith(BOOTSTRAP_EMAIL).provision(token());
 
             expect(user.profile).toBeNull();
+        });
+    });
+
+    describe('email verificado e re-vínculo (spec 0010)', () => {
+        const unverifiedOwner = token({
+            uid: 'uid-do-dono',
+            email: BOOTSTRAP_EMAIL,
+            emailVerified: false,
+        });
+
+        it('não promove o email de bootstrap sem verificação (AC-0010-14, INV-0010-10)', async () => {
+            const user = await serviceWith(BOOTSTRAP_EMAIL).provision(unverifiedOwner);
+
+            expect(user.profile).toBeNull();
+            expect(user.profileGrantedAt).toBeNull();
+            expect(user.emailVerified).toBe(false);
+        });
+
+        it('promove no primeiro acesso depois da verificação (AC-0010-14)', async () => {
+            await serviceWith(BOOTSTRAP_EMAIL).provision(unverifiedOwner);
+
+            const promoted = await serviceWith(BOOTSTRAP_EMAIL).provision({
+                ...unverifiedOwner,
+                emailVerified: true,
+            });
+
+            expect(promoted.profile).toBe('ADMIN');
+            expect(promoted.profileGrantedById).toBeNull();
+            expect(promoted.emailVerified).toBe(true);
+        });
+
+        it('re-vincula o UID novo à linha existente, mantendo id e perfil (AC-0010-15)', async () => {
+            const original = await serviceWith().provision(token({ uid: 'uid-antigo' }));
+            await users.update({ id: original.id }, { profile: 'BILLER' });
+
+            const relinked = await serviceWith().provision(token({ uid: 'uid-novo' }));
+
+            expect(relinked).toMatchObject({
+                id: original.id,
+                profile: 'BILLER',
+                firebaseUid: 'uid-novo',
+            });
+            await expect(users.count()).resolves.toBe(1);
+            await expect(users.findOneByOrFail({ id: original.id })).resolves.toMatchObject({
+                firebaseUid: 'uid-novo',
+            });
+        });
+
+        it('recusa UID novo com email não verificado e não muda a linha (AC-0010-16, INV-0010-11, ERR-0010-11)', async () => {
+            const original = await serviceWith().provision(token({ uid: 'uid-antigo' }));
+
+            await expect(
+                serviceWith().provision(token({ uid: 'uid-novo', emailVerified: false })),
+            ).rejects.toMatchObject({ status: 403, code: 'EMAIL_NOT_VERIFIED' });
+
+            const stored = await users.findOneByOrFail({ id: original.id });
+            expect(stored.firebaseUid).toBe('uid-antigo');
+            expect(stored.emailVerified).toBe(true);
+            expect(stored.updatedAt).toEqual(original.updatedAt);
+        });
+
+        it('acompanha a claim email_verified do último token (AC-0010-17)', async () => {
+            const first = await serviceWith().provision(token({ emailVerified: false }));
+            expect(first.emailVerified).toBe(false);
+
+            const verified = await serviceWith().provision(token({ emailVerified: true }));
+            expect(verified.emailVerified).toBe(true);
+
+            const again = await serviceWith().provision(token({ emailVerified: false }));
+            expect(again.emailVerified).toBe(false);
+        });
+
+        it('re-vínculo com bootstrap verificado promove a linha existente', async () => {
+            await serviceWith().provision(token({ uid: 'uid-antigo', email: BOOTSTRAP_EMAIL }));
+
+            const relinked = await serviceWith(BOOTSTRAP_EMAIL).provision(
+                token({ uid: 'uid-novo', email: BOOTSTRAP_EMAIL }),
+            );
+
+            expect(relinked).toMatchObject({ firebaseUid: 'uid-novo', profile: 'ADMIN' });
         });
     });
 

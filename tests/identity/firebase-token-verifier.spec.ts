@@ -75,11 +75,13 @@ describe('FirebaseTokenVerifier', () => {
                 uid: 'firebase-uid',
                 email: '  Bruno@Exemplo.COM ',
                 name: '  Bruno Souza  ',
+                email_verified: true,
             });
 
             await expect(verifier.verify('token')).resolves.toEqual({
                 uid: 'firebase-uid',
                 email: 'bruno@exemplo.com',
+                emailVerified: true,
                 name: 'Bruno Souza',
             });
         });
@@ -89,6 +91,21 @@ describe('FirebaseTokenVerifier', () => {
 
             await expect(verifier.verify('token')).resolves.toMatchObject({ name: null });
         });
+
+        it.each([[undefined], [false]])(
+            'trata a claim email_verified %p como email não verificado (AC-0010-17)',
+            async (claim) => {
+                const verifier = verifierThatReturns({
+                    uid: 'u',
+                    email: 'a@b.com',
+                    email_verified: claim,
+                });
+
+                await expect(verifier.verify('token')).resolves.toMatchObject({
+                    emailVerified: false,
+                });
+            },
+        );
 
         it('recusa token sem email: sem ele não há como identificar o usuário', async () => {
             const verifier = verifierThatReturns({ uid: 'u' });

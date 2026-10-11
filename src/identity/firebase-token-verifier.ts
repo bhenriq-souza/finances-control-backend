@@ -16,6 +16,7 @@ import {
 type DecodedIdToken = {
     uid: string;
     email?: string;
+    email_verified?: boolean;
     name?: string;
 };
 
@@ -68,6 +69,7 @@ export class FirebaseTokenVerifier implements TokenVerifier {
         return {
             uid: decoded.uid,
             email: normalizeEmail(decoded.email),
+            emailVerified: decoded.email_verified === true,
             name: decoded.name?.trim() || null,
         };
     }
