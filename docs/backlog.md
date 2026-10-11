@@ -119,7 +119,7 @@ Tarefas da [spec 0010](../specs/0010-identity.md), que fecha a issue de entrega
 o token antes do usuário, o usuário antes do RBAC, o RBAC antes dos endpoints.
 
 A revisão de 2026-10-10 reabriu a entrega com duas tarefas: o email verificado, que protege o
-bootstrap e permite o re-vínculo, e a troca do projeto Firebase para `homelab-492918`, que depende
+bootstrap e permite o re-vínculo, e a troca do projeto Firebase para `dev-financial-control`, que depende
 do re-vínculo já estar em `dev`.
 
 - [x] **T-0010-01 — Tabela `users` e migration**
@@ -162,15 +162,15 @@ do re-vínculo já estar em `dev`.
       `emailVerified` no `UserResponse` e no contrato
     - Where: `src/identity/`, `src/platform/database/migrations/`, `docs/openapi.yaml`
     - Done when: `AC-0010-14` a `AC-0010-17` cobertos; `INV-0010-10` e `INV-0010-11` verificados
-- [ ] **T-0010-08 — Projeto Firebase `homelab-492918` em `dev`** · #164
+- [ ] **T-0010-08 — Projeto Firebase `dev-financial-control` em `dev`** · #164
     - What: trocar `FIREBASE_PROJECT_ID` no deployment e o projeto citado no README do Postman,
-      depois dos pré-requisitos do responsável e com a tarefa anterior já em `dev`; executada pelo líder
+      com a tarefa anterior já em `dev`, e reiniciar o pod para ler a versão 2 do secret; executada pelo líder
     - Where: `homelab-gitops` (deployment do `finances-backend`), `docs/postman/README.md`
     - Done when: `AC-0010-18` verificado em `dev`, com o re-vínculo do `INV-0010-11` observado no
       primeiro acesso; última tarefa da revisão: fecha FCB-007 e devolve o `status` a `implemented`
-    - Pré-requisitos do responsável: Firebase ativado no projeto `homelab-492918`, provedores
-      email/senha e Google, `finances.dev.homelab.local` nos domínios autorizados e uma nova versão
-      do secret `homelab-dev-finances-firebase-service-account` com a service account desse projeto
+    - Pré-requisitos do responsável: prontos em 2026-10-10 (FC-008 no hub). Provedores email/senha e
+      Google habilitados, `finances.dev.homelab.local` autorizado e a chave do `firebase-admin` do
+      `dev-financial-control` na versão 2 de `homelab-dev-finances-firebase-service-account`
 
 ## Accounts (F002)
 
