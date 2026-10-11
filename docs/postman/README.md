@@ -7,7 +7,7 @@ Collection e ambientes para testar a API à mão. Tudo aqui é **gerado** de
 | ------------------------------------------ | ---------------------------------------------------------- |
 | `finances-control.postman_collection.json` | Uma requisição por operação do contrato, em pastas por tag |
 | `local.postman_environment.json`           | `baseUrl` = `http://localhost:3000`                        |
-| `dev.postman_environment.json`             | `baseUrl` = `http://finances.dev.homelab.local`            |
+| `dev.postman_environment.json`             | `baseUrl` = `http://finances.dev.homelab.local/api`        |
 
 Não edite os arquivos à mão. Mudou o contrato, rode `npm run postman` e commite o resultado. O teste
 `tests/postman.spec.ts` falha se a collection estiver defasada em relação ao `openapi.yaml`.

@@ -99,7 +99,7 @@ contrato antes do prefixo, e o prefixo publicado no código antes do ingress.
     - Where: `docs/openapi.yaml`, `tests/openapi.spec.ts`, `docs/postman/` (se a collection mudar)
     - Done when: `AC-0005-04`, `AC-0005-05` e `AC-0005-07` cobertos; `INV-0005-02` e `INV-0005-03`
       verificados; se a revisão da spec 0010 entrar antes, `EMAIL_NOT_VERIFIED` já está no enum
-- [ ] **T-0005-03 — Prefixo `/api` no contrato, no Postman e no Swagger** · #161
+- [x] **T-0005-03 — Prefixo `/api` no contrato, no Postman e no Swagger** · #161
     - What: `servers` Dev com `/api`, o ambiente `dev` de `scripts/postman.mjs` e a collection
       regenerada, e o redirect de `/docs` que respeita `X-Forwarded-Prefix: /api`
     - Where: `docs/openapi.yaml`, `scripts/postman.mjs`, `docs/postman/`, `src/app.ts`, `tests/platform/http/`
