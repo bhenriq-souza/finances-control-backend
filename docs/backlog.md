@@ -88,7 +88,7 @@ Tarefas da [spec 0005](../specs/0005-http-platform.md), que fecha a issue de ent
 frontend da Fase 3. Ordem por dependência: os erros de protocolo antes do contrato que os enumera, o
 contrato antes do prefixo, e o prefixo publicado no código antes do ingress.
 
-- [ ] **T-0005-01 — Erros de protocolo em JSON** · #159
+- [x] **T-0005-01 — Erros de protocolo em JSON** · #159
     - What: `INVALID_JSON` e `PAYLOAD_TOO_LARGE` no handler global, pelo `type` do erro do
       body-parser, e o catch-all `ROUTE_NOT_FOUND` em `src/app.ts`, entre os módulos e os error handlers
     - Where: `src/platform/middlewares/error-handler.middleware.ts`, `src/app.ts`, `tests/platform/http/`

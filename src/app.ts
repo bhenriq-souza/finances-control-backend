@@ -5,6 +5,7 @@ import express, { type Express } from 'express';
 import yaml from 'js-yaml';
 import swaggerUi from 'swagger-ui-express';
 import type { ILogger } from '@bhs-dev/typescript-common-types';
+import { CustomError } from '@bhs-dev/typescript-common-errors';
 
 import { container } from './container';
 import { apiModules } from './api.config';
@@ -89,6 +90,12 @@ export class App {
         app.use('/docs', swaggerUi.serve, swaggerUi.setup(this.loadOpenApiSpec(logger)));
 
         registerApiModules(app, apiModules);
+
+        app.use((_req, _res, next) => {
+            next(
+                new CustomError(404, 'ROUTE_NOT_FOUND', 'Route not found', { exposeMessage: true }),
+            );
+        });
 
         for (const entry of errorHandlers) {
             app.use(entry.handler as express.ErrorRequestHandler);
