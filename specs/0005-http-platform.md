@@ -1,7 +1,7 @@
 ---
 id: '0005'
 title: Plataforma HTTP — erros de protocolo, contrato de erros e publicação sob /api
-status: draft
+status: approved
 depends_on: ['0002', '0003', '0010', '0017']
 ---
 
