@@ -48,6 +48,12 @@ describe('GET /health/ready (banco real)', () => {
         });
     });
 
+    it('traz `checks.jobs` com um dos três valores do contrato (AC-0005-07)', async () => {
+        const response = await request(app).get('/health/ready');
+
+        expect(['up', 'down', 'disabled']).toContain(response.body.data.checks.jobs);
+    });
+
     it('abre a conexão na própria probe, sem depender do boot (ERR-0003-02)', async () => {
         if (AppDataSource.isInitialized) await AppDataSource.destroy();
         expect(AppDataSource.isInitialized).toBe(false);
