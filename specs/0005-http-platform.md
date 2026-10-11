@@ -67,8 +67,10 @@ tratado:
         - os erros de identidade da spec 0010;
         - os da plataforma: `VALIDATION_ERROR`, `INTERNAL_ERROR`, `NOT_READY` e os três desta spec.
     - O schema `Error` passa a ter `error.code` obrigatório, com `$ref` para `ErrorCode`.
-- **`ValidationError`:** é o `Error` com `code` igual a `VALIDATION_ERROR` e `details` como lista de
-  `ValidationIssue`.
+- **`ValidationError`:** é o corpo da resposta `ValidationFailed`, o `Error` com `code` igual a
+  `VALIDATION_ERROR` ou `INVALID_JSON`.
+    - Com `VALIDATION_ERROR`, `details` é a lista de `ValidationIssue`.
+    - Com `INVALID_JSON`, não há `details` (ERR-0005-01).
     - `ValidationIssue = { path: (string | integer)[], code: string, message: string }` é o
       subconjunto estável das issues do zod.
     - Outros campos da issue podem vir (`additionalProperties: true`), mas o cliente só conta com
