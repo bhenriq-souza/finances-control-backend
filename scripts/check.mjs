@@ -56,6 +56,11 @@ const GATES = [
         command: ['node', 'scripts/check-specs.mjs'],
         available: () => needsFile('scripts/check-specs.mjs'),
     },
+    {
+        name: 'sast',
+        command: ['node', 'scripts/sast.mjs'],
+        available: () => needsFile('scripts/sast.mjs') ?? needsAnyCommand('docker', 'semgrep'),
+    },
 ];
 
 function readManifest() {
@@ -85,6 +90,14 @@ function needsFile(relativePath) {
     return existsSync(resolve(ROOT, relativePath))
         ? null
         : `${relativePath} ainda não existe neste repositório`;
+}
+
+/** Ferramenta de fora do npm: basta uma das alternativas estar no PATH. */
+function needsAnyCommand(...commands) {
+    const found = commands.some(
+        (command) => !spawnSync(command, ['--version'], { stdio: 'ignore' }).error,
+    );
+    return found ? null : `nenhuma destas ferramentas está instalada: ${commands.join(', ')}`;
 }
 
 function runGate(gate) {

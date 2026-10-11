@@ -22,6 +22,11 @@ Este arquivo é a camada de **execução**. A camada de **entrega** são as issu
     - What: com o scaffold pronto, garantir que todos os gates da spec 0002 executem de fato e passar o CI a `npm run check -- --require-tools`
     - Where: `package.json`, `.dependency-cruiser.cjs`, `.github/workflows/ci.yml`
     - Done when: `AC-0002-04` e `INV-0002-05` — nenhum gate aparece como SKIP na execução do CI
+- [x] **T-0002-04 — Gate de SAST (Semgrep) e CodeQL complementar** · #174
+    - What: gate `sast` no orquestrador, com o Semgrep CE em versão fixada pela imagem Docker, e o
+      workflow do CodeQL fora dos gates (decisão D5 do responsável, 2026-10-10)
+    - Where: `scripts/sast.mjs`, `scripts/check.mjs`, `tests/unit/scripts/`, `.github/workflows/codeql.yml`
+    - Done when: `AC-0002-05` e `AC-0002-06` cobertos; `INV-0002-06` verificado
 
 ## Persistência
 
