@@ -162,7 +162,7 @@ do re-vínculo já estar em `dev`.
       `emailVerified` no `UserResponse` e no contrato
     - Where: `src/identity/`, `src/platform/database/migrations/`, `docs/openapi.yaml`
     - Done when: `AC-0010-14` a `AC-0010-17` cobertos; `INV-0010-10` e `INV-0010-11` verificados
-- [ ] **T-0010-08 — Projeto Firebase `dev-financial-control` em `dev`** · #164
+- [x] **T-0010-08 — Projeto Firebase `dev-financial-control` em `dev`** · #164
     - What: trocar `FIREBASE_PROJECT_ID` no deployment e o projeto citado no README do Postman,
       com a tarefa anterior já em `dev`, e reiniciar o pod para ler a versão 2 do secret; executada pelo líder
     - Where: `homelab-gitops` (deployment do `finances-backend`), `docs/postman/README.md`

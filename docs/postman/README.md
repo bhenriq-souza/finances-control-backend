@@ -16,14 +16,19 @@ Não edite os arquivos à mão. Mudou o contrato, rode `npm run postman` e commi
 
 1. No Postman, importe os três arquivos (_Import_ → arraste a pasta `docs/postman/`).
 2. Escolha o ambiente (`local` ou `dev`) e preencha, em _Current value_:
-    - `firebaseApiKey`: a chave de API da Web do projeto Firebase `financial-control-472211`
+    - `firebaseApiKey`: a chave de API da Web do projeto Firebase `dev-financial-control`
       (console do Firebase → Configurações do projeto → Geral → Chave de API da Web);
     - `email` e `password`: um usuário do provedor email/senha do Firebase Authentication.
+      Usuário criado pelo console nasce com o email não verificado, e o backend só promove o
+      Admin de bootstrap ou re-vincula um usuário existente com o email verificado (spec 0010).
 3. Não exporte o ambiente preenchido de volta para o repositório: a senha e o token ficariam no
    Git. Os arquivos versionados saem sempre com esses campos vazios.
 
 `dev` só responde de dentro da rede de casa, com `finances.dev.homelab.local` resolvendo para o
 ingress do cluster. Local e dev usam o mesmo projeto Firebase; só o `baseUrl` muda.
+
+O token fica em `idToken` por até uma hora. Se algo mudar na conta do Firebase, como a verificação
+do email, apague `idToken` e `idTokenExpiresAt` para o script buscar um token novo.
 
 ## Autenticação
 
