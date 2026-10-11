@@ -24,7 +24,11 @@ const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete'];
 /** Ambientes: o nome do arquivo e o servidor do `openapi.yaml` que ele usa. */
 const ENVIRONMENTS = [
     { file: 'local', name: 'Finances Control — local', server: 'http://localhost:3000' },
-    { file: 'dev', name: 'Finances Control — dev', server: 'http://finances.dev.homelab.local' },
+    {
+        file: 'dev',
+        name: 'Finances Control — dev',
+        server: 'http://finances.dev.homelab.local/api',
+    },
 ];
 
 const doc = yaml.load(readFileSync(OPENAPI, 'utf8'));

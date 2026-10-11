@@ -16,6 +16,7 @@ import { apiModules } from '../src/api.config';
 type OpenApiDocument = {
     openapi: string;
     info: { title: string; version: string };
+    servers: { url: string; description: string }[];
     paths: Record<string, Record<string, unknown>>;
 };
 
@@ -81,6 +82,13 @@ describe('docs/openapi.yaml', () => {
     it('é um documento OpenAPI 3 com título e versão', () => {
         expect(document.openapi).toMatch(/^3\./);
         expect(document.info).toMatchObject({ title: expect.any(String) });
+    });
+
+    it('publica o servidor Dev sob /api e nenhum path conhece o prefixo (INV-0005-04)', () => {
+        expect(document.servers).toContainEqual(
+            expect.objectContaining({ url: 'http://finances.dev.homelab.local/api' }),
+        );
+        expect(Object.keys(document.paths).filter((p) => p.startsWith('/api'))).toEqual([]);
     });
 
     it('toda referência resolve', () => {

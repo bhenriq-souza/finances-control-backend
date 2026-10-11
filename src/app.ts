@@ -9,6 +9,7 @@ import type { ILogger } from '@bhs-dev/typescript-common-types';
 import { container } from './container';
 import { apiModules } from './api.config';
 import { sortMiddlewares, type MiddlewareEntry } from './platform/config/middlewares.config';
+import { docsRedirectMiddleware } from './platform/middlewares/docs-redirect.middleware';
 import { RequestContext } from './platform/context/request-context';
 import { HttpResponses } from './platform/http/http-responses';
 import { registerApiModules } from './platform/api/register-api-modules';
@@ -86,6 +87,7 @@ export class App {
             app.use(entry.handler as express.RequestHandler);
         }
 
+        app.use(docsRedirectMiddleware);
         app.use('/docs', swaggerUi.serve, swaggerUi.setup(this.loadOpenApiSpec(logger)));
 
         registerApiModules(app, apiModules);

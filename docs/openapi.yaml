@@ -10,7 +10,7 @@ info:
 servers:
     - url: http://localhost:3000
       description: Local
-    - url: http://finances.dev.homelab.local
+    - url: http://finances.dev.homelab.local/api
       description: Dev (cluster K3s homelab)
 
 tags:
