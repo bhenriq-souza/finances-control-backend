@@ -26,7 +26,7 @@ npm run start:local          # http://localhost:3000
 Um comando só, o mesmo que o CI executa:
 
 ```bash
-npm run check                    # formatação, lint, tipos, fronteiras, testes, audit, specs
+npm run check                    # formatação, lint, tipos, fronteiras, testes, audit, specs, sast
 npm run check -- --require-tools # modo estrito: gate ausente vira falha
 ```
 

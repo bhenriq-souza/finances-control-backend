@@ -39,7 +39,7 @@ Um comando só — o CI executa exatamente o mesmo (INV-0002-03):
 npm run check
 ```
 
-Ele orquestra: formatação, lint, tipos, contratos de fronteira entre módulos, testes com cobertura, auditoria de dependências e validação estrutural das specs. Detalhes e política de PASS/FAIL/SKIP na spec 0002.
+Ele orquestra: formatação, lint, tipos, contratos de fronteira entre módulos, testes com cobertura, auditoria de dependências, validação estrutural das specs e análise de segurança do código (SAST). Detalhes e política de PASS/FAIL/SKIP na spec 0002.
 
 ## Mapa do repositório
 

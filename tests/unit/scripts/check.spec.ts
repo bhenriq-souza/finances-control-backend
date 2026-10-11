@@ -17,13 +17,21 @@ describe('scripts/check.mjs', () => {
                 status: 'SKIP',
                 reason: 'package-lock.json ainda não existe neste repositório',
             });
-            expect(run.stdout).toContain('Tudo verde (6 executados, 1 pulados).');
+            expect(run.stdout).toContain('Tudo verde (7 executados, 1 pulados).');
         });
 
         it('executa de fato cada ferramenta disponível', () => {
             const { stdout } = runCheck(FULL);
 
-            for (const tool of ['prettier', 'eslint', 'tsc', 'depcruise', 'jest', 'specs']) {
+            for (const tool of [
+                'prettier',
+                'eslint',
+                'tsc',
+                'depcruise',
+                'jest',
+                'specs',
+                'sast',
+            ]) {
                 expect(stdout).toContain(`fake ${tool} executado`);
             }
         });
@@ -57,6 +65,10 @@ describe('scripts/check.mjs', () => {
                 status: 'SKIP',
                 reason: 'scripts/check-specs.mjs ainda não existe neste repositório',
             });
+            expect(run.table.sast).toEqual({
+                status: 'SKIP',
+                reason: 'scripts/sast.mjs ainda não existe neste repositório',
+            });
             expect(Object.values(run.table).every((g) => g.status === 'SKIP')).toBe(true);
             expect(run.stdout).not.toContain('fake ');
         });
@@ -71,6 +83,16 @@ describe('scripts/check.mjs', () => {
                 });
             }
             expect(run.table.specs.status).toBe('PASS');
+        });
+
+        it('sem docker nem semgrep no PATH, o sast é SKIP (ambiente)', () => {
+            const run = runCheck({ ...FULL, emptyPath: true });
+
+            expect(run.table.sast).toEqual({
+                status: 'SKIP',
+                reason: 'nenhuma destas ferramentas está instalada: docker, semgrep',
+            });
+            expect(run.stdout).not.toContain('fake sast executado');
         });
 
         it('modo normal: SKIP não afeta o código de saída', () => {
@@ -99,6 +121,7 @@ describe('scripts/check.mjs', () => {
                 ...FULL,
                 failing: ['format', 'boundaries'],
                 failingSpecs: true,
+                failingSast: true,
             });
 
             expect(run.status).toBe(1);
@@ -107,8 +130,9 @@ describe('scripts/check.mjs', () => {
             expect(run.table.boundaries.status).toBe('FAIL');
             expect(run.table.test.status).toBe('PASS');
             expect(run.table.specs.status).toBe('FAIL');
+            expect(run.table.sast.status).toBe('FAIL');
             expect(run.stdout).toContain('fake jest executado');
-            expect(run.stderr).toContain('Bloqueando: format, boundaries, specs');
+            expect(run.stderr).toContain('Bloqueando: format, boundaries, specs, sast');
         });
     });
 

@@ -1,0 +1,35 @@
+name: codeql
+
+# Análise complementar de segurança (spec 0002, "Análise de segurança do código"). Não é um
+# gate: o gate de SAST é o `sast` do orquestrador, que o ci.yml executa. O CodeQL publica
+# alertas na aba Security do repositório, com análise de fluxo de dados entre arquivos.
+
+on:
+    pull_request:
+        branches: [develop, main]
+    push:
+        branches: [develop, main]
+    schedule:
+        # Semanal, para pegar regras novas mesmo sem commit.
+        - cron: '0 9 * * 1'
+
+permissions:
+    contents: read
+    security-events: write
+
+jobs:
+    analyze:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: github/codeql-action/init@v4
+              with:
+                  languages: javascript-typescript
+                  build-mode: none
+                  queries: security-extended
+
+            - uses: github/codeql-action/analyze@v4
+              with:
+                  category: /language:javascript-typescript

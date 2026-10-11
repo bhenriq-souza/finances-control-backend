@@ -32,6 +32,11 @@ export interface FixtureOptions {
     /** Cria o `scripts/check-specs.mjs` falso (sai com 0, ou 1 se `failingSpecs`). */
     withSpecsScript?: boolean;
     failingSpecs?: boolean;
+    /** Cria o `scripts/sast.mjs` falso (sai com 0, ou 1 se `failingSast`). */
+    withSastScript?: boolean;
+    failingSast?: boolean;
+    /** Roda o orquestrador com um PATH vazio: nem `docker` nem `semgrep` são encontrados. */
+    emptyPath?: boolean;
     /** Arquivos/diretórios que os gates conferem. */
     withTsconfig?: boolean;
     withDepcruiseConfig?: boolean;
@@ -55,16 +60,19 @@ export const ALL_GATES = [
     'test',
     'audit',
     'specs',
+    'sast',
 ] as const;
 
 export type Gate = (typeof ALL_GATES)[number];
 
 /**
  * Repositório completo: nenhum gate é pulado, exceto `audit`. Não há `package-lock.json` de
- * propósito, para que o `npm audit` não toque a rede.
+ * propósito, para que o `npm audit` não toque a rede. O `sast` falso só roda porque a máquina tem
+ * `docker` ou `semgrep` no PATH, como o ambiente de desenvolvimento e o CI.
  */
 export const FULL: FixtureOptions = {
     withSpecsScript: true,
+    withSastScript: true,
     withTsconfig: true,
     withDepcruiseConfig: true,
     withSrc: true,
@@ -119,15 +127,22 @@ export function runCheck(options: FixtureOptions, args: string[] = []): CheckRun
                 `console.log('fake specs executado');\nprocess.exit(${options.failingSpecs ? 1 : 0});\n`,
             );
         }
+        if (options.withSastScript) {
+            writeFileSync(
+                join(root, 'scripts', 'sast.mjs'),
+                `console.log('fake sast executado');\nprocess.exit(${options.failingSast ? 1 : 0});\n`,
+            );
+        }
         if (options.withTsconfig) writeFileSync(join(root, 'tsconfig.json'), '{}');
         if (options.withDepcruiseConfig) writeFileSync(join(root, '.dependency-cruiser.cjs'), '');
         if (options.withSrc) mkdirSync(join(root, 'src'));
         if (options.withTests) mkdirSync(join(root, 'tests'));
 
-        const result = spawnSync('node', [join(root, 'scripts', 'check.mjs'), ...args], {
+        const result = spawnSync(process.execPath, [join(root, 'scripts', 'check.mjs'), ...args], {
             cwd: root,
             encoding: 'utf8',
             timeout: 60_000,
+            env: options.emptyPath ? { ...process.env, PATH: join(root, 'empty') } : process.env,
         });
         return {
             status: result.status,
