@@ -5,6 +5,7 @@ import type { UserProfile } from './user-profile';
 export type UserResponse = {
     id: string;
     email: string;
+    emailVerified: boolean;
     name: string;
     profile: UserProfile | null;
     profileGrantedAt: string | null;
@@ -14,6 +15,7 @@ export type UserResponse = {
 export const toUserResponse = (user: User): UserResponse => ({
     id: user.id,
     email: user.email,
+    emailVerified: user.emailVerified,
     name: user.name,
     profile: user.profile,
     profileGrantedAt: user.profileGrantedAt?.toISOString() ?? null,

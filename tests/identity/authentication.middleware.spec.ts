@@ -29,7 +29,12 @@ const build = (overrides: Partial<Deps> = {}) => {
 
     const deps: Deps = {
         tokenVerifier: {
-            verify: jest.fn().mockResolvedValue({ uid: 'uid', email: 'a@b.com', name: 'A' }),
+            verify: jest.fn().mockResolvedValue({
+                uid: 'uid',
+                email: 'a@b.com',
+                emailVerified: true,
+                name: 'A',
+            }),
         } as unknown as TokenVerifier,
         provisioning: {
             provision: jest.fn().mockResolvedValue({ id: 'user-id', profile: 'VIEWER' } as User),
@@ -151,6 +156,7 @@ describe('requireAuthentication', () => {
             expect(deps.provisioning.provision).toHaveBeenCalledWith({
                 uid: 'uid',
                 email: 'a@b.com',
+                emailVerified: true,
                 name: 'A',
             });
             expect(store).toMatchObject({ userId: 'user-id', userProfile: 'VIEWER' });

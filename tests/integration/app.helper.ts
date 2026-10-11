@@ -28,6 +28,10 @@ export const PROVIDER_DOWN_TOKEN = 'token-provedor-fora';
  * Firebase — que é o motivo de a porta `TokenVerifier` existir.
  *
  * Serve a qualquer módulo: toda rota de domínio passa pela mesma autenticação.
+ *
+ * Para os cenários de email verificado e re-vínculo, o token aceita a forma
+ * `uid~email~verificado` (`verificado` é `true` ou `false`); sem o `~`, o email
+ * sai do UID e vem verificado.
  */
 const fakeVerifier: TokenVerifier = {
     verify: (idToken: string): Promise<VerifiedToken> => {
@@ -37,10 +41,13 @@ const fakeVerifier: TokenVerifier = {
             return Promise.reject(new AuthUnavailableError('timeout'));
         }
 
+        const [uid = idToken, email, verified] = idToken.split('~');
+
         return Promise.resolve({
-            uid: idToken,
-            email: `${idToken}@exemplo.com`,
-            name: `Pessoa ${idToken}`,
+            uid,
+            email: email ?? `${uid}@exemplo.com`,
+            emailVerified: verified !== 'false',
+            name: `Pessoa ${uid}`,
         });
     },
 };

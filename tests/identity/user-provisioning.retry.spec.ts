@@ -31,7 +31,7 @@ const dataSourceThatFailsOnce = (error: unknown, result: Partial<User>) => {
     return { dataSource: { transaction } as unknown as DataSource, transaction };
 };
 
-const token = { uid: 'uid-1', email: 'pessoa@exemplo.com', name: 'Pessoa' };
+const token = { uid: 'uid-1', email: 'pessoa@exemplo.com', emailVerified: true, name: 'Pessoa' };
 
 describe('UserProvisioningService — corrida no primeiro acesso', () => {
     it('relê e segue quando perde a corrida pelo firebase_uid', async () => {

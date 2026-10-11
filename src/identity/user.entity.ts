@@ -33,6 +33,10 @@ export class User {
     @Column({ type: 'text' })
     name!: string;
 
+    /** Espelha a claim `email_verified` do último token do usuário (spec 0010). */
+    @Column({ type: 'boolean', default: false })
+    emailVerified!: boolean;
+
     /** Nulo é o estado normal de quem acabou de se cadastrar, não dado faltando. */
     @Column({ type: 'text', nullable: true })
     profile!: UserProfile | null;

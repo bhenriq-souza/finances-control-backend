@@ -143,4 +143,42 @@ describe('concessão e revogação de perfil (spec 0010)', () => {
             expect(response.status).toBe(404);
         });
     });
+
+    describe('email verificado pelo HTTP (AC-0010-15..17)', () => {
+        const me = (token: string) => request(ctx.app).get('/users/me').set('Authorization', token);
+
+        it('UserResponse traz emailVerified, acompanhando o último token (AC-0010-17)', async () => {
+            const unverified = await me('Bearer uid-x~x@exemplo.com~false');
+            expect(unverified.body.data.emailVerified).toBe(false);
+
+            const verified = await me('Bearer uid-x~x@exemplo.com~true');
+            expect(verified.body.data.emailVerified).toBe(true);
+        });
+
+        it('lista traz emailVerified de cada usuário (AC-0010-17)', async () => {
+            const response = await request(ctx.app).get('/users').set('Authorization', ADMIN);
+
+            expect(response.status).toBe(200);
+            expect(response.body.data[0]).toHaveProperty('emailVerified');
+        });
+
+        it('re-vincula UID novo com email verificado e devolve o mesmo id e perfil (AC-0010-15)', async () => {
+            await ctx.setProfile('uid-alvo', 'BILLER', adminId);
+
+            const response = await me('Bearer uid-novo~uid-alvo@exemplo.com~true');
+
+            expect(response.status).toBe(200);
+            expect(response.body.data).toMatchObject({ id: targetId, profile: 'BILLER' });
+            await expect(ctx.findByUid('uid-novo')).resolves.toMatchObject({ id: targetId });
+        });
+
+        it('recusa UID novo com email não verificado e não muda a linha (AC-0010-16)', async () => {
+            const response = await me('Bearer uid-novo~uid-alvo@exemplo.com~false');
+
+            expect(response.status).toBe(403);
+            expect(response.body.error.code).toBe('EMAIL_NOT_VERIFIED');
+            await expect(ctx.findByUid('uid-alvo')).resolves.toMatchObject({ id: targetId });
+            await expect(ctx.findByUid('uid-novo')).resolves.toBeNull();
+        });
+    });
 });
