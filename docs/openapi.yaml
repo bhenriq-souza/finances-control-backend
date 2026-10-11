@@ -87,6 +87,7 @@ paths:
                                     status: ready
                                     checks:
                                         database: up
+                                        jobs: disabled
                 '503':
                     description: Alguma dependência está indisponível
                     headers:
@@ -103,6 +104,7 @@ paths:
                                     details:
                                         checks:
                                             database: down
+                                            jobs: disabled
 
     /users/me:
         get:
@@ -179,7 +181,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/User'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -199,6 +201,8 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/User'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -228,6 +232,8 @@ paths:
                                         type: array
                                         items:
                                             $ref: '#/components/schemas/BankResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -256,7 +262,7 @@ paths:
                 '201':
                     $ref: '#/components/responses/Bank'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -290,7 +296,11 @@ paths:
                 '200':
                     $ref: '#/components/responses/Bank'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
 
@@ -309,6 +319,12 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/Bank'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
         delete:
@@ -319,6 +335,12 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/Bank'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
 
@@ -342,6 +364,8 @@ paths:
                                         type: array
                                         items:
                                             $ref: '#/components/schemas/BankAccountResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -364,7 +388,11 @@ paths:
                 '201':
                     $ref: '#/components/responses/BankAccount'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
                 '409':
@@ -381,6 +409,12 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/BankAccount'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
         patch:
@@ -412,7 +446,11 @@ paths:
                 '200':
                     $ref: '#/components/responses/BankAccount'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
                 '409':
@@ -429,6 +467,12 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/BankAccount'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
         delete:
@@ -439,6 +483,12 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/BankAccount'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
 
@@ -483,7 +533,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/BankTransferResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -507,7 +557,7 @@ paths:
                 '201':
                     $ref: '#/components/responses/BankTransfer'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -528,6 +578,8 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/BankTransfer'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -553,7 +605,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/BankTransfer'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -573,6 +625,8 @@ paths:
             responses:
                 '204':
                     description: Excluída
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -604,7 +658,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/BankTransfer'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -634,6 +688,8 @@ paths:
                                         type: array
                                         items:
                                             $ref: '#/components/schemas/CreditCardResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -657,7 +713,11 @@ paths:
                 '201':
                     $ref: '#/components/responses/CreditCard'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
                 '409':
@@ -674,6 +734,12 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/CreditCard'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
         patch:
@@ -717,7 +783,11 @@ paths:
                 '200':
                     $ref: '#/components/responses/CreditCard'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
                 '409':
@@ -734,6 +804,12 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/CreditCard'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
         delete:
@@ -744,6 +820,12 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/CreditCard'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
                 '404':
                     $ref: '#/components/responses/AccountsNotFound'
 
@@ -769,7 +851,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/EarningTypeResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -792,7 +874,7 @@ paths:
                 '201':
                     $ref: '#/components/responses/EarningType'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -821,7 +903,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/EarningType'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -847,7 +929,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/EarningType'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -864,7 +946,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/EarningType'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -927,7 +1009,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/EarningResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -964,7 +1046,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/EarningResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -986,7 +1068,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/Earning'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1022,7 +1104,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/Earning'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1047,7 +1129,7 @@ paths:
                 '204':
                     description: Excluída
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1085,7 +1167,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/EarningRecurrenceResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1103,6 +1185,8 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/EarningRecurrence'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1129,7 +1213,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/EarningRecurrence'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1159,7 +1243,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/Earning'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1191,7 +1275,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/ExpenseTypeResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1214,7 +1298,7 @@ paths:
                 '201':
                     $ref: '#/components/responses/ExpenseType'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1243,7 +1327,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/ExpenseType'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1269,7 +1353,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/ExpenseType'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1286,7 +1370,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/ExpenseType'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1351,7 +1435,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/ExpenseResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1389,7 +1473,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/ExpenseResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1410,6 +1494,8 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/Expense'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1443,7 +1529,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/Expense'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1469,6 +1555,8 @@ paths:
             responses:
                 '204':
                     description: Excluída
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1500,7 +1588,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/Expense'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1570,7 +1658,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/ExpenseResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1628,7 +1716,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/StatementResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1655,7 +1743,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/Statement'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1689,7 +1777,7 @@ paths:
                 '201':
                     $ref: '#/components/responses/Statement'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1722,7 +1810,7 @@ paths:
                 '204':
                     description: Desfeito
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1749,7 +1837,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/Statement'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1777,7 +1865,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/Statement'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1815,7 +1903,7 @@ paths:
                 '201':
                     $ref: '#/components/responses/Statement'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1844,7 +1932,7 @@ paths:
                 '204':
                     description: Desfeito
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1896,7 +1984,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/CreditCardRefundResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1925,7 +2013,7 @@ paths:
                 '201':
                     $ref: '#/components/responses/CreditCardRefund'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1947,7 +2035,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/CreditCardRefund'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1973,7 +2061,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/CreditCardRefund'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -1993,7 +2081,7 @@ paths:
                 '204':
                     description: Excluído
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -2031,7 +2119,7 @@ paths:
                                         items:
                                             $ref: '#/components/schemas/RecurrenceResponse'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -2049,6 +2137,8 @@ paths:
             responses:
                 '200':
                     $ref: '#/components/responses/ExpenseRecurrence'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -2075,7 +2165,7 @@ paths:
                 '200':
                     $ref: '#/components/responses/ExpenseRecurrence'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -2119,7 +2209,7 @@ paths:
                                     data:
                                         $ref: '#/components/schemas/BalanceReport'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -2152,7 +2242,7 @@ paths:
                                     data:
                                         $ref: '#/components/schemas/ByTypeReport'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -2183,7 +2273,7 @@ paths:
                                     data:
                                         $ref: '#/components/schemas/ByTypeReport'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -2216,7 +2306,7 @@ paths:
                                     data:
                                         $ref: '#/components/schemas/CashFlowReport'
                 '400':
-                    $ref: '#/components/responses/ValidationError'
+                    $ref: '#/components/responses/ValidationFailed'
                 '401':
                     $ref: '#/components/responses/Unauthenticated'
                 '403':
@@ -2605,12 +2695,15 @@ components:
                 application/json:
                     schema:
                         $ref: '#/components/schemas/Error'
-        ValidationError:
-            description: '`VALIDATION_ERROR`'
+        ValidationFailed:
+            description: |
+                `VALIDATION_ERROR` — o corpo, os parâmetros ou a query não passaram na validação,
+                e `details` traz a lista de issues. `INVALID_JSON` — o corpo não é JSON válido
+                (nesse caso não há `details`).
             content:
                 application/json:
                     schema:
-                        $ref: '#/components/schemas/Error'
+                        $ref: '#/components/schemas/ValidationError'
 
     headers:
         CorrelationId:
@@ -2646,11 +2739,17 @@ components:
                     enum: [ready, not-ready]
                 checks:
                     type: object
-                    required: [database]
+                    required: [database, jobs]
                     properties:
                         database:
                             type: string
                             enum: [up, down]
+                        jobs:
+                            type: string
+                            enum: [up, down, disabled]
+                            description: |
+                                Fila de jobs (spec 0017). `disabled` com `JOBS_ENABLED=false`;
+                                só `down` tira a aplicação do ar.
 
         UserResponse:
             type: object
@@ -3673,16 +3772,119 @@ components:
                                 type: integer
                                 description: Soma do `netCents` das contas; as transferências se anulam.
 
+        ErrorCode:
+            type: string
+            description: |
+                Todo código de erro que a aplicação emite, e só eles (spec 0005, INV-0005-02).
+                O `tests/openapi.spec.ts` compara este `enum` com o código-fonte.
+            enum:
+                - AUTH_UNAVAILABLE
+                - BANK_ACCOUNT_ALREADY_EXISTS
+                - BANK_ACCOUNT_ARCHIVED
+                - BANK_ACCOUNT_NOT_FOUND
+                - BANK_ALREADY_EXISTS
+                - BANK_ARCHIVED
+                - BANK_NOT_FOUND
+                - BANK_TRANSFER_ALREADY_COMPLETED
+                - BANK_TRANSFER_NOT_FOUND
+                - BANK_TRANSFER_STATUS_UNCHANGED
+                - CANNOT_CHANGE_OWN_PROFILE
+                - CREDIT_CARD_ALREADY_EXISTS
+                - CREDIT_CARD_ARCHIVED
+                - CREDIT_CARD_EXPENSE_PAID_BY_STATEMENT
+                - CREDIT_CARD_NOT_FOUND
+                - CREDIT_CARD_REFUND_NOT_FOUND
+                - EARNING_ALREADY_RECEIVED
+                - EARNING_NOT_FOUND
+                - EARNING_RECURRENCE_NOT_FOUND
+                - EARNING_STATUS_TRANSITION_NOT_ALLOWED
+                - EARNING_TYPE_ALREADY_EXISTS
+                - EARNING_TYPE_ARCHIVED
+                - EARNING_TYPE_NOT_FOUND
+                - EMAIL_NOT_VERIFIED
+                - EXPENSE_ALREADY_PAID
+                - EXPENSE_NOT_FOUND
+                - EXPENSE_RECURRENCE_NOT_FOUND
+                - EXPENSE_STATUS_TRANSITION_NOT_ALLOWED
+                - EXPENSE_TYPE_ALREADY_EXISTS
+                - EXPENSE_TYPE_ARCHIVED
+                - EXPENSE_TYPE_NOT_FOUND
+                - FORBIDDEN
+                - INTERNAL_ERROR
+                - INVALID_JSON
+                - LAST_ADMIN
+                - NOT_READY
+                - PAYLOAD_TOO_LARGE
+                - PROFILE_GUARD_WITHOUT_AUTHENTICATION
+                - PROFILE_PENDING
+                - REFUND_EXCEEDS_EXPENSE
+                - REFUND_EXPENSE_MISMATCH
+                - ROUTE_NOT_FOUND
+                - ROUTE_WITHOUT_AUTHENTICATION
+                - STATEMENT_ALREADY_PAID
+                - STATEMENT_CLOSED
+                - STATEMENT_NOT_FOUND
+                - STATEMENT_PAYMENT_EXCEEDS_REMAINING
+                - STATEMENT_PAYMENT_LOCKED
+                - STATEMENT_PAYMENT_NOT_FOUND
+                - STATEMENT_PREVIOUS_UNPAID
+                - STATEMENT_ROLLED_OVER
+                - TOKEN_EXPIRED
+                - UNAUTHENTICATED
+                - USER_NOT_FOUND
+                - VALIDATION_ERROR
+
         Error:
             type: object
             required: [error]
             properties:
                 error:
                     type: object
-                    required: [message]
+                    required: [message, code]
+                    properties:
+                        message:
+                            type: string
+                        code:
+                            $ref: '#/components/schemas/ErrorCode'
+                        details: {}
+
+        ValidationIssue:
+            type: object
+            description: |
+                Subconjunto estável das issues do zod. Outros campos podem vir, mas o
+                cliente só conta com estes três.
+            required: [path, code, message]
+            additionalProperties: true
+            properties:
+                path:
+                    type: array
+                    items:
+                        oneOf:
+                            - type: string
+                            - type: integer
+                code:
+                    type: string
+                message:
+                    type: string
+
+        ValidationError:
+            type: object
+            description: |
+                O `Error` com `code` `VALIDATION_ERROR` e a lista de issues em `details`.
+                Para `INVALID_JSON`, que a spec 0005 agrupa na mesma resposta, não há `details`.
+            required: [error]
+            properties:
+                error:
+                    type: object
+                    required: [message, code]
                     properties:
                         message:
                             type: string
                         code:
                             type: string
-                        details: {}
+                            enum: [VALIDATION_ERROR, INVALID_JSON]
+                        details:
+                            type: array
+                            description: Ausente quando `code` é `INVALID_JSON`.
+                            items:
+                                $ref: '#/components/schemas/ValidationIssue'

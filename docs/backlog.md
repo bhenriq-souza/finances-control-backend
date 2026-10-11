@@ -93,7 +93,7 @@ contrato antes do prefixo, e o prefixo publicado no código antes do ingress.
       body-parser, e o catch-all `ROUTE_NOT_FOUND` em `src/app.ts`, entre os módulos e os error handlers
     - Where: `src/platform/middlewares/error-handler.middleware.ts`, `src/app.ts`, `tests/platform/http/`
     - Done when: `AC-0005-01`, `AC-0005-02`, `AC-0005-03` e `AC-0005-06` cobertos; `INV-0005-01` verificado
-- [ ] **T-0005-02 — Contrato de erros no OpenAPI** · #160
+- [x] **T-0005-02 — Contrato de erros no OpenAPI** · #160
     - What: `ErrorCode`, `ValidationError`, as respostas reutilizáveis, `401`/`403` em toda operação
       que os devolve, `checks.jobs` no `ReadinessReport` e as verificações no teste de contrato
     - Where: `docs/openapi.yaml`, `tests/openapi.spec.ts`, `docs/postman/` (se a collection mudar)
