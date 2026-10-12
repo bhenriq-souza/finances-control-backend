@@ -169,6 +169,31 @@ describe('criação e status de /bank-transfers (spec 0018)', () => {
         expect(toMissing.body.error.code).toBe('BANK_ACCOUNT_NOT_FOUND');
     });
 
+    it('AC-0018-13: os erros de conta trazem em details o campo da conta que falhou', async () => {
+        const fromMissing = await transfer({ fromBankAccountId: MISSING });
+        const toMissing = await transfer({ toBankAccountId: MISSING });
+
+        expect(fromMissing.body.error.details).toEqual({ field: 'fromBankAccountId' });
+        expect(toMissing.body.error.details).toEqual({ field: 'toBankAccountId' });
+
+        await dataSource.query('UPDATE bank_accounts SET archived_at = now() WHERE id = $1', [
+            accountB,
+        ]);
+        const toArchived = await transfer();
+
+        expect(toArchived.status).toBe(409);
+        expect(toArchived.body.error.details).toEqual({ field: 'toBankAccountId' });
+
+        await dataSource.query('UPDATE bank_accounts SET archived_at = NULL');
+        await dataSource.query('UPDATE bank_accounts SET archived_at = now() WHERE id = $1', [
+            accountA,
+        ]);
+        const fromArchived = await transfer();
+
+        expect(fromArchived.status).toBe(409);
+        expect(fromArchived.body.error.details).toEqual({ field: 'fromBankAccountId' });
+    });
+
     it.each([
         ['zero', { amountCents: 0 }, 'amountCents'],
         ['negativo', { amountCents: -5 }, 'amountCents'],
@@ -391,6 +416,7 @@ describe('criação e status de /bank-transfers (spec 0018)', () => {
             const ghost = await patch(id, { toBankAccountId: MISSING });
             expect(ghost.status).toBe(404);
             expect(ghost.body.error.code).toBe('BANK_ACCOUNT_NOT_FOUND');
+            expect(ghost.body.error.details).toEqual({ field: 'toBankAccountId' });
 
             await dataSource.query('UPDATE bank_accounts SET archived_at = now() WHERE id = $1', [
                 accountB,
@@ -398,6 +424,7 @@ describe('criação e status de /bank-transfers (spec 0018)', () => {
             const archived = await patch(id, { toBankAccountId: accountB });
             expect(archived.status).toBe(409);
             expect(archived.body.error.code).toBe('BANK_ACCOUNT_ARCHIVED');
+            expect(archived.body.error.details).toEqual({ field: 'toBankAccountId' });
 
             expect((await patch(MISSING, { description: 'x' })).status).toBe(404);
             expect((await remove(MISSING)).status).toBe(404);

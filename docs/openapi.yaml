@@ -2493,14 +2493,17 @@ components:
                             data:
                                 $ref: '#/components/schemas/BankTransferResponse'
         BankTransferNotFound:
-            description: '`BANK_TRANSFER_NOT_FOUND` ou `BANK_ACCOUNT_NOT_FOUND`'
+            description: |
+                `BANK_TRANSFER_NOT_FOUND` ou `BANK_ACCOUNT_NOT_FOUND`; neste, `details` é
+                `{ field }` com `fromBankAccountId` ou `toBankAccountId`, a conta que falhou.
             content:
                 application/json:
                     schema:
                         $ref: '#/components/schemas/Error'
         BankTransferConflict:
             description: |
-                `BANK_ACCOUNT_ARCHIVED` ao criar ou alterar com conta arquivada;
+                `BANK_ACCOUNT_ARCHIVED` ao criar ou alterar com conta arquivada, com
+                `details` = `{ field }` (`fromBankAccountId` ou `toBankAccountId`);
                 `BANK_TRANSFER_ALREADY_COMPLETED` ao alterar contas, valor ou data, ou
                 excluir, transferência concluída; `BANK_TRANSFER_STATUS_UNCHANGED` ao
                 repetir o status atual.
