@@ -185,17 +185,17 @@ enxergá-la — o texto daquela spec é atualizado neste mesmo PR:
 
 ## Error cases
 
-| Situação                                                                           | Comportamento exigido                              |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------- |
-| **ERR-0018-01** Origem igual ao destino                                            | `400`, `VALIDATION_ERROR` citando os dois campos   |
-| **ERR-0018-02** `:id` inexistente                                                  | `404`, `BANK_TRANSFER_NOT_FOUND`                   |
-| **ERR-0018-03** Conta inexistente                                                  | `404`, `BANK_ACCOUNT_NOT_FOUND`                    |
-| **ERR-0018-04** Conta arquivada na criação ou na alteração                         | `409`, `BANK_ACCOUNT_ARCHIVED`                     |
-| **ERR-0018-05** `amountCents` ≤ 0 ou não inteiro; `completedOn` com `SCHEDULED`    | `400`, `VALIDATION_ERROR` citando o campo          |
-| **ERR-0018-06** Alterar contas, valor ou data, ou excluir, transferência concluída | `409`, `BANK_TRANSFER_ALREADY_COMPLETED`           |
-| **ERR-0018-07** `…/status` para o status atual                                     | `409`, `BANK_TRANSFER_STATUS_UNCHANGED`            |
-| **ERR-0018-08** `PATCH /:id` com `status` ou `completedOn`                         | `400`, `VALIDATION_ERROR` citando o campo recusado |
-| **ERR-0018-09** `from` > `to` na listagem                                          | `400`, `VALIDATION_ERROR`                          |
+| Situação                                                                           | Comportamento exigido                                                 |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **ERR-0018-01** Origem igual ao destino                                            | `400`, `VALIDATION_ERROR` citando os dois campos                      |
+| **ERR-0018-02** `:id` inexistente                                                  | `404`, `BANK_TRANSFER_NOT_FOUND`                                      |
+| **ERR-0018-03** Conta inexistente                                                  | `404`, `BANK_ACCOUNT_NOT_FOUND`, `details.field` com o campo da conta |
+| **ERR-0018-04** Conta arquivada na criação ou na alteração                         | `409`, `BANK_ACCOUNT_ARCHIVED`, `details.field` com o campo da conta  |
+| **ERR-0018-05** `amountCents` ≤ 0 ou não inteiro; `completedOn` com `SCHEDULED`    | `400`, `VALIDATION_ERROR` citando o campo                             |
+| **ERR-0018-06** Alterar contas, valor ou data, ou excluir, transferência concluída | `409`, `BANK_TRANSFER_ALREADY_COMPLETED`                              |
+| **ERR-0018-07** `…/status` para o status atual                                     | `409`, `BANK_TRANSFER_STATUS_UNCHANGED`                               |
+| **ERR-0018-08** `PATCH /:id` com `status` ou `completedOn`                         | `400`, `VALIDATION_ERROR` citando o campo recusado                    |
+| **ERR-0018-09** `from` > `to` na listagem                                          | `400`, `VALIDATION_ERROR`                                             |
 
 ## Acceptance criteria
 
@@ -224,16 +224,19 @@ enxergá-la — o texto daquela spec é atualizado neste mesmo PR:
   entram em A; `from > to` é `400`.
 - **AC-0018-12:** `VIEWER` lista e consulta e recebe `403 FORBIDDEN` em toda escrita; `BILLER`
   transfere; sem perfil, `403 PROFILE_PENDING` (INV-0018-08).
+- **AC-0018-13:** nos erros `BANK_ACCOUNT_NOT_FOUND` e `BANK_ACCOUNT_ARCHIVED` da criação e da
+  alteração, `details` é `{ field }`, com `fromBankAccountId` ou `toBankAccountId` conforme a conta
+  que falhou, para o cliente marcar o campo certo (ERR-0018-03, ERR-0018-04).
 
 ## Test mapping
 
-| Item                                                                       | Teste                                                               |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| AC-0018-01, INV-0018-01, INV-0018-02, INV-0018-05                          | `tests/integration/platform/database/migrations.spec.ts` (extensão) |
-| AC-0018-02 a AC-0018-05, INV-0018-03, INV-0018-04                          | `tests/integration/accounts/transfers-balance.spec.ts`              |
-| AC-0018-06, AC-0018-07, AC-0018-11, INV-0018-06, ERR-0018-01 a ERR-0018-09 | `tests/integration/accounts/transfers.spec.ts`                      |
-| AC-0018-08 a AC-0018-10, INV-0018-07                                       | `tests/integration/reporting/transfers.spec.ts`                     |
-| AC-0018-12, INV-0018-08                                                    | `tests/integration/accounts/transfers-authorization.spec.ts`        |
+| Item                                                                                   | Teste                                                               |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| AC-0018-01, INV-0018-01, INV-0018-02, INV-0018-05                                      | `tests/integration/platform/database/migrations.spec.ts` (extensão) |
+| AC-0018-02 a AC-0018-05, INV-0018-03, INV-0018-04                                      | `tests/integration/accounts/transfers-balance.spec.ts`              |
+| AC-0018-06, AC-0018-07, AC-0018-11, AC-0018-13, INV-0018-06, ERR-0018-01 a ERR-0018-09 | `tests/integration/accounts/transfers.spec.ts`                      |
+| AC-0018-08 a AC-0018-10, INV-0018-07                                                   | `tests/integration/reporting/transfers.spec.ts`                     |
+| AC-0018-12, INV-0018-08                                                                | `tests/integration/accounts/transfers-authorization.spec.ts`        |
 
 ## Open questions
 

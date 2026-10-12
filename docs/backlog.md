@@ -465,6 +465,11 @@ da spec 0004 implementada; a parte de relatórios, da spec 0015.
     - Where: `src/reporting/`
     - Done when: `AC-0018-08` a `AC-0018-10` cobertos; `INV-0018-07` verificado; última tarefa:
       fecha FCB-018 e muda o `status` para `implemented`
+- [x] **T-0018-04 — Campo da conta no `details` dos erros de transferência** · #176
+    - What: `BANK_ACCOUNT_NOT_FOUND` e `BANK_ACCOUNT_ARCHIVED` da criação e da alteração trazem
+      `details.field` com o campo da conta que falhou, para o frontend marcar De ou Para
+    - Where: `src/accounts/bank-transfer.service.ts`, `docs/openapi.yaml`
+    - Done when: `AC-0018-13` coberto; última tarefa: fecha de novo FCB-018
 
 ## Domínio
 
