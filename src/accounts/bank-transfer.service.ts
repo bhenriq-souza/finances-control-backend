@@ -282,12 +282,14 @@ export class BankTransferService {
     ): Promise<void> {
         const repository = manager.getRepository(BankAccount);
 
-        for (const id of [data.fromBankAccountId, data.toBankAccountId]) {
-            const account = await repository.findOne({ where: { id } });
+        // `details.field` diz ao cliente qual conta falhou (ERR-0018-03, ERR-0018-04).
+        for (const field of ['fromBankAccountId', 'toBankAccountId'] as const) {
+            const account = await repository.findOne({ where: { id: data[field] } });
 
             if (!account) {
                 throw CustomError.notFound('Bank account not found', 'BANK_ACCOUNT_NOT_FOUND', {
                     exposeMessage: true,
+                    details: { field },
                 });
             }
 
@@ -296,7 +298,7 @@ export class BankTransferService {
                     409,
                     'BANK_ACCOUNT_ARCHIVED',
                     'This bank account is archived',
-                    { exposeMessage: true },
+                    { exposeMessage: true, details: { field } },
                 );
             }
         }
