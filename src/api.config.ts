@@ -103,6 +103,8 @@ import {
     StatementService,
 } from './statements';
 import {
+    AccountMovementsReportService,
+    AccountMovementsReportServiceSymbol,
     BalanceReportService,
     BalanceReportServiceSymbol,
     ByTypeReportService,
@@ -353,6 +355,11 @@ export const apiModules: ApiModule[] = [
             {
                 token: CashFlowReportServiceSymbol,
                 clazz: CashFlowReportService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: AccountMovementsReportServiceSymbol,
+                clazz: AccountMovementsReportService,
                 scope: ScopeTypes.SINGLETON,
             },
             {

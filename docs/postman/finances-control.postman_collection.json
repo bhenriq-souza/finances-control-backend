@@ -1690,6 +1690,36 @@
                         },
                         "description": "O dinheiro que de fato se moveu, por mês e por conta, cada coluna pela sua data:\nreceitas `RECEIVED` por `receivedOn`, despesas de conta `PAID` por `paidOn`,\npagamentos de fatura por `paidOn` e transferências `COMPLETED` por `completedOn`.\nTodas as contas, arquivadas inclusive, aparecem em todos os meses, com zeros;\n`bankAccountId` restringe a uma. Qualquer perfil lê."
                     }
+                },
+                {
+                    "name": "Extrato de uma conta, com o saldo após cada movimento",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/reports/account-movements?bankAccountId={{bankAccountId}}&from=\"2026-03-01T00:00:00.000Z\"&to=\"2026-03-31T00:00:00.000Z\"",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["reports", "account-movements"],
+                            "query": [
+                                {
+                                    "key": "bankAccountId",
+                                    "value": "{{bankAccountId}}",
+                                    "description": "A conta do extrato; inexistente é 404."
+                                },
+                                {
+                                    "key": "from",
+                                    "value": "\"2026-03-01T00:00:00.000Z\"",
+                                    "description": "Primeiro dia, `YYYY-MM-DD`. Maior que `to`, ou janela com mais de 366 dias, é 400."
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "\"2026-03-31T00:00:00.000Z\"",
+                                    "description": "Último dia, inclusivo, `YYYY-MM-DD`."
+                                }
+                            ]
+                        },
+                        "description": "Os movimentos de **uma** conta entre `from` e `to`, inclusivos, um por lançamento,\npelos quatro caminhos do saldo realizado: receita `RECEIVED` (`receivedOn`), despesa\nde conta `PAID` (`paidOn`), pagamento de fatura (`paidOn`) e transferência\n`COMPLETED` (`completedOn`). Nada pendente, agendado ou de cartão aparece. Ordem:\ndata, criação do lançamento de origem, `sourceId`. Conta arquivada tem extrato.\n`openingBalanceCents` é o saldo realizado em `from − 1 dia` e\n`closingBalanceCents` o de `to`. Janela de no máximo 366 dias. Qualquer perfil lê."
+                    }
                 }
             ]
         }

@@ -51,6 +51,12 @@ export class ReportRoutes extends BaseRoute {
                 middlewares: read,
                 handler: this.bind(this.controller, this.controller.handleCashFlow),
             },
+            {
+                method: 'GET',
+                path: '/account-movements',
+                middlewares: read,
+                handler: this.bind(this.controller, this.controller.handleAccountMovements),
+            },
         ];
     }
 }
