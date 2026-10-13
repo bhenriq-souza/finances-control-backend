@@ -2314,6 +2314,63 @@ paths:
                 '404':
                     $ref: '#/components/responses/BankAccountNotFound'
 
+    /reports/account-movements:
+        get:
+            tags: [Reporting]
+            summary: Extrato de uma conta, com o saldo após cada movimento
+            description: |
+                Os movimentos de **uma** conta entre `from` e `to`, inclusivos, um por lançamento,
+                pelos quatro caminhos do saldo realizado: receita `RECEIVED` (`receivedOn`), despesa
+                de conta `PAID` (`paidOn`), pagamento de fatura (`paidOn`) e transferência
+                `COMPLETED` (`completedOn`). Nada pendente, agendado ou de cartão aparece. Ordem:
+                data, criação do lançamento de origem, `sourceId`. Conta arquivada tem extrato.
+                `openingBalanceCents` é o saldo realizado em `from − 1 dia` e
+                `closingBalanceCents` o de `to`. Janela de no máximo 366 dias. Qualquer perfil lê.
+            operationId: getAccountMovementsReport
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: bankAccountId
+                  in: query
+                  required: true
+                  description: A conta do extrato; inexistente é 404.
+                  schema:
+                      type: string
+                      format: uuid
+                - name: from
+                  in: query
+                  required: true
+                  description: Primeiro dia, `YYYY-MM-DD`. Maior que `to`, ou janela com mais de 366 dias, é 400.
+                  schema:
+                      type: string
+                      pattern: '^\d{4}-\d{2}-\d{2}$'
+                      example: 2026-03-01
+                - name: to
+                  in: query
+                  required: true
+                  description: Último dia, inclusivo, `YYYY-MM-DD`.
+                  schema:
+                      type: string
+                      pattern: '^\d{4}-\d{2}-\d{2}$'
+                      example: 2026-03-31
+            responses:
+                '200':
+                    description: Saldos de abertura e fechamento e os movimentos do período
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/AccountMovementsReport'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/BankAccountNotFound'
+
 components:
     parameters:
         ReportFrom:
@@ -3774,6 +3831,76 @@ components:
                             netCents:
                                 type: integer
                                 description: Soma do `netCents` das contas; as transferências se anulam.
+
+        AccountMovementsReport:
+            type: object
+            required: [bankAccountId, from, to, openingBalanceCents, closingBalanceCents, movements]
+            properties:
+                bankAccountId: { type: string, format: uuid }
+                from: { type: string, example: 2026-03-01 }
+                to: { type: string, example: 2026-03-31 }
+                openingBalanceCents:
+                    type: integer
+                    description: Saldo realizado em `from − 1 dia`.
+                closingBalanceCents:
+                    type: integer
+                    description: |
+                        Saldo realizado em `to`; igual a `openingBalanceCents` mais a soma dos
+                        `amountCents` (INV-0015-08).
+                movements:
+                    type: array
+                    items:
+                        type: object
+                        required:
+                            - date
+                            - kind
+                            - sourceId
+                            - description
+                            - typeName
+                            - creditCardId
+                            - statementId
+                            - counterpartBankAccountId
+                            - amountCents
+                            - balanceAfterCents
+                        properties:
+                            date: { type: string, example: 2026-03-10 }
+                            kind:
+                                type: string
+                                enum:
+                                    [EARNING, EXPENSE, STATEMENT_PAYMENT, TRANSFER_IN, TRANSFER_OUT]
+                            sourceId:
+                                type: string
+                                format: uuid
+                                description: Id da receita, despesa, pagamento de fatura ou transferência.
+                            description:
+                                type: string
+                                nullable: true
+                                description: Da receita, despesa ou transferência; nulo no pagamento de fatura.
+                            typeName:
+                                type: string
+                                nullable: true
+                                description: Tipo da receita ou da despesa; nulo nos demais.
+                            creditCardId:
+                                type: string
+                                nullable: true
+                                format: uuid
+                                description: Só em `STATEMENT_PAYMENT`.
+                            statementId:
+                                type: string
+                                nullable: true
+                                format: uuid
+                                description: Só em `STATEMENT_PAYMENT`; nulo também no pagamento antecipado ainda sem fatura.
+                            counterpartBankAccountId:
+                                type: string
+                                nullable: true
+                                format: uuid
+                                description: A outra conta da transferência; nulo nos demais.
+                            amountCents:
+                                type: integer
+                                description: Com sinal, positivo entra e negativo sai.
+                            balanceAfterCents:
+                                type: integer
+                                description: Saldo de abertura mais os `amountCents` até este movimento, inclusive.
 
         ErrorCode:
             type: string

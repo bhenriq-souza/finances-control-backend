@@ -9,9 +9,11 @@ export { ForecastBalanceService } from './forecast-balance.service';
 export { CardDebtService } from './card-debt.service';
 export { BalanceReportService } from './balance-report.service';
 export { CashFlowReportService } from './cash-flow.service';
+export { AccountMovementsReportService } from './account-movements.service';
 export { ReportController } from './report.controller';
 export { ReportRoutes } from './report.routes';
 export {
+    AccountMovementsReportServiceSymbol,
     BalanceReportServiceSymbol,
     ByTypeReportServiceSymbol,
     CardDebtServiceSymbol,

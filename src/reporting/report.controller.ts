@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 
 import { HttpResponses } from '../platform';
+import { accountMovementsQuerySchema } from './account-movements.schemas';
+import type { AccountMovementsReportService } from './account-movements.service';
 import { balanceQuerySchema } from './balance.schemas';
 import type { BalanceReportService } from './balance-report.service';
 import { byTypeQuerySchema } from './by-type.schemas';
@@ -9,6 +11,7 @@ import type { ByTypeReportService } from './by-type.service';
 import { cashFlowQuerySchema } from './cash-flow.schemas';
 import type { CashFlowReportService } from './cash-flow.service';
 import {
+    AccountMovementsReportServiceSymbol,
     BalanceReportServiceSymbol,
     ByTypeReportServiceSymbol,
     CashFlowReportServiceSymbol,
@@ -20,6 +23,8 @@ export class ReportController {
         @inject(ByTypeReportServiceSymbol) private readonly byType: ByTypeReportService,
         @inject(BalanceReportServiceSymbol) private readonly balance: BalanceReportService,
         @inject(CashFlowReportServiceSymbol) private readonly cashFlow: CashFlowReportService,
+        @inject(AccountMovementsReportServiceSymbol)
+        private readonly accountMovements: AccountMovementsReportService,
     ) {}
 
     async handleBalance(req: Request, res: Response): Promise<Response> {
@@ -44,5 +49,11 @@ export class ReportController {
         const query = cashFlowQuerySchema.parse(req.query);
 
         return HttpResponses.ok(res, await this.cashFlow.cashFlow(query));
+    }
+
+    async handleAccountMovements(req: Request, res: Response): Promise<Response> {
+        const query = accountMovementsQuerySchema.parse(req.query);
+
+        return HttpResponses.ok(res, await this.accountMovements.movements(query));
     }
 }

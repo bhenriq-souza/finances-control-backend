@@ -233,3 +233,87 @@ describe('GET /reports/balance', () => {
         expect(anonymous.status).toBe(401);
     });
 });
+
+describe('GET /reports/account-movements (AC-0015-16, ERR-0015-05)', () => {
+    const SCHEMA = 'test_reporting_movements_validation';
+    const ADMIN = 'Bearer uid-admin';
+    let fx: ReportingFixture;
+    let stop: () => Promise<void>;
+
+    const get = (query: string, auth: string = ADMIN) =>
+        request(fx.ctx.app).get(`/reports/account-movements${query}`).set('Authorization', auth);
+
+    const as = async (profile: 'VIEWER' | null): Promise<string> => {
+        const uid = `uid-${profile ?? 'pending'}-movements`;
+
+        await request(fx.ctx.app).get('/users/me').set('Authorization', `Bearer ${uid}`);
+        await fx.ctx.setProfile(uid, profile);
+
+        return `Bearer ${uid}`;
+    };
+
+    beforeAll(async () => {
+        await jest.isolateModulesAsync(async () => {
+            const helpers = await import('./reporting-fixtures.helper');
+            const app = await import('../app.helper');
+
+            fx = await helpers.seedReporting(SCHEMA, 100000);
+            stop = () => app.stopApp(fx.ctx, SCHEMA);
+        });
+    });
+
+    afterAll(async () => {
+        await stop?.();
+    });
+
+    it('ERR-0015-05: parâmetro ausente, data malformada, from > to e 367 dias recebem 400 citando o campo', async () => {
+        const id = fx.accountId;
+        const rejected: Array<[string, string]> = [
+            ['?from=2026-03-01&to=2026-03-31', 'bankAccountId'],
+            ['?bankAccountId=abc&from=2026-03-01&to=2026-03-31', 'bankAccountId'],
+            [`?bankAccountId=${id}&to=2026-03-31`, 'from'],
+            [`?bankAccountId=${id}&from=2026-03-01`, 'to'],
+            [`?bankAccountId=${id}&from=2026-03&to=2026-03-31`, 'from'],
+            [`?bankAccountId=${id}&from=2026-03-01&to=2026-3-31`, 'to'],
+            [`?bankAccountId=${id}&from=2026-02-30&to=2026-03-31`, 'from'],
+            [`?bankAccountId=${id}&from=2026-03-31&to=2026-03-01`, 'from'],
+            [`?bankAccountId=${id}&from=2026-01-01&to=2027-01-02`, 'to'],
+            [`?bankAccountId=${id}&from=2026-03-01&to=2026-03-31&foo=1`, 'foo'],
+        ];
+
+        for (const [query, field] of rejected) {
+            const res = await get(query);
+
+            expect([query, res.status]).toEqual([query, 400]);
+            expect(res.body.error.code).toBe('VALIDATION_ERROR');
+            expect(JSON.stringify(res.body)).toContain(field);
+        }
+    });
+
+    it('AC-0015-16: a janela de 366 dias é aceita (a de 367 é rejeitada acima)', async () => {
+        const id = fx.accountId;
+        const ok = await get(`?bankAccountId=${id}&from=2026-01-01&to=2027-01-01`);
+
+        expect(ok.status).toBe(200);
+        expect(ok.body.data.movements).toEqual([]);
+    });
+
+    it('AC-0015-16: bankAccountId inexistente recebe 404 BANK_ACCOUNT_NOT_FOUND', async () => {
+        const res = await get(`?bankAccountId=${randomUUID()}&from=2026-03-01&to=2026-03-31`);
+
+        expect(res.status).toBe(404);
+        expect(res.body.error.code).toBe('BANK_ACCOUNT_NOT_FOUND');
+    });
+
+    it('AC-0015-16: VIEWER lê; sem perfil recebe 403 PROFILE_PENDING; sem token, 401', async () => {
+        const query = `?bankAccountId=${fx.accountId}&from=2026-03-01&to=2026-03-31`;
+        const viewer = await get(query, await as('VIEWER'));
+        const pending = await get(query, await as(null));
+        const anonymous = await request(fx.ctx.app).get(`/reports/account-movements${query}`);
+
+        expect(viewer.status).toBe(200);
+        expect(pending.status).toBe(403);
+        expect(pending.body.error.code).toBe('PROFILE_PENDING');
+        expect(anonymous.status).toBe(401);
+    });
+});
