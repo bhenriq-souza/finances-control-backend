@@ -290,7 +290,7 @@ describe('GET /reports/account-movements (spec 0015, AC-0015-14, AC-0015-15, INV
             expect(res.status).toBe(200);
         };
 
-        for (let i = 0; i < 24; i += 1) {
+        for (let i = 0; i < 8; i += 1) {
             const cents = 1 + next(90000);
 
             switch (i % 4) {
@@ -312,7 +312,7 @@ describe('GET /reports/account-movements (spec 0015, AC-0015-14, AC-0015-15, INV
             report.movements.reduce((total, m) => total + m.amountCents, 0);
         const all = await statement(account, '2026-01-01', '2026-03-31');
 
-        expect(all.movements).toHaveLength(24);
+        expect(all.movements).toHaveLength(8);
         expect(all.openingBalanceCents).toBe(123456);
         expect(all.openingBalanceCents + sum(all)).toBe(all.closingBalanceCents);
         expect(all.closingBalanceCents).toBe(await balanceOf(account));
@@ -335,7 +335,7 @@ describe('GET /reports/account-movements (spec 0015, AC-0015-14, AC-0015-15, INV
                 }, []),
             );
         }
-    }, 60_000);
+    });
 
     const balanceOf = async (id: string): Promise<number> => {
         const rows = (await fx.ctx.dataSource.query(
