@@ -401,6 +401,11 @@ do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma reg
     - Where: `src/reporting/`, `docs/openapi.yaml`
     - Done when: `AC-0015-09` a `AC-0015-11` cobertos (os casos de `/reports/balance` são da T-0015-02);
       última tarefa: fecha FCB-012 e muda o `status` para `implemented`
+- [ ] **T-0015-06 — Extrato de conta** · #180
+    - What: `GET /reports/account-movements` (revisão de 2026-10-13, FCB-021), com saldos e contrato
+    - Where: `src/reporting/`, `docs/openapi.yaml`
+    - Done when: `AC-0015-14` a `AC-0015-16` cobertos; `INV-0015-08` verificado; fecha FCB-021 e
+      volta o `status` para `implemented`
 
 ## Jobs e recorrência
 

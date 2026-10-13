@@ -1,7 +1,7 @@
 ---
 id: '0015'
 title: Reporting — saldo realizado, saldo previsto e relatórios
-status: implemented
+status: approved
 depends_on: ['0000', '0003', '0010', '0011', '0012', '0013', '0014']
 ---
 
@@ -21,7 +21,8 @@ com o saldo corrente de cada conta.
 - **Em escopo:** o módulo `reporting`, somente leitura; a regra de composição de saldo; o saldo
   realizado de uma conta em qualquer data; o saldo previsto por conta e consolidado, mês a mês, com
   carry-forward e com a dívida dos cartões; os relatórios de despesas e de receitas por tipo e por
-  mês; o fluxo de caixa realizado; autorização; o contrato no `openapi.yaml`.
+  mês; o fluxo de caixa realizado; o extrato de movimentos de uma conta, com o saldo após cada
+  um; autorização; o contrato no `openapi.yaml`.
 - **Fora de escopo:** o resumo de uma fatura, que é da spec `0013`; orçamento e metas por
   categoria — citados na descrição do produto, mas sem requisito; alertas e notificações (saldo
   negativo, fatura vencida); exportação em PDF ou planilha; gráficos, que são do frontend;
@@ -171,6 +172,33 @@ transfersOutCents`. Somadas todas as contas, as transferências se anulam.
 Somado mês a mês desde o primeiro movimento, o `netCents` de uma conta mais o
 `opening_balance_cents` é o seu saldo realizado.
 
+### Extrato de conta
+
+`GET /reports/account-movements?bankAccountId=<uuid>&from=YYYY-MM-DD&to=YYYY-MM-DD` devolve os
+movimentos de **uma** conta entre `from` e `to`, inclusivos, um por lançamento, com o saldo depois
+de cada um (decisão do responsável em 2026-10-13, nos testes do frontend em `dev`). Os movimentos
+são os quatro caminhos do saldo realizado, cada um pela própria data:
+
+| `kind`              | Origem                                         | Data           | `amountCents` |
+| ------------------- | ---------------------------------------------- | -------------- | ------------- |
+| `EARNING`           | receita `RECEIVED` da conta                    | `received_on`  | `+`           |
+| `EXPENSE`           | despesa de conta `PAID`                        | `paid_on`      | `−`           |
+| `STATEMENT_PAYMENT` | pagamento de fatura pago pela conta            | `paid_on`      | `−`           |
+| `TRANSFER_IN`       | transferência `COMPLETED` com destino na conta | `completed_on` | `+`           |
+| `TRANSFER_OUT`      | transferência `COMPLETED` com origem na conta  | `completed_on` | `−`           |
+
+- **Saldos:** `openingBalanceCents = realizado(conta, from − 1 dia)` e
+  `closingBalanceCents = realizado(conta, to)`, pela fórmula do saldo realizado. O
+  `balanceAfterCents` de cada movimento é o saldo de abertura mais os `amountCents` até ele,
+  inclusive; o da última linha é igual ao `closingBalanceCents`.
+- **Ordem:** data, depois `created_at` do lançamento de origem, depois `sourceId` — estável entre
+  chamadas.
+- Nada pendente entra: receita ou despesa fora do conjunto **realizado**, transferência
+  `SCHEDULED` e despesa de cartão (que move a conta só pelo pagamento da fatura) não aparecem.
+- A conta pode estar arquivada: o extrato é histórico.
+- **Janela:** `from` e `to` obrigatórios, datas de negócio `YYYY-MM-DD`, `from ≤ to`, no máximo
+  366 dias. O frontend pede um mês por vez.
+
 ### Corpos
 
 ```
@@ -202,19 +230,39 @@ CashFlowReport {
                             transfersOutCents, netCents }],
                netCents }]
 }
+AccountMovementsReport {
+    bankAccountId, from, to,           // 'YYYY-MM-DD'
+    openingBalanceCents,
+    closingBalanceCents,
+    movements: [{
+        date,                          // 'YYYY-MM-DD'
+        kind,                          // EARNING | EXPENSE | STATEMENT_PAYMENT | TRANSFER_IN | TRANSFER_OUT
+        sourceId,                      // id da receita, despesa, pagamento de fatura ou transferência
+        description,                   // da receita, despesa ou transferência; null no pagamento de fatura
+        typeName,                      // tipo da receita ou da despesa; null nos demais
+        creditCardId,                  // só em STATEMENT_PAYMENT; null nos demais
+        statementId,                   // só em STATEMENT_PAYMENT; null também no pagamento antecipado ainda sem fatura
+        counterpartBankAccountId,      // a outra conta da transferência; null nos demais
+        amountCents,                   // com sinal: positivo entra, negativo sai
+        balanceAfterCents
+    }]
+}
 ```
+
+Todos os campos de um movimento estão sempre presentes; os que não se aplicam vêm `null`.
 
 Dinheiro em inteiro de centavos com sufixo `Cents`; somas feitas em `numeric` no banco e
 convertidas na fronteira, nunca em ponto flutuante (INV-0000-04).
 
 ### Endpoints
 
-| Método | Rota                        | Perfil   |
-| ------ | --------------------------- | -------- |
-| `GET`  | `/reports/balance`          | qualquer |
-| `GET`  | `/reports/expenses-by-type` | qualquer |
-| `GET`  | `/reports/earnings-by-type` | qualquer |
-| `GET`  | `/reports/cash-flow`        | qualquer |
+| Método | Rota                         | Perfil   |
+| ------ | ---------------------------- | -------- |
+| `GET`  | `/reports/balance`           | qualquer |
+| `GET`  | `/reports/expenses-by-type`  | qualquer |
+| `GET`  | `/reports/earnings-by-type`  | qualquer |
+| `GET`  | `/reports/cash-flow`         | qualquer |
+| `GET`  | `/reports/account-movements` | qualquer |
 
 Ler relatório é ler: qualquer perfil com acesso, como as listagens das specs 0011 a 0014.
 
@@ -241,15 +289,18 @@ Ler relatório é ler: qualquer perfil com acesso, como as listagens das specs 0
 - **INV-0015-06:** nenhuma dívida de cartão é contada duas vezes: o restante de uma fatura fechada
   entra uma vez, e o saldo anterior das projetadas não é somado.
 - **INV-0015-07:** em todo relatório, a soma das partes é igual ao total de cada mês.
+- **INV-0015-08:** o extrato fecha: `openingBalanceCents` mais a soma dos `amountCents` é igual a
+  `closingBalanceCents`, que é o saldo realizado da conta em `to`.
 
 ## Error cases
 
-| Situação                                                                    | Comportamento exigido                     |
-| --------------------------------------------------------------------------- | ----------------------------------------- |
-| **ERR-0015-01** `from` ou `to` ausente, ou fora de `YYYY-MM`; `from` > `to` | `400`, `VALIDATION_ERROR` citando o campo |
-| **ERR-0015-02** Janela com mais de 120 meses                                | `400`, `VALIDATION_ERROR`                 |
-| **ERR-0015-03** `bankAccountId` inexistente                                 | `404`, `BANK_ACCOUNT_NOT_FOUND`           |
-| **ERR-0015-04** `includeForecast` fora de `true`/`false`                    | `400`, `VALIDATION_ERROR`                 |
+| Situação                                                                                                                           | Comportamento exigido                     |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| **ERR-0015-01** `from` ou `to` ausente, ou fora de `YYYY-MM`; `from` > `to`                                                        | `400`, `VALIDATION_ERROR` citando o campo |
+| **ERR-0015-02** Janela com mais de 120 meses                                                                                       | `400`, `VALIDATION_ERROR`                 |
+| **ERR-0015-03** `bankAccountId` inexistente                                                                                        | `404`, `BANK_ACCOUNT_NOT_FOUND`           |
+| **ERR-0015-04** `includeForecast` fora de `true`/`false`                                                                           | `400`, `VALIDATION_ERROR`                 |
+| **ERR-0015-05** Extrato sem `bankAccountId`, `from` ou `to`; data fora de `YYYY-MM-DD`; `from` > `to`; janela com mais de 366 dias | `400`, `VALIDATION_ERROR` citando o campo |
 
 ## Acceptance criteria
 
@@ -285,6 +336,16 @@ Ler relatório é ler: qualquer perfil com acesso, como as listagens das specs 0
 - **AC-0015-13:** um cartão com conta pagadora A e dívida 1920 em `D` reduz o
   `balanceAfterCardsCents` de A em 1920 e não altera o de outra conta; um cartão sem conta
   pagadora entra em `unassignedCardDebtCents` e no consolidado, e em conta nenhuma.
+- **AC-0015-14:** uma conta aberta com 1000, com uma receita de 50 recebida em 20/02, uma receita
+  de 500 recebida em 10/03, uma despesa de 200 paga em 15/03, um pagamento de fatura de 100 em
+  20/03 e uma transferência de 300 concluída para outra conta em 25/03, tem no extrato de
+  01/03 a 31/03 saldo de abertura 1050, os movimentos +500 (1550), −200 (1350), −100 (1250) e
+  −300 (950), e saldo final 950, igual a `currentBalanceCents` (INV-0015-08).
+- **AC-0015-15:** no extrato, uma receita `OPEN`, uma transferência `SCHEDULED` e uma despesa de
+  cartão do período não aparecem; dois movimentos do mesmo dia saem na ordem de criação; uma conta
+  arquivada tem extrato.
+- **AC-0015-16:** o extrato com `bankAccountId` inexistente recebe `404`
+  `BANK_ACCOUNT_NOT_FOUND`; sem `from`, com `from > to` ou com 367 dias recebe `400`; `VIEWER` lê.
 
 ## Test mapping
 
@@ -297,6 +358,8 @@ Ler relatório é ler: qualquer perfil com acesso, como as listagens das specs 0
 | AC-0015-09                                        | `tests/integration/reporting/cash-flow.spec.ts`           |
 | AC-0015-10, AC-0015-11, ERR-0015-01 a ERR-0015-04 | `tests/integration/reporting/validation-and-auth.spec.ts` |
 | AC-0015-12, INV-0015-04                           | `tests/integration/reporting/precision.spec.ts`           |
+| AC-0015-14, AC-0015-15, INV-0015-08               | `tests/integration/reporting/account-movements.spec.ts`   |
+| AC-0015-16, ERR-0015-05                           | `tests/integration/reporting/validation-and-auth.spec.ts` |
 | INV-0015-01, INV-0015-02                          | gate `boundaries` e revisão em PR                         |
 
 ## Open questions
