@@ -1,7 +1,7 @@
 ---
 id: '0019'
 title: Carga inicial — dados reais de prd a partir da planilha
-status: approved
+status: implemented
 depends_on: ['0000', '0003', '0011', '0012', '0014', '0017']
 ---
 

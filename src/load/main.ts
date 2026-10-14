@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { formatValidation } from './report';
+import type { LoadServices } from './compose';
+import { formatValidation, formatWriteResult } from './report';
 import { LOAD_FILES, validateLoad, type LoadFiles } from './validate';
 
 export type CliIo = {
@@ -43,11 +44,29 @@ export function readLoadFiles(dir: string): LoadFiles {
     return files;
 }
 
+/** The database side of the load: services to write through and a way to close the connection. */
+export type LoadSession = { services: LoadServices; close: () => Promise<void> };
+
 /**
- * Runs the initial load and returns the exit code: `0` when validation passes, `1` on any error
- * (spec 0019, _Comando_). Writing is T-0019-02; until then only `--dry-run` is accepted.
+ * Opens the database only after validation passes, so a sheet with errors never needs one. The
+ * import is lazy because loading the modules builds the connection from `DATABASE_URL`.
  */
-export function runCli(argv: readonly string[], io: CliIo): number {
+const openSession = async (): Promise<LoadSession> => {
+    const { composeLoad } = await import('./compose');
+    const { AppDataSource } = await import('../platform');
+    return { services: await composeLoad(), close: () => AppDataSource.destroy() };
+};
+
+/**
+ * Runs the initial load and returns the exit code: `0` when it ends without errors, `1` otherwise
+ * (spec 0019, _Comando_). Validation runs first and stops everything on any error
+ * (INV-0019-01); then the plan is compared with the database and, without `--dry-run`, written.
+ */
+export async function runCli(
+    argv: readonly string[],
+    io: CliIo,
+    open: () => Promise<LoadSession> = openSession,
+): Promise<number> {
     const options = parseArgs(argv);
     if (!options) {
         io.err(USAGE);
@@ -66,9 +85,20 @@ export function runCli(argv: readonly string[], io: CliIo): number {
     }
     lines.forEach(io.out);
 
-    if (!options.dryRun) {
-        io.err('a gravação ainda não está disponível; rode com --dry-run');
-        return 1;
+    const { writePlan } = await import('./write');
+    const session = await open();
+    try {
+        const result = await writePlan(validation.plan, session.services, {
+            dryRun: options.dryRun,
+        });
+        const report = formatWriteResult(result, options.dryRun);
+        if (result.errors.length > 0) {
+            report.forEach(io.err);
+            return 1;
+        }
+        report.forEach(io.out);
+        return 0;
+    } finally {
+        await session.close();
     }
-    return 0;
 }

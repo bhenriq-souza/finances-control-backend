@@ -1,4 +1,5 @@
 import type { LoadError, LoadWarning, TabSummary, Validation } from './validate';
+import type { WriteResult, WriteSection } from './write';
 
 const where = (item: { file: string; line?: number; column?: string }): string => {
     const place = item.line === undefined ? item.file : `${item.file}:${item.line}`;
@@ -43,4 +44,38 @@ export function formatValidation(validation: Validation): string[] {
         ),
         ...validation.warnings.map(formatWarning),
     ];
+}
+
+const SECTION_LABELS: Record<WriteSection, string> = {
+    bancos: 'bancos',
+    contas: 'contas',
+    cartoes: 'cartões',
+    tipos_despesa: 'tipos de despesa',
+    despesas: 'despesas',
+    faturas_em_aberto: 'faturas em aberto',
+    recebimentos: 'recebimentos',
+};
+
+/**
+ * Created, already existing and archived per kind of record (spec 0019, _Relatório_). The dry
+ * run prints the same counts a real run would produce (AC-0019-03).
+ */
+export function formatWriteResult(result: WriteResult, dryRun: boolean): string[] {
+    const counts = (Object.keys(SECTION_LABELS) as WriteSection[]).map((section) => {
+        const { created, existing, archived } = result.sections[section];
+        const verb = dryRun ? 'a criar' : 'criados';
+        const base = `${SECTION_LABELS[section].padEnd(18)} ${verb}: ${String(created).padStart(3)}   já existiam: ${String(existing).padStart(3)}`;
+        return archived === undefined
+            ? base
+            : `${base}   ${dryRun ? 'a arquivar' : 'arquivados'}: ${String(archived).padStart(3)}`;
+    });
+
+    if (result.errors.length > 0) {
+        return [
+            dryRun ? 'Simulação recusada:' : 'Carga interrompida; o que já foi gravado permanece:',
+            ...result.errors.map(formatError),
+            ...(dryRun ? [] : counts),
+        ];
+    }
+    return [dryRun ? 'Simulação contra o banco (nada foi gravado):' : 'Carga gravada:', ...counts];
 }
