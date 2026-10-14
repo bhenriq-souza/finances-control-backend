@@ -9,15 +9,21 @@ export type UserResponse = {
     name: string;
     profile: UserProfile | null;
     profileGrantedAt: string | null;
+    /**
+     * `updated_at` da foto, ou nulo sem foto: o frontend sabe se há foto e quando
+     * ela mudou sem pedir os bytes (spec 0010).
+     */
+    avatarUpdatedAt: string | null;
     createdAt: string;
 };
 
-export const toUserResponse = (user: User): UserResponse => ({
+export const toUserResponse = (user: User, avatarUpdatedAt: Date | null): UserResponse => ({
     id: user.id,
     email: user.email,
     emailVerified: user.emailVerified,
     name: user.name,
     profile: user.profile,
     profileGrantedAt: user.profileGrantedAt?.toISOString() ?? null,
+    avatarUpdatedAt: avatarUpdatedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
 });

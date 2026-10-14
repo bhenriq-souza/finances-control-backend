@@ -142,6 +142,7 @@ describe('autorização nas rotas de usuário (spec 0010)', () => {
                 'name',
                 'profile',
                 'profileGrantedAt',
+                'avatarUpdatedAt',
                 'createdAt',
             ]);
         });

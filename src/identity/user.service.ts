@@ -1,10 +1,15 @@
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
-import { Not, type DataSource, type Repository } from 'typeorm';
+import { In, Not, type DataSource, type Repository } from 'typeorm';
 
 import { DatabaseConnectionSymbol } from '../platform';
+import { assertValidAvatar, type AvatarContentType } from './avatar-signature';
 import type { UserProfile } from './user-profile';
+import { UserAvatar } from './user-avatar.entity';
 import { User } from './user.entity';
+
+/** A foto como sai para o cliente: os bytes e o tipo gravado. */
+export type StoredAvatar = { content: Buffer; contentType: AvatarContentType };
 
 /**
  * Leitura e concessão de perfil (spec 0010). O perfil é o que autoriza tudo o
@@ -19,6 +24,10 @@ export class UserService {
         return this.dataSource.getRepository(User);
     }
 
+    private get avatars(): Repository<UserAvatar> {
+        return this.dataSource.getRepository(UserAvatar);
+    }
+
     async findById(id: string): Promise<User> {
         const user = await this.users.findOne({ where: { id } });
 
@@ -29,6 +38,71 @@ export class UserService {
 
     list(): Promise<User[]> {
         return this.users.find({ order: { createdAt: 'ASC' } });
+    }
+
+    /**
+     * `updated_at` da foto de cada usuário que tem uma. Lê só a data, nunca os
+     * bytes (INV-0010-14): é o que vai no `UserResponse`.
+     */
+    async avatarUpdatedAt(userIds: string[]): Promise<Map<string, Date>> {
+        if (userIds.length === 0) return new Map();
+
+        const rows = await this.avatars.find({
+            select: { userId: true, updatedAt: true },
+            where: { userId: In(userIds) },
+        });
+
+        return new Map(rows.map((row) => [row.userId, row.updatedAt]));
+    }
+
+    /**
+     * Grava ou troca a foto do próprio usuário (INV-0010-13). A validação vem
+     * antes de qualquer escrita: foto recusada não muda nada (ERR-0010-12/13).
+     */
+    async saveAvatar(params: {
+        userId: string;
+        contentType: string | undefined;
+        content: Buffer;
+    }): Promise<User> {
+        const contentType = assertValidAvatar(params.contentType, params.content);
+
+        // Uma linha por usuário: o segundo envio substitui o primeiro, e o
+        // trigger de `updated_at` marca a troca.
+        await this.avatars
+            .createQueryBuilder()
+            .insert()
+            .into(UserAvatar)
+            .values({
+                userId: params.userId,
+                content: params.content,
+                contentType,
+                sizeBytes: params.content.length,
+            })
+            .orUpdate(['content', 'content_type', 'size_bytes'], ['user_id'])
+            .execute();
+
+        return this.findById(params.userId);
+    }
+
+    /** Sem foto também é sucesso: o estado pedido já vale. */
+    async removeAvatar(userId: string): Promise<void> {
+        await this.avatars.delete({ userId });
+    }
+
+    /** Única leitura que pede os bytes, e só os do próprio usuário. */
+    async findAvatar(userId: string): Promise<StoredAvatar> {
+        const avatar = await this.avatars.findOne({
+            select: { userId: true, content: true, contentType: true },
+            where: { userId },
+        });
+
+        if (!avatar) {
+            throw CustomError.notFound('You have no avatar', 'AVATAR_NOT_FOUND', {
+                exposeMessage: true,
+            });
+        }
+
+        return { content: avatar.content, contentType: avatar.contentType };
     }
 
     grantProfile(params: {
