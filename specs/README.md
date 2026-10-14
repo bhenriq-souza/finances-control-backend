@@ -20,6 +20,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0015](0015-reporting.md)            | Reporting — saldo realizado, saldo previsto e relatórios           | implemented |
 | [0017](0017-jobs-and-recurrence.md)  | Jobs e recorrência — pg-boss, rotinas diárias e lançamentos fixos  | approved    |
 | [0018](0018-transfers.md)            | Transfers — transferências entre contas próprias                   | approved    |
+| [0019](0019-initial-load.md)         | Carga inicial — dados reais de prd a partir da planilha            | draft       |
 
 Specs de domínio planejadas (ainda não escritas): `0016` imports — **adiada** (FCB-013).
 
