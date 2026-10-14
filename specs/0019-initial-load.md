@@ -1,7 +1,7 @@
 ---
 id: '0019'
 title: Carga inicial — dados reais de prd a partir da planilha
-status: draft
+status: approved
 depends_on: ['0000', '0003', '0011', '0012', '0014', '0017']
 ---
 
@@ -90,7 +90,13 @@ Regras de cada aba:
   Vale para despesas e recebimentos parcelados.
 - **Faturas em aberto** viram despesa da conta pagadora, não fatura do cartão: a fatura já fechou
   fora do sistema, e o que falta é a saída de caixa no vencimento. Descrição:
-  `"Fatura <cartao> (vence <vencimento>)"`.
+  `"Fatura <cartao> (vence <vencimento>)"`. O tipo é o da coluna `tipo_despesa`, sujeito à mesma
+  regra dos demais tipos. Não pode ser lançamento do cartão: os ciclos de um cartão começam na
+  data do seu cadastro (spec `0013`, _Encadeamento dos ciclos_), e um lançamento anterior cairia na fatura
+  aberta, com outro vencimento. Consequência aceita: o limite disponível do cartão não desconta
+  essa fatura, e até ela ser paga o sistema mostra o limite acima do real; depois do pagamento os
+  dois coincidem, porque o sistema nunca a descontou. Quando a fatura é paga antes da carga, a
+  linha vai com `importar = não`.
 - **Receitas:** `notes` é o `pagante`, como a spec `0014` prevê para a coluna `Pagante`; com
   `observacao`, `"<pagante> — <observacao>"`. `tipo_receita` aponta para um tipo de receita **que
   já existe** no sistema; a carga não cria tipos de receita.
@@ -206,7 +212,4 @@ confere.
 
 ## Open questions
 
-- **Tipo das faturas em aberto.** A despesa que representa a fatura fechada precisa de um tipo, e o
-  responsável decidiu manter em `prd` só os tipos da planilha. Proposta: a aba `faturas_em_aberto`
-  ganha a coluna `tipo_despesa`, e o tipo `Cartão de Crédito` passa a `importar = sim` para essa
-  linha.
+Nenhuma.
