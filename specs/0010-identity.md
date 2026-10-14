@@ -1,7 +1,7 @@
 ---
 id: '0010'
 title: Identity — usuários, autenticação e RBAC
-status: implemented
+status: approved
 depends_on: ['0000', '0003']
 ---
 
@@ -21,11 +21,14 @@ enxerga dado financeiro nenhum até que um Admin decida o contrário.
 - **Em escopo:** verificação do ID token; criação do registro de usuário no primeiro acesso; o perfil
   único por usuário (`ADMIN`, `BILLER`, `VIEWER`) e sua concessão por um Admin; o bootstrap do
   primeiro Admin; o contrato que os demais módulos usam para exigir autenticação e perfil; os
-  endpoints de usuário; o email verificado e o re-vínculo por email; o projeto Firebase de `dev`.
+  endpoints de usuário; o email verificado e o re-vínculo por email; o projeto Firebase de `dev`;
+  a foto do usuário, guardada no banco (revisão de 2026-10-13, FCB-022).
 - **Fora de escopo:** cadastro, senha, reset e login social, que são do Firebase e do frontend — a
   plataforma não custodia credencial; permissões por recurso ou por registro (o RBAC aqui é por
   perfil, não por linha); convite de usuário por email; auditoria geral de ações, que é assunto de
-  quem registra a ação; o spike do popup do Google em origem HTTP, que é da Fase 3 do roadmap.
+  quem registra a ação; o spike do popup do Google em origem HTTP, que é da Fase 3 do roadmap; redimensionar ou
+  recortar a foto no servidor (o frontend envia a imagem já pronta) e foto de outro usuário que
+  não a própria, mesmo para o `ADMIN`.
 
 ## Contracts
 
@@ -78,6 +81,19 @@ Tabela `users`, seguindo as convenções da [spec 0003](0003-persistence.md):
 | `updated_at`         | `timestamptz` | not null, `now()`, mantida pelo trigger `set_updated_at()`          |
 
 `profile` nulo é o estado normal de quem acabou de se cadastrar — não é dado faltando.
+
+Tabela `user_avatars`, uma linha por usuário que tem foto (revisão de 2026-10-13):
+
+| Coluna         | Tipo          | Regra                                                                                     |
+| -------------- | ------------- | ----------------------------------------------------------------------------------------- |
+| `user_id`      | `uuid`        | PK, FK `users(id)` `on delete cascade`                                                    |
+| `content`      | `bytea`       | not null, os bytes da imagem                                                              |
+| `content_type` | `text`        | not null, `ck_user_avatars_content_type` limita a `image/jpeg`, `image/png`, `image/webp` |
+| `size_bytes`   | `integer`     | not null, `ck_user_avatars_size_bytes` entre 1 e 524288                                   |
+| `updated_at`   | `timestamptz` | not null, `now()`, mantida pelo trigger `set_updated_at()`                                |
+
+A foto fica fora de `users` para que ler um usuário, o que acontece em toda requisição, não carregue
+os bytes.
 
 O perfil é **um só por usuário**, como no modelo de dados do produto: `ADMIN` não acumula `BILLER`,
 concede a si mesmo o que precisar. O enum é `text` com CHECK, não tipo `enum` do PostgreSQL:
@@ -171,6 +187,33 @@ por ele que o frontend descobre que a conta está pendente.
 
 Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
 
+### Foto do usuário
+
+Pedido do responsável nos testes em `dev` (2026-10-13): trocar o avatar com as iniciais por uma
+foto. Por decisão do responsável, a foto fica no banco da plataforma, e não no Firebase Storage,
+que exigiria ligar o faturamento no projeto `dev-financial-control`.
+
+| Método   | Rota               | Quem pode       | O que faz                                   |
+| -------- | ------------------ | --------------- | ------------------------------------------- |
+| `PUT`    | `/users/me/avatar` | qualquer perfil | Envia ou troca a própria foto               |
+| `DELETE` | `/users/me/avatar` | qualquer perfil | Remove a própria foto; sem foto, também 204 |
+| `GET`    | `/users/me/avatar` | qualquer perfil | Devolve os bytes da própria foto            |
+
+- **Envio:** o corpo é a imagem crua, com `Content-Type` `image/jpeg`, `image/png` ou
+  `image/webp`, lido por `express.raw` só nessa rota, com limite de 524288 bytes (512 KiB). O
+  serviço confere os primeiros bytes contra o tipo declarado (assinaturas JPEG `FF D8 FF`, PNG
+  `89 50 4E 47 0D 0A 1A 0A` e WebP `RIFF....WEBP`) e grava ou substitui a linha de
+  `user_avatars`. A resposta é `200` com o `UserResponse` atualizado.
+- **Leitura:** `200` com os bytes, o `Content-Type` gravado, `Content-Length`,
+  `X-Content-Type-Options: nosniff` e `Cache-Control: private, max-age=86400`. Sem foto, `404`.
+  O frontend pede a foto com o token (uma `<img>` não envia o header) e acrescenta
+  `?v=<avatarUpdatedAt>` à URL, que o backend ignora, para não ler uma foto velha do cache.
+- **`UserResponse`** ganha `avatarUpdatedAt`: o `updated_at` da foto, ou `null` sem foto. É por ele
+  que o frontend sabe se há foto e quando ela mudou, sem pedir os bytes.
+- **Sem perfil:** as três rotas exigem um perfil, e assim `GET /users/me` continua sendo a única
+  rota de quem está pendente (INV-0010-03).
+- As três rotas entram em `docs/openapi.yaml`, na tag `Identity`, e na coleção do Postman.
+
 ## Invariants
 
 - **INV-0010-01:** nenhuma rota de domínio responde sem um ID token válido; a única exceção do
@@ -196,6 +239,11 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
   e senha com o email de bootstrap, ainda sem verificação, nunca vira `ADMIN`.
 - **INV-0010-11:** uma linha de `users` só troca de `firebase_uid` por re-vínculo com email
   verificado. Um token sem email verificado nunca assume a linha de outro UID.
+- **INV-0010-12:** só se grava foto JPEG, PNG ou WebP de até 524288 bytes, cujos primeiros bytes
+  batem com o tipo declarado. SVG e qualquer outro tipo são recusados.
+- **INV-0010-13:** um usuário só lê, troca e remove a própria foto; nenhuma rota recebe o id de
+  outro usuário para isso.
+- **INV-0010-14:** ler um usuário (`users`, `UserResponse`) nunca carrega os bytes da foto.
 
 ## Error cases
 
@@ -212,6 +260,9 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
 | **ERR-0010-09** `profile` fora do enum                                      | `400`, `VALIDATION_ERROR` do handler global (spec 0002)                                   |
 | **ERR-0010-10** Firebase indisponível                                       | `503`, código `AUTH_UNAVAILABLE`; falha de infraestrutura não vira `401`                  |
 | **ERR-0010-11** Email de usuário existente, outro UID, email não verificado | `403`, código `EMAIL_NOT_VERIFIED`, com texto que pede a verificação do email             |
+| **ERR-0010-12** Foto acima de 524288 bytes                                  | `413`, código `AVATAR_TOO_LARGE`, com o limite no texto; nada é gravado                   |
+| **ERR-0010-13** Foto de tipo não aceito ou bytes que não batem com o tipo   | `415`, código `AVATAR_UNSUPPORTED_TYPE`, com os tipos aceitos no texto; nada é gravado    |
+| **ERR-0010-14** `GET /users/me/avatar` sem foto                             | `404`, código `AVATAR_NOT_FOUND`                                                          |
 
 ## Acceptance criteria
 
@@ -255,6 +306,22 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
   projeto `dev-financial-control` recebe `200` em `GET /users/me`. Um token do projeto anterior recebe
   `401 UNAUTHENTICATED` (ERR-0010-02). A evidência vai colada no PR.
 
+- **AC-0010-19:** `PUT /users/me/avatar` com um PNG válido de 10 KB responde `200`, com
+  `avatarUpdatedAt` preenchido; `GET /users/me/avatar` devolve os mesmos bytes, com
+  `Content-Type: image/png` e `X-Content-Type-Options: nosniff`; e `GET /users/me` traz o mesmo
+  `avatarUpdatedAt`.
+- **AC-0010-20:** um segundo `PUT` com um JPEG substitui a foto (uma linha só em `user_avatars`) e
+  muda `avatarUpdatedAt`; `DELETE /users/me/avatar` responde `204`, `avatarUpdatedAt` volta a
+  `null` e `GET /users/me/avatar` responde `404 AVATAR_NOT_FOUND`; um segundo `DELETE` também
+  responde `204`.
+- **AC-0010-21:** um corpo de 524289 bytes recebe `413 AVATAR_TOO_LARGE`; `Content-Type: image/svg+xml`
+  e um texto enviado como `image/png` recebem `415 AVATAR_UNSUPPORTED_TYPE`; em nenhum dos casos
+  `user_avatars` muda.
+- **AC-0010-22:** usuário sem perfil recebe `403 PROFILE_PENDING` nas três rotas da foto; sem token,
+  `401 UNAUTHENTICATED`.
+- **AC-0010-23:** a consulta que provisiona e lê o usuário em cada requisição não seleciona
+  `user_avatars.content`.
+
 ## Test mapping
 
 | Item                                                        | Teste                                                                                   |
@@ -273,6 +340,10 @@ Os quatro endpoints entram em `docs/openapi.yaml`, na tag `Identity`.
 | AC-0010-15, AC-0010-16, INV-0010-11, ERR-0010-11            | `tests/integration/identity/provisioning.spec.ts`                                       |
 | AC-0010-17                                                  | `tests/integration/identity/profile-grant.spec.ts` e `tests/openapi.spec.ts`            |
 | AC-0010-18                                                  | evidência manual no PR (`GET /users/me` em `dev`)                                       |
+| AC-0010-19, AC-0010-20, ERR-0010-14, INV-0010-13            | `tests/integration/identity/avatar.spec.ts`                                             |
+| AC-0010-21, ERR-0010-12, ERR-0010-13, INV-0010-12           | `tests/identity/avatar-signature.spec.ts` e `tests/integration/identity/avatar.spec.ts` |
+| AC-0010-22                                                  | `tests/integration/identity/avatar.spec.ts`                                             |
+| AC-0010-23, INV-0010-14                                     | `tests/integration/identity/avatar.spec.ts` (consulta espionada)                        |
 
 ## Open questions
 
