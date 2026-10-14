@@ -60,12 +60,10 @@ export class UserController {
      * e cai na recusa por tipo.
      */
     async handlePutAvatar(req: Request, res: Response): Promise<Response> {
-        const body: unknown = req.body;
-
         const user = await this.service.saveAvatar({
             userId: this.actorId(),
             contentType: req.header('content-type'),
-            content: Buffer.isBuffer(body) ? body : Buffer.alloc(0),
+            content: rawBody(req.body),
         });
 
         return HttpResponses.ok(res, await this.respond(user));
@@ -118,4 +116,17 @@ export class UserController {
 
         return userId;
     }
+}
+
+/**
+ * O corpo cru como `Buffer`. As checagens de string e de array vêm antes de
+ * `Buffer.isBuffer` para deixar explícito que um corpo de outro tipo nunca chega
+ * à validação (CodeQL `js/type-confusion-through-parameter-tampering`).
+ */
+function rawBody(body: unknown): Buffer {
+    if (typeof body === 'string' || Array.isArray(body) || !Buffer.isBuffer(body)) {
+        return Buffer.alloc(0);
+    }
+
+    return body;
 }
