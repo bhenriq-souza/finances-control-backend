@@ -108,6 +108,53 @@
                     }
                 },
                 {
+                    "name": "Devolve os bytes da própria foto",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/me/avatar",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["users", "me", "avatar"],
+                            "query": [
+                                {
+                                    "key": "v",
+                                    "value": "2026-10-13T12:00:00.000Z",
+                                    "description": "Versão da foto (`avatarUpdatedAt`), só para o cache; ignorada pelo servidor.",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Exige um perfil qualquer. Responde com os bytes e o `Content-Type` gravado.\nComo uma `<img>` não envia o header de autorização, o cliente busca a foto\ncom o token e acrescenta `?v=<avatarUpdatedAt>` à URL para não ler uma foto\nvelha do cache; o servidor ignora esse parâmetro."
+                    }
+                },
+                {
+                    "name": "Envia ou troca a própria foto",
+                    "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/me/avatar",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["users", "me", "avatar"]
+                        },
+                        "description": "Exige um perfil qualquer. O corpo é a imagem crua — JPEG, PNG ou WebP de\naté 524288 bytes (512 KiB), já recortada e reduzida pelo cliente — com o\n`Content-Type` do tipo. O servidor confere os primeiros bytes contra o tipo\ndeclarado e grava ou substitui a foto; não redimensiona nem recorta.\nNo Postman, envie o arquivo em Body → binary e ajuste o `Content-Type`."
+                    }
+                },
+                {
+                    "name": "Remove a própria foto",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/me/avatar",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["users", "me", "avatar"]
+                        },
+                        "description": "Exige um perfil qualquer. Sem foto, também responde `204`."
+                    }
+                },
+                {
                     "name": "Lista os usuários",
                     "request": {
                         "method": "GET",

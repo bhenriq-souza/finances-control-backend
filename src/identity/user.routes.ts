@@ -8,7 +8,9 @@ import {
     RequireProfileSymbol,
     type RequireProfile,
 } from '../platform';
+import { parseAvatarBody } from './avatar-body.middleware';
 import { UserControllerSymbol } from './identity.symbols';
+import { USER_PROFILES } from './user-profile';
 import type { UserController } from './user.controller';
 
 @injectable()
@@ -25,6 +27,9 @@ export class UserRoutes extends BaseRoute {
         // Toda rota daqui exige autenticação (INV-0010-01). O perfil é exigido
         // em todas menos `/me`, que é como quem está sem perfil descobre isso.
         const admin = [this.requireAuthentication, this.requireProfile('ADMIN')];
+        // A foto exige um perfil qualquer: `/me` continua sendo a única rota de
+        // quem está pendente (INV-0010-03).
+        const anyProfile = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
 
         return [
             {
@@ -32,6 +37,26 @@ export class UserRoutes extends BaseRoute {
                 path: '/me',
                 middlewares: [this.requireAuthentication],
                 handler: this.bind(this.controller, this.controller.handleGetMe),
+            },
+            {
+                method: 'PUT',
+                path: '/me/avatar',
+                // O corpo só é lido depois de autenticação e perfil: quem não pode
+                // gravar não chega a enviar meio megabyte ao processo.
+                middlewares: [...anyProfile, parseAvatarBody],
+                handler: this.bind(this.controller, this.controller.handlePutAvatar),
+            },
+            {
+                method: 'GET',
+                path: '/me/avatar',
+                middlewares: anyProfile,
+                handler: this.bind(this.controller, this.controller.handleGetAvatar),
+            },
+            {
+                method: 'DELETE',
+                path: '/me/avatar',
+                middlewares: anyProfile,
+                handler: this.bind(this.controller, this.controller.handleDeleteAvatar),
             },
             {
                 method: 'GET',

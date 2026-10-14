@@ -124,6 +124,110 @@ paths:
                 '503':
                     $ref: '#/components/responses/AuthUnavailable'
 
+    /users/me/avatar:
+        put:
+            tags: [Identity]
+            summary: Envia ou troca a própria foto
+            description: |
+                Exige um perfil qualquer. O corpo é a imagem crua — JPEG, PNG ou WebP de
+                até 524288 bytes (512 KiB), já recortada e reduzida pelo cliente — com o
+                `Content-Type` do tipo. O servidor confere os primeiros bytes contra o tipo
+                declarado e grava ou substitui a foto; não redimensiona nem recorta.
+                No Postman, envie o arquivo em Body → binary e ajuste o `Content-Type`.
+            operationId: putCurrentUserAvatar
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    image/jpeg:
+                        schema:
+                            type: string
+                            format: binary
+                    image/png:
+                        schema:
+                            type: string
+                            format: binary
+                    image/webp:
+                        schema:
+                            type: string
+                            format: binary
+            responses:
+                '200':
+                    $ref: '#/components/responses/User'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '413':
+                    $ref: '#/components/responses/AvatarTooLarge'
+                '415':
+                    $ref: '#/components/responses/AvatarUnsupportedType'
+        get:
+            tags: [Identity]
+            summary: Devolve os bytes da própria foto
+            description: |
+                Exige um perfil qualquer. Responde com os bytes e o `Content-Type` gravado.
+                Como uma `<img>` não envia o header de autorização, o cliente busca a foto
+                com o token e acrescenta `?v=<avatarUpdatedAt>` à URL para não ler uma foto
+                velha do cache; o servidor ignora esse parâmetro.
+            operationId: getCurrentUserAvatar
+            security: [{ bearerAuth: [] }]
+            parameters:
+                - name: v
+                  in: query
+                  required: false
+                  description: Versão da foto (`avatarUpdatedAt`), só para o cache; ignorada pelo servidor.
+                  schema:
+                      type: string
+                      example: '2026-10-13T12:00:00.000Z'
+            responses:
+                '200':
+                    description: Os bytes da foto
+                    headers:
+                        Content-Length:
+                            schema:
+                                type: integer
+                        X-Content-Type-Options:
+                            schema:
+                                type: string
+                                enum: [nosniff]
+                        Cache-Control:
+                            schema:
+                                type: string
+                                example: private, max-age=86400
+                    content:
+                        image/jpeg:
+                            schema:
+                                type: string
+                                format: binary
+                        image/png:
+                            schema:
+                                type: string
+                                format: binary
+                        image/webp:
+                            schema:
+                                type: string
+                                format: binary
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/AvatarNotFound'
+        delete:
+            tags: [Identity]
+            summary: Remove a própria foto
+            description: Exige um perfil qualquer. Sem foto, também responde `204`.
+            operationId: deleteCurrentUserAvatar
+            security: [{ bearerAuth: [] }]
+            responses:
+                '204':
+                    description: Foto removida, ou já não havia foto
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+
     /users:
         get:
             tags: [Identity]
@@ -2490,6 +2594,26 @@ components:
                 application/json:
                     schema:
                         $ref: '#/components/schemas/Error'
+        AvatarTooLarge:
+            description: '`AVATAR_TOO_LARGE` — a foto passa de 524288 bytes (512 KiB). Nada é gravado.'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        AvatarUnsupportedType:
+            description: |
+                `AVATAR_UNSUPPORTED_TYPE` — o tipo declarado não é `image/jpeg`, `image/png` ou
+                `image/webp`, ou os bytes não batem com ele. Nada é gravado.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
+        AvatarNotFound:
+            description: '`AVATAR_NOT_FOUND` — o usuário não tem foto.'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Error'
         ProfileConflict:
             description: |
                 `CANNOT_CHANGE_OWN_PROFILE` ao mirar o próprio usuário, e `LAST_ADMIN`
@@ -2813,7 +2937,17 @@ components:
 
         UserResponse:
             type: object
-            required: [id, email, emailVerified, name, profile, profileGrantedAt, createdAt]
+            required:
+                [
+                    id,
+                    email,
+                    emailVerified,
+                    name,
+                    profile,
+                    profileGrantedAt,
+                    avatarUpdatedAt,
+                    createdAt,
+                ]
             properties:
                 id:
                     type: string
@@ -2835,6 +2969,13 @@ components:
                     type: string
                     format: date-time
                     nullable: true
+                avatarUpdatedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: |
+                        Quando a foto mudou pela última vez; nulo sem foto. Diz se há foto e serve
+                        de versão na URL de `GET /users/me/avatar`, sem pedir os bytes.
                 createdAt:
                     type: string
                     format: date-time
@@ -3909,6 +4050,9 @@ components:
                 O `tests/openapi.spec.ts` compara este `enum` com o código-fonte.
             enum:
                 - AUTH_UNAVAILABLE
+                - AVATAR_NOT_FOUND
+                - AVATAR_TOO_LARGE
+                - AVATAR_UNSUPPORTED_TYPE
                 - BANK_ACCOUNT_ALREADY_EXISTS
                 - BANK_ACCOUNT_ARCHIVED
                 - BANK_ACCOUNT_NOT_FOUND

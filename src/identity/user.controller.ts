@@ -4,7 +4,8 @@ import { CustomError } from '@bhs-dev/typescript-common-errors';
 
 import { HttpResponses, RequestContext, RequestContextSymbol } from '../platform';
 import { UserServiceSymbol } from './identity.symbols';
-import { toUserResponse } from './user.response';
+import type { User } from './user.entity';
+import { toUserResponse, type UserResponse } from './user.response';
 import { grantProfileBodySchema, userIdParamsSchema } from './user.schemas';
 import type { UserService } from './user.service';
 
@@ -19,13 +20,17 @@ export class UserController {
     async handleGetMe(_req: Request, res: Response): Promise<Response> {
         const user = await this.service.findById(this.actorId());
 
-        return HttpResponses.ok(res, toUserResponse(user));
+        return HttpResponses.ok(res, await this.respond(user));
     }
 
     async handleListUsers(_req: Request, res: Response): Promise<Response> {
         const users = await this.service.list();
+        const avatars = await this.service.avatarUpdatedAt(users.map((user) => user.id));
 
-        return HttpResponses.ok(res, users.map(toUserResponse));
+        return HttpResponses.ok(
+            res,
+            users.map((user) => toUserResponse(user, avatars.get(user.id) ?? null)),
+        );
     }
 
     async handleGrantProfile(req: Request, res: Response): Promise<Response> {
@@ -38,7 +43,7 @@ export class UserController {
             actorId: this.actorId(),
         });
 
-        return HttpResponses.ok(res, toUserResponse(user));
+        return HttpResponses.ok(res, await this.respond(user));
     }
 
     async handleRevokeProfile(req: Request, res: Response): Promise<Response> {
@@ -46,7 +51,55 @@ export class UserController {
 
         const user = await this.service.revokeProfile({ targetId: id, actorId: this.actorId() });
 
-        return HttpResponses.ok(res, toUserResponse(user));
+        return HttpResponses.ok(res, await this.respond(user));
+    }
+
+    /**
+     * Só a própria foto: nenhuma rota recebe o id de outro usuário (INV-0010-13).
+     * O corpo é a imagem crua, lida por `parseAvatarBody`; sem corpo, chega vazio
+     * e cai na recusa por tipo.
+     */
+    async handlePutAvatar(req: Request, res: Response): Promise<Response> {
+        const body: unknown = req.body;
+
+        const user = await this.service.saveAvatar({
+            userId: this.actorId(),
+            contentType: req.header('content-type'),
+            content: Buffer.isBuffer(body) ? body : Buffer.alloc(0),
+        });
+
+        return HttpResponses.ok(res, await this.respond(user));
+    }
+
+    async handleDeleteAvatar(_req: Request, res: Response): Promise<Response> {
+        await this.service.removeAvatar(this.actorId());
+
+        return HttpResponses.noContent(res);
+    }
+
+    /**
+     * Os bytes com o tipo gravado. `nosniff` impede o navegador de reinterpretar
+     * a imagem como outra coisa; o cache é privado porque a rota exige token, e o
+     * frontend acrescenta `?v=<avatarUpdatedAt>` para não ler uma foto velha.
+     */
+    async handleGetAvatar(_req: Request, res: Response): Promise<Response> {
+        const avatar = await this.service.findAvatar(this.actorId());
+
+        return res
+            .status(200)
+            .set({
+                'Content-Type': avatar.contentType,
+                'Content-Length': String(avatar.content.length),
+                'X-Content-Type-Options': 'nosniff',
+                'Cache-Control': 'private, max-age=86400',
+            })
+            .send(avatar.content);
+    }
+
+    private async respond(user: User): Promise<UserResponse> {
+        const avatars = await this.service.avatarUpdatedAt([user.id]);
+
+        return toUserResponse(user, avatars.get(user.id) ?? null);
     }
 
     /**

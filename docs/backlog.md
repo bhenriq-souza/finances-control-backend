@@ -176,7 +176,7 @@ do re-vínculo já estar em `dev`.
     - Pré-requisitos do responsável: prontos em 2026-10-10 (FC-008 no hub). Provedores email/senha e
       Google habilitados, `finances.dev.homelab.local` autorizado e a chave do `firebase-admin` do
       `dev-financial-control` na versão 2 de `homelab-dev-finances-firebase-service-account`
-- [ ] **T-0010-09 — Foto do usuário** · #183
+- [x] **T-0010-09 — Foto do usuário** · #183
     - What: tabela `user_avatars`, `PUT`/`DELETE`/`GET /users/me/avatar` e `avatarUpdatedAt` no
       `UserResponse` (revisão de 2026-10-13, FCB-022), com o contrato e a coleção do Postman
     - Where: `src/identity/`, `src/platform/database/migrations/`, `docs/openapi.yaml`, `docs/postman/`
