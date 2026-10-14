@@ -493,7 +493,7 @@ Tarefas da [spec 0019](../specs/0019-initial-load.md), que fecha a issue de entr
 [FCB-023](https://github.com/bhenriq-souza/finances-control-backend/issues/189). Depende das specs
 0011, 0012, 0014 e 0017 implementadas; é a carga dos dados reais de `prd` da Fase 4 do hub.
 
-- [ ] **T-0019-01 — Leitura, validação e simulação da carga** · #191
+- [x] **T-0019-01 — Leitura, validação e simulação da carga** · #191
     - What: leitor de CSV (RFC 4180), conversão de valores e datas, validação de todas as abas e
       referências com o relatório de erros, o plano e o comando `npm run load:initial -- --dir
 <pasta> --dry-run`

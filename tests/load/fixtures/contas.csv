@@ -1,0 +1,5 @@
+banco,descricao,tipo,numero_conta,saldo_inicial,data_saldo,limite_cheque_especial,importar,observacao
+Banco Alfa,Alfa CC,CHECKING,111-1,"1,250.50",2026-10-14,1000,sim,
+Banco Alfa,Alfa Poupança,SAVINGS,111-2,300,2026-10-14,,sim,
+Banco Beta,Beta CC,CHECKING,222-1,0.62,2026-10-14,0,sim,
+Banco Gama,Gama CC,CHECKING,333-1,0,2026-10-14,,não,

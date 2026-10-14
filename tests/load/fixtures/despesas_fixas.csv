@@ -1,0 +1,4 @@
+descricao,tipo_despesa,valor,conta,cartao,proxima_data,data_fim,situacao,importar,observacao
+Aluguel,Casa,"1,500.00",Alfa CC,,2026-11-05,2027-10-05,OPEN,sim,Reajuste em agosto
+Streaming,Casa,39.90,,Alfa Black,2026-11-04,,FORECAST,sim,
+Clube,Lazer,80,Alfa CC,,2026-11-01,,OPEN,não,
