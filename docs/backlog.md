@@ -500,7 +500,7 @@ Tarefas da [spec 0019](../specs/0019-initial-load.md), que fecha a issue de entr
     - Where: `src/load/`, `package.json`, `tests/load/`
     - Done when: `AC-0019-02`, `AC-0019-03` (só o plano) e `AC-0019-05` cobertos; `INV-0019-01`,
       `INV-0019-04` e `INV-0019-07` verificados
-- [ ] **T-0019-02 — Gravação pelos serviços, repetição e tipos** · #192
+- [x] **T-0019-02 — Gravação pelos serviços, repetição e tipos** · #192
     - What: a gravação na ordem da spec pelos serviços públicos, a chave natural que pula o que já
       existe, o arquivamento dos tipos de despesa fora da planilha, o relatório final e o
       ambiente reduzido a `DATABASE_URL`
