@@ -412,6 +412,11 @@ do previsto; os relatórios por tipo e o fluxo de caixa reaproveitam a mesma reg
     - Where: `src/reporting/`, `docs/openapi.yaml`
     - Done when: `AC-0015-14` a `AC-0015-16` cobertos; `INV-0015-08` verificado; fecha FCB-021 e
       volta o `status` para `implemented`
+- [ ] **T-0015-07 — Faturas do mês por conta no saldo** · #186
+    - What: `cardDueCents` em `GET /reports/balance` também com `bankAccountId`, só com as faturas
+      dos cartões que a conta paga (revisão de 2026-10-14), com o contrato no `openapi.yaml`
+    - Where: `src/reporting/`, `docs/openapi.yaml`
+    - Done when: `AC-0015-17` coberto; volta o `status` para `implemented`
 
 ## Jobs e recorrência
 
