@@ -1,7 +1,7 @@
 ---
 id: '0015'
 title: Reporting — saldo realizado, saldo previsto e relatórios
-status: implemented
+status: approved
 depends_on: ['0000', '0003', '0010', '0011', '0012', '0013', '0014']
 ---
 
@@ -139,7 +139,11 @@ parte do saldo do anterior.
   mês — no mês corrente, também as pendências com data passada — e `cardDueCents`, a dívida das
   faturas que vencem no mês.
 - Com `bankAccountId`, só aquela conta, com a dívida dos cartões que ela paga, e sem consolidado;
-  sem ele, todas as contas e o consolidado.
+  sem ele, todas as contas e o consolidado. `cardDueCents` vem também com `bankAccountId`, só com
+  as faturas dos cartões que a conta paga: o frontend filtra o fluxo de caixa por conta e precisa
+  descontar do saldo previsto as faturas que vencem em cada mês, com a mesma fatura projetada que
+  o backend usa, que inclui as despesas `FORECAST` do cartão (revisão de 2026-10-14, decisão do
+  responsável nos testes do frontend em `dev`).
 - A janela cobre no máximo 120 meses (`ERR-0015-02`), o maior parcelamento das specs 0012 e 0014.
 
 ### Relatórios por tipo
@@ -213,7 +217,8 @@ BalanceReport {
         accountsTotalCents,
         cardDebtCents,                 // todos os cartões; null em REALIZED ou com bankAccountId
         unassignedCardDebtCents,       // cartões sem conta pagadora; idem
-        cardDueCents,                  // idem
+        cardDueCents,                  // faturas que vencem no mês; com bankAccountId, só as dos
+                                       // cartões que a conta paga; null em REALIZED
         consolidatedCents              // accountsTotalCents − cardDebtCents; null com bankAccountId
     }]
 }
@@ -347,20 +352,28 @@ Ler relatório é ler: qualquer perfil com acesso, como as listagens das specs 0
 - **AC-0015-16:** o extrato com `bankAccountId` inexistente recebe `404`
   `BANK_ACCOUNT_NOT_FOUND`; sem `from`, com `from > to` ou com 367 dias recebe `400`; `VIEWER` lê.
 
+- **AC-0015-17:** com a conta A pagando o cartão X, que tem uma fatura `CLOSED` de restante 1100
+  vencendo no mês corrente, e a conta B pagando o cartão Y, com uma fatura `CLOSED` de restante
+  500 vencendo no mesmo mês, `GET /reports/balance?bankAccountId=<A>` devolve `cardDueCents` 1100
+  no mês corrente, e sem `bankAccountId`, 1600. Uma despesa `FORECAST` de 200 em X, na fatura
+  projetada que vence no mês seguinte, entra no `cardDueCents` do mês seguinte com
+  `bankAccountId=<A>`. Nos pontos `REALIZED`, `cardDueCents` continua nulo, e com `bankAccountId`,
+  `cardDebtCents`, `unassignedCardDebtCents` e `consolidatedCents` continuam nulos.
+
 ## Test mapping
 
-| Item                                              | Teste                                                     |
-| ------------------------------------------------- | --------------------------------------------------------- |
-| AC-0015-01, INV-0015-03                           | `tests/integration/reporting/realized-balance.spec.ts`    |
-| AC-0015-02, AC-0015-03, AC-0015-06, INV-0015-05   | `tests/integration/reporting/forecast-balance.spec.ts`    |
-| AC-0015-04, AC-0015-05, AC-0015-13, INV-0015-06   | `tests/integration/reporting/card-debt.spec.ts`           |
-| AC-0015-07, AC-0015-08, INV-0015-07               | `tests/integration/reporting/by-type.spec.ts`             |
-| AC-0015-09                                        | `tests/integration/reporting/cash-flow.spec.ts`           |
-| AC-0015-10, AC-0015-11, ERR-0015-01 a ERR-0015-04 | `tests/integration/reporting/validation-and-auth.spec.ts` |
-| AC-0015-12, INV-0015-04                           | `tests/integration/reporting/precision.spec.ts`           |
-| AC-0015-14, AC-0015-15, INV-0015-08               | `tests/integration/reporting/account-movements.spec.ts`   |
-| AC-0015-16, ERR-0015-05                           | `tests/integration/reporting/validation-and-auth.spec.ts` |
-| INV-0015-01, INV-0015-02                          | gate `boundaries` e revisão em PR                         |
+| Item                                                        | Teste                                                     |
+| ----------------------------------------------------------- | --------------------------------------------------------- |
+| AC-0015-01, INV-0015-03                                     | `tests/integration/reporting/realized-balance.spec.ts`    |
+| AC-0015-02, AC-0015-03, AC-0015-06, INV-0015-05             | `tests/integration/reporting/forecast-balance.spec.ts`    |
+| AC-0015-04, AC-0015-05, AC-0015-13, AC-0015-17, INV-0015-06 | `tests/integration/reporting/card-debt.spec.ts`           |
+| AC-0015-07, AC-0015-08, INV-0015-07                         | `tests/integration/reporting/by-type.spec.ts`             |
+| AC-0015-09                                                  | `tests/integration/reporting/cash-flow.spec.ts`           |
+| AC-0015-10, AC-0015-11, ERR-0015-01 a ERR-0015-04           | `tests/integration/reporting/validation-and-auth.spec.ts` |
+| AC-0015-12, INV-0015-04                                     | `tests/integration/reporting/precision.spec.ts`           |
+| AC-0015-14, AC-0015-15, INV-0015-08                         | `tests/integration/reporting/account-movements.spec.ts`   |
+| AC-0015-16, ERR-0015-05                                     | `tests/integration/reporting/validation-and-auth.spec.ts` |
+| INV-0015-01, INV-0015-02                                    | gate `boundaries` e revisão em PR                         |
 
 ## Open questions
 
