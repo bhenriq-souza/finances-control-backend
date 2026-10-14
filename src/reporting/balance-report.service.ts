@@ -181,6 +181,8 @@ export class BalanceReportService {
             };
         });
         const accountsTotalCents = sum(accounts.map((a) => a.balanceCents));
+        // Com `bankAccountId`, `ledgers` já traz só os cartões que a conta paga.
+        const cardDueCents = sum(ledgers.map((ledger) => cardDueIn(ledger, month)));
 
         if (bankAccountId !== undefined) {
             return {
@@ -190,7 +192,7 @@ export class BalanceReportService {
                 accountsTotalCents,
                 cardDebtCents: null,
                 unassignedCardDebtCents: null,
-                cardDueCents: null,
+                cardDueCents,
                 consolidatedCents: null,
             };
         }
@@ -204,7 +206,7 @@ export class BalanceReportService {
             accountsTotalCents,
             cardDebtCents,
             unassignedCardDebtCents: sum(debts.filter((d) => d.payer === null).map((d) => d.cents)),
-            cardDueCents: sum(ledgers.map((ledger) => cardDueIn(ledger, month))),
+            cardDueCents,
             consolidatedCents: accountsTotalCents - cardDebtCents,
         };
     }

@@ -102,3 +102,72 @@ describe('dívida dos cartões (spec 0015, AC-0015-04, 05, 13, INV-0015-06)', ()
         expect(april!.accounts[0]!.balanceAfterCardsCents).toBe(20000);
     });
 });
+
+/** "Today" is 2026-03-15; cards close on the 10th and are due on the 20th. */
+describe('faturas do mês por conta (spec 0015, AC-0015-17)', () => {
+    const SCHEMA = 'test_reporting_card_due_by_account';
+    let fx: ReportingFixture;
+    let stop: () => Promise<void>;
+    let accountBId: string;
+
+    beforeAll(async () => {
+        // An isolated module registry: the container singletons of the describe above stay bound
+        // to the DataSource its teardown drops.
+        await jest.isolateModulesAsync(async () => {
+            const helpers = await import('./reporting-fixtures.helper');
+            const app = await import('../app.helper');
+
+            fx = await helpers.seedReporting(SCHEMA, 100000);
+            stop = () => app.stopApp(fx.ctx, SCHEMA);
+        });
+        accountBId = await addAccount(fx, '9-9', 50000);
+        const cardXId = await addCard(fx, 'X, paga pela A', fx.accountId);
+        const cardYId = await addCard(fx, 'Y, paga pela B', accountBId);
+
+        // Faturas de 10/03 (vencem 20/03): 1100 em X e 500 em Y, fechadas e sem pagamento.
+        await insertExpense(fx, 'OPEN', 110000, '2026-03-03', { cardId: cardXId });
+        await insertExpense(fx, 'OPEN', 50000, '2026-03-04', { cardId: cardYId });
+        // Aberta de X (fecha 10/04, vence 20/04): só 200 planejados.
+        await insertExpense(fx, 'FORECAST', 20000, '2026-03-12', { cardId: cardXId });
+
+        jest.useFakeTimers({
+            now: new Date('2026-03-15T15:00:00.000Z'),
+            doNotFake: [...DATE_ONLY],
+        });
+    });
+
+    afterAll(async () => {
+        jest.useRealTimers();
+        await stop?.();
+    });
+
+    it('AC-0015-17: com bankAccountId, só as faturas dos cartões que a conta paga, com a FORECAST da projetada', async () => {
+        const own = await getBalance(fx, '2026-02', '2026-05', fx.accountId);
+
+        expect(own.map((p) => [p.month, p.kind, p.cardDueCents])).toEqual([
+            ['2026-02', 'REALIZED', null],
+            // A fechada de X, sem os 500 de Y.
+            ['2026-03', 'FORECAST', 110000],
+            // A projetada de X vence em abril e leva a FORECAST de 200.
+            ['2026-04', 'FORECAST', 20000],
+            ['2026-05', 'FORECAST', 0],
+        ]);
+        for (const point of own) {
+            expect(point).toMatchObject({
+                cardDebtCents: null,
+                unassignedCardDebtCents: null,
+                consolidatedCents: null,
+            });
+        }
+
+        const other = await getBalance(fx, '2026-03', '2026-04', accountBId);
+
+        expect(other.map((p) => p.cardDueCents)).toEqual([50000, 0]);
+    });
+
+    it('AC-0015-17: sem bankAccountId, as faturas de todos os cartões', async () => {
+        const points = await getBalance(fx, '2026-02', '2026-04');
+
+        expect(points.map((p) => p.cardDueCents)).toEqual([null, 160000, 20000]);
+    });
+});

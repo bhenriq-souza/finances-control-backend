@@ -2294,8 +2294,9 @@ paths:
                 pagadora aparece em `unassignedCardDebtCents`. `consolidatedCents` soma todas as
                 contas, arquivadas inclusive, menos a dívida de todos os cartões (nos pontos
                 `REALIZED`, é a soma das contas). Com `bankAccountId`, só aquela conta, com a
-                dívida dos cartões que ela paga, e os totais de cartão e `consolidatedCents`
-                nulos. Qualquer perfil lê.
+                dívida dos cartões que ela paga, `cardDueCents` só com as faturas desses cartões,
+                e `cardDebtCents`, `unassignedCardDebtCents` e `consolidatedCents` nulos.
+                Qualquer perfil lê.
             operationId: getBalanceReport
             security: [{ bearerAuth: [] }]
             parameters:
@@ -3879,8 +3880,9 @@ components:
                                 type: integer
                                 nullable: true
                                 description: |
-                                    Dívida das faturas que vencem no mês. Nulo em `REALIZED` e
-                                    com `bankAccountId`.
+                                    Dívida das faturas que vencem no mês, com as despesas
+                                    `FORECAST` das projetadas. Com `bankAccountId`, só as dos
+                                    cartões que a conta paga. Nulo em `REALIZED`.
                             consolidatedCents:
                                 type: integer
                                 nullable: true
