@@ -6,7 +6,9 @@ name: deploy
 
 on:
     push:
-        branches: [develop]
+        # develop publica em dev; main, que só recebe develop pelo merge do
+        # responsável, publica em prd (ADR-0011 do hub).
+        branches: [develop, main]
         # Mudanças que não entram na imagem não precisam gerar deploy. O contrato
         # (docs/openapi.yaml) é copiado para a imagem e servido em runtime, então
         # volta a valer depois da exclusão de docs/**: o GitHub avalia os padrões
@@ -18,14 +20,8 @@ on:
             - '!specs/**'
             - '!.claude/**'
             - 'docs/openapi.yaml'
+    # O ambiente sai da branch, também no disparo manual: develop nunca chega a prd.
     workflow_dispatch:
-        inputs:
-            environment:
-                description: Ambiente alvo
-                required: true
-                default: dev
-                type: choice
-                options: [dev, prd]
 
 permissions:
     contents: read
@@ -36,7 +32,7 @@ jobs:
         uses: bhenriq-souza/homelab-gitops/.github/workflows/docker-build-push.yaml@main
         with:
             app-name: finances-backend
-            environment: ${{ inputs.environment || 'dev' }}
+            environment: ${{ github.ref_name == 'main' && 'prd' || 'dev' }}
         secrets:
             GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
             GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
