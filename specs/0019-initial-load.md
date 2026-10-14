@@ -1,7 +1,7 @@
 ---
 id: '0019'
 title: Carga inicial — dados reais de prd a partir da planilha
-status: draft
+status: approved
 depends_on: ['0000', '0003', '0011', '0012', '0014', '0017']
 ---
 
@@ -76,7 +76,7 @@ repositório nem entidade (ADR-0003, regras 1 e 2).
 | `tipos_despesa.csv`       | `nome`, `importar`                                                                                                                                                                                  | tipo de despesa (spec 0012)                                                                                                                                                                                                                                                                       |
 | `despesas_fixas.csv`      | `descricao`, `tipo_despesa`, `valor`, `conta`, `cartao`, `proxima_data`, `data_fim`, `situacao`, `importar`, `observacao`                                                                           | despesa `FIXED` (specs 0012 e 0017): `amountCents`, `occurredOn = proxima_data`, `recurrenceEndsOn = data_fim` (vazio: série sem fim), `status = situacao`, `notes = observacao`                                                                                                                  |
 | `despesas_parceladas.csv` | `descricao`, `tipo_despesa`, `valor_parcela`, `conta`, `cartao`, `data_proxima_parcela`, `parcela_proxima`, `parcelas_total`, `parcelas_restantes`, `importar`, `observacao`                        | com `parcelas_restantes ≥ 2`, despesa `INSTALLMENT` com `amountCents = valor_parcela × parcelas_restantes` e `installmentTotal = parcelas_restantes`; com `1`, despesa `VARIABLE` de `valor_parcela`; `occurredOn = data_proxima_parcela`, status `OPEN`                                          |
-| `faturas_em_aberto.csv`   | `cartao`, `vencimento`, `valor`, `tipo_despesa`, `importar`, `observacao`                                                                                                                           | despesa `VARIABLE` na conta pagadora do cartão, `occurredOn = vencimento`, status `OPEN`                                                                                                                                                                                                          |
+| `faturas_em_aberto.csv`   | `cartao`, `vencimento`, `valor`, `tipo_despesa`, `importar`, `observacao`                                                                                                                           | despesa `VARIABLE` `OPEN` **no próprio cartão**, `amountCents = valor`, `occurredOn` = dia da carga                                                                                                                                                                                               |
 | `recebimentos.csv`        | `descricao`, `tipo_receita`, `ocorrencia`, `valor`, `conta`, `proxima_data`, `data_fim`, `parcela_proxima`, `parcelas_total`, `parcelas_restantes`, `situacao`, `pagante`, `importar`, `observacao` | receita (spec 0014) de `kind = ocorrencia`; `FIXED` e `VARIABLE` com `amountCents = valor`; `INSTALLMENT` com `amountCents = valor × parcelas_restantes` e `installmentTotal = parcelas_restantes`; `occurredOn = proxima_data`, `recurrenceEndsOn = data_fim` só em `FIXED`, `status = situacao` |
 
 Regras de cada aba:
@@ -88,9 +88,17 @@ Regras de cada aba:
   do grupo recomeçam em 1: `"<descricao> (<parcela_proxima>–<parcelas_total>/<parcelas_total>)"`,
   por exemplo `Seguro Auto (3–10/10)`; com uma parcela só, `"<descricao> (<parcelas_total>/<parcelas_total>)"`.
   Vale para despesas e recebimentos parcelados.
-- **Faturas em aberto** viram despesa da conta pagadora, não fatura do cartão: a fatura já fechou
-  fora do sistema, e o que falta é a saída de caixa no vencimento. Descrição:
-  `"Fatura <cartao> (vence <vencimento>)"`.
+- **Faturas em aberto** viram um lançamento no próprio cartão, na fatura aberta, e o pagamento no
+  vencimento é o **pagamento antecipado** da fatura aberta (spec `0013`, _Pagamento_). A fatura não
+  pode ser recriada fechada: os ciclos de um cartão começam na data do seu cadastro (spec `0013`,
+  _Encadeamento dos ciclos_), e toda data anterior está na janela fechada. Lançada na fatura aberta,
+  ela consome o limite do cartão desde a carga, como no banco; quando o responsável registra no
+  vencimento o pagamento antecipado de `valor` pela conta pagadora, a conta é debitada e o limite
+  liberado na hora; e a fatura seguinte fecha com o lançamento e o pagamento se anulando, restando
+  só as compras novas. Descrição: `"Fatura anterior <cartao> (vence <vencimento>)"`; tipo da coluna
+  `tipo_despesa`, sujeito à mesma regra dos demais tipos. O relatório final lembra o pagamento a
+  registrar, com valor, conta e data. Quando a fatura é paga antes da carga, a linha vai com
+  `importar = não`.
 - **Receitas:** `notes` é o `pagante`, como a spec `0014` prevê para a coluna `Pagante`; com
   `observacao`, `"<pagante> — <observacao>"`. `tipo_receita` aponta para um tipo de receita **que
   já existe** no sistema; a carga não cria tipos de receita.
@@ -117,6 +125,7 @@ Antes de criar, a carga procura o registro pela chave abaixo. Se existe, a linha
 | cartão            | banco + `nome`                                                                                       |
 | tipo de despesa   | nome, sem diferença de maiúsculas                                                                    |
 | despesa e receita | descrição final (com a numeração) + conta ou cartão + `occurredOn` da primeira ocorrência ou parcela |
+| fatura em aberto  | descrição final + cartão (sem data, porque `occurredOn` é o dia da carga)                            |
 
 ### Relatório
 
@@ -179,8 +188,9 @@ confere.
 - **AC-0019-06:** uma parcelada com `parcelas_restantes = 1` vira uma despesa `VARIABLE`; com `≥ 2`,
   um grupo cuja soma é `valor_parcela × parcelas_restantes` e cuja descrição traz a numeração
   original.
-- **AC-0019-07:** uma fatura em aberto vira despesa `VARIABLE` `OPEN` na conta pagadora do cartão,
-  com data de vencimento.
+- **AC-0019-07:** uma fatura em aberto vira despesa `VARIABLE` `OPEN` no próprio cartão, na fatura
+  aberta, consumindo o limite disponível; um pagamento antecipado do mesmo valor pela conta
+  pagadora devolve o limite e debita a conta.
 - **AC-0019-08:** depois da carga, os tipos de despesa ativos são exatamente os da planilha com
   `sim`; um pré-definido ausente da planilha fica arquivado, e um presente é reaproveitado
   (INV-0019-06).
@@ -206,7 +216,4 @@ confere.
 
 ## Open questions
 
-- **Tipo das faturas em aberto.** A despesa que representa a fatura fechada precisa de um tipo, e o
-  responsável decidiu manter em `prd` só os tipos da planilha. Proposta: a aba `faturas_em_aberto`
-  ganha a coluna `tipo_despesa`, e o tipo `Cartão de Crédito` passa a `importar = sim` para essa
-  linha.
+Nenhuma.
