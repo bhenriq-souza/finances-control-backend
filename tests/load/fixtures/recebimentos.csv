@@ -1,0 +1,4 @@
+descricao,tipo_receita,ocorrencia,valor,conta,proxima_data,data_fim,parcela_proxima,parcelas_total,parcelas_restantes,situacao,pagante,importar,observacao
+Salário,Salário,FIXED,"8,000.00",Alfa CC,2026-11-05,2027-12-31,,,,FORECAST,Empresa X,sim,
+Empréstimo amigo,Devolução de empréstimo,INSTALLMENT,200,Beta CC,2026-10-31,,3,6,4,OPEN,Fulano,sim,confere
+Bônus,Outros,VARIABLE,500,Alfa CC,2026-12-20,,,,,FORECAST,,sim,
