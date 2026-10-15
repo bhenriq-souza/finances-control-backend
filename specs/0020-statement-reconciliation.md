@@ -1,7 +1,7 @@
 ---
 id: '0020'
 title: Conferência da fatura — despesas incluídas na fatura do banco
-status: approved
+status: implemented
 depends_on: ['0000', '0003', '0012', '0013']
 ---
 

@@ -3606,6 +3606,8 @@ components:
                     purchasesCents,
                     refundsCents,
                     totalCents,
+                    reconciledCents,
+                    pendingReconciliationCents,
                     previousBalanceCents,
                     amountDueCents,
                     paidCents,
@@ -3640,6 +3642,16 @@ components:
                 totalCents:
                     type: integer
                     description: '`purchasesCents − refundsCents`; pode ser negativo.'
+                reconciledCents:
+                    type: integer
+                    description: |
+                        Despesas contadas e marcadas como incluídas, menos `refundsCents`: o valor que se
+                        compara com a fatura do app do banco (spec 0020). Pode ser negativo.
+                pendingReconciliationCents:
+                    type: integer
+                    description: |
+                        Despesas contadas ainda sem a marca de incluída (spec 0020). Sempre
+                        `reconciledCents + pendingReconciliationCents = totalCents`.
                 previousBalanceCents:
                     type: integer
                     description: |

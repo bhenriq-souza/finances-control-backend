@@ -520,7 +520,7 @@ Tarefas da [spec 0020](../specs/0020-statement-reconciliation.md), que fecha a i
       (com a confirmação da `FORECAST`), marca removida na troca de cartão e `reconciledAt` nos corpos
     - Where: `src/expenses/`, migration nova, `docs/openapi.yaml`, `docs/postman/`, `tests/integration/expenses/`
     - Done when: `AC-0020-01` a `AC-0020-08` cobertos; `INV-0020-01` e `INV-0020-02` verificados
-- [ ] **T-0020-02 — Conferido e pendente na fatura** · #200
+- [x] **T-0020-02 — Conferido e pendente na fatura** · #200
     - What: `reconciledCents` e `pendingReconciliationCents` na fatura aberta, nas projetadas e nas
       fechadas, na listagem e no detalhe, e os campos no `openapi.yaml`
     - Where: `src/statements/`, `docs/openapi.yaml`, `docs/postman/`,
