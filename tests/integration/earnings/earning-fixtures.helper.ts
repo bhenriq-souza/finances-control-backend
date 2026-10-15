@@ -43,6 +43,7 @@ export const useEarningFixtures = (schema: string): EarningFixtures => {
 
         return accounts.save(
             accounts.create({
+                workspaceId: ctx.workspaceId,
                 bankId,
                 type: 'CHECKING',
                 accountNumber,
@@ -62,6 +63,7 @@ export const useEarningFixtures = (schema: string): EarningFixtures => {
         const earnings = ctx.dataSource.getRepository(Earning);
         const saved = await earnings.save(
             earnings.create({
+                workspaceId: ctx.workspaceId,
                 description: 'Salário',
                 earningTypeId: typeId,
                 kind: 'VARIABLE',

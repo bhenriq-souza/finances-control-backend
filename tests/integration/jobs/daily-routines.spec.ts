@@ -4,7 +4,7 @@ import { ExpenseJobs } from '../../../src/expenses';
 import { ExpenseServiceSymbol, type ExpenseService } from '../../../src/expenses';
 import type { JobHandler, JobQueue, JobRegistrar } from '../../../src/platform';
 import { StatementJobs } from '../../../src/statements';
-import { startApp, stopApp, type TestApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, startApp, stopApp, type TestApp } from '../app.helper';
 import { cleanFixture, insertExpense, seedFixture, type Fixture } from '../expenses/fixture.helper';
 
 const SCHEMA = 'test_jobs_daily_routines';
@@ -96,9 +96,9 @@ describe('rotinas diárias (spec 0017, AC-0017-13, INV-0017-01, INV-0017-02)', (
 
         const earning = (description: string, status: string, occurredOn: string) =>
             ctx.dataSource.query(
-                `INSERT INTO earnings (description, earning_type_id, kind, status, amount_cents,
+                `INSERT INTO earnings (workspace_id, description, earning_type_id, kind, status, amount_cents,
                     occurred_on, received_on, bank_account_id)
-                 VALUES ($1, $2, 'VARIABLE', $3, 50, $4::date, $5::date, $6)`,
+                 VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, 'VARIABLE', $3, 50, $4::date, $5::date, $6)`,
                 [
                     description,
                     earningTypeId,

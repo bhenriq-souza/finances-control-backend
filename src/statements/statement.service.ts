@@ -157,6 +157,8 @@ export class StatementService {
 
         const saved = await repository.save(
             repository.create({
+                // A fatura herda o espaço do cartão, nunca o de um contexto (INV-0021-06).
+                workspaceId: card.workspaceId,
                 creditCardId: card.id,
                 ...cycle,
                 status: paidInFull ? 'PAID' : 'CLOSED',
@@ -175,6 +177,7 @@ export class StatementService {
 
         scope.publish({
             name: STATEMENT_CLOSED,
+            workspaceId: saved.workspaceId,
             payload: {
                 statementId: saved.id,
                 creditCardId: card.id,
@@ -208,6 +211,7 @@ export class StatementService {
             );
             scope.publish({
                 name: STATEMENT_PAID,
+                workspaceId: saved.workspaceId,
                 payload: { statementId: saved.id, creditCardId: card.id, paidOn },
             });
         }

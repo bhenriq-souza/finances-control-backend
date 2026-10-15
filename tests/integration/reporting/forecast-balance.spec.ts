@@ -1,4 +1,4 @@
-import { stopApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, stopApp } from '../app.helper';
 import {
     addAccount,
     addCard,
@@ -134,10 +134,10 @@ describe('saldo previsto por conta e consolidado (spec 0015, AC-0015-02, 03, 06,
 
         // A de 01/03 tem data passada: entra no primeiro ponto futuro (março).
         await fx.ctx.dataSource.query(
-            `INSERT INTO bank_transfers (from_bank_account_id, to_bank_account_id, amount_cents,
+            `INSERT INTO bank_transfers (workspace_id, from_bank_account_id, to_bank_account_id, amount_cents,
                                          occurred_on, status, description)
-             VALUES ($1, $2, 1, '2026-03-01', 'SCHEDULED', 'Passada'),
-                    ($1, $2, 2, '2026-04-05', 'SCHEDULED', 'Futura')`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, 1, '2026-03-01', 'SCHEDULED', 'Passada'),
+                    (${DEFAULT_WORKSPACE_SQL}, $1, $2, 2, '2026-04-05', 'SCHEDULED', 'Futura')`,
             [fx.accountId, otherId],
         );
 

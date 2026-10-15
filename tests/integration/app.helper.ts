@@ -11,11 +11,23 @@ import {
     InvalidTokenError,
     TokenVerifierSymbol,
     User,
+    WorkspaceMember,
+    withMembership,
     type TokenVerifier,
     type UserProfile,
     type VerifiedToken,
 } from '../../src/identity';
-import { createIsolatedDataSource, dropIsolatedDataSource } from './database.helper';
+import {
+    createIsolatedDataSource,
+    dropIsolatedDataSource,
+    ensureDefaultWorkspace,
+} from './database.helper';
+
+export {
+    DEFAULT_WORKSPACE_NAME,
+    DEFAULT_WORKSPACE_SQL,
+    ensureDefaultWorkspace,
+} from './database.helper';
 
 /** Tokens com significado próprio, para exercitar cada falha pelo HTTP. */
 export const EXPIRED_TOKEN = 'token-expirado';
@@ -55,14 +67,26 @@ const fakeVerifier: TokenVerifier = {
 export type TestApp = {
     app: Express;
     dataSource: DataSource;
-    /** Promove alguém direto no banco, para montar o cenário sem passar pela API. */
-    setProfile: (uid: string, profile: UserProfile | null, grantedById?: string) => Promise<User>;
+    /** Espaço padrão: `setProfile` torna as pessoas membros dele. */
+    workspaceId: string;
+    /**
+     * Promove alguém direto no banco, para montar o cenário sem passar pela API:
+     * com perfil, vira membro do espaço padrão (ou de `workspaceId`); sem, deixa
+     * de ser membro.
+     */
+    setProfile: (
+        uid: string,
+        profile: UserProfile | null,
+        grantedById?: string,
+        workspaceId?: string,
+    ) => Promise<User>;
     findByUid: (uid: string) => Promise<User | null>;
 };
 
 export async function startApp(schema: string): Promise<TestApp> {
     const dataSource = await createIsolatedDataSource(schema);
     await dataSource.runMigrations();
+    const defaultWorkspaceId = await ensureDefaultWorkspace(dataSource);
 
     // Precisa vir antes do `build()`: é nele que as rotas e os serviços são
     // resolvidos do container.
@@ -71,24 +95,33 @@ export async function startApp(schema: string): Promise<TestApp> {
 
     const app = new App().build();
     const users = dataSource.getRepository(User);
+    const members = dataSource.getRepository(WorkspaceMember);
 
     return {
         app,
         dataSource,
-        findByUid: (uid) => users.findOne({ where: { firebaseUid: uid } }),
-        setProfile: async (uid, profile, grantedById) => {
+        workspaceId: defaultWorkspaceId,
+        findByUid: async (uid) => {
+            const user = await users.findOne({ where: { firebaseUid: uid } });
+
+            return user && withMembership(dataSource.manager, user);
+        },
+        setProfile: async (uid, profile, grantedById, workspaceId) => {
             const user = await users.findOneByOrFail({ firebaseUid: uid });
 
-            await users.update(
-                { id: user.id },
-                {
-                    profile,
-                    profileGrantedAt: profile ? new Date() : null,
-                    profileGrantedById: profile ? (grantedById ?? null) : null,
-                },
-            );
+            await members.delete({ userId: user.id });
 
-            return users.findOneByOrFail({ id: user.id });
+            if (profile) {
+                await members.insert({
+                    workspaceId: workspaceId ?? defaultWorkspaceId,
+                    userId: user.id,
+                    profile,
+                    grantedAt: new Date(),
+                    grantedById: grantedById ?? null,
+                });
+            }
+
+            return withMembership(dataSource.manager, await users.findOneByOrFail({ id: user.id }));
         },
     };
 }

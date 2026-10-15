@@ -13,6 +13,7 @@ import { BankAccount } from './bank-account.entity';
 import { BANK_TRANSFER_STATUSES, type BankTransferStatus } from './bank-transfer-status';
 
 @Entity('bank_transfers')
+@Index('idx_bank_transfers_workspace_id', ['workspaceId'])
 @Check('ck_bank_transfers_amount', 'amount_cents > 0')
 @Check('ck_bank_transfers_status', `status IN ('${BANK_TRANSFER_STATUSES.join("', '")}')`)
 @Check('ck_bank_transfers_completed_on', "(status = 'COMPLETED') = (completed_on IS NOT NULL)")
@@ -23,6 +24,14 @@ import { BANK_TRANSFER_STATUSES, type BankTransferStatus } from './bank-transfer
 export class BankTransfer {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'uuid' })
     fromBankAccountId!: string;

@@ -7,12 +7,21 @@ import { moneyTransformer } from '../platform';
  * excluída (`on delete set null`). As FKs vivem só na migration.
  */
 @Entity('credit_card_refunds')
+@Index('idx_credit_card_refunds_workspace_id', ['workspaceId'])
 @Check('ck_credit_card_refunds_amount', 'amount_cents > 0')
 @Check('ck_credit_card_refunds_posted_on', 'posted_on >= occurred_on')
 @Index('idx_credit_card_refunds_credit_card_id_posted_on', ['creditCardId', 'postedOn'])
 export class CreditCardRefund {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'uuid' })
     creditCardId!: string;

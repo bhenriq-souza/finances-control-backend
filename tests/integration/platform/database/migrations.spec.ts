@@ -1,6 +1,11 @@
 import type { DataSource } from 'typeorm';
 
-import { createIsolatedDataSource, dropIsolatedDataSource } from '../../database.helper';
+import {
+    DEFAULT_WORKSPACE_SQL,
+    createIsolatedDataSource,
+    dropIsolatedDataSource,
+    ensureDefaultWorkspace,
+} from '../../database.helper';
 
 const functionExists = async (dataSource: DataSource): Promise<boolean> => {
     // Filtrar por `current_schema()` é o que torna a asserção verdadeira sobre o
@@ -209,6 +214,7 @@ describe('migrations no banco real', () => {
             'fk_earnings_bank_account_id',
             'fk_earnings_earning_type_id',
             'fk_earnings_recurrence_id',
+            'fk_earnings_workspace_id',
             'pk_earnings',
             'uq_earnings_installment_group_id_installment_number',
             'uq_earnings_recurrence_id_occurred_on',
@@ -281,15 +287,18 @@ describe('migrations no banco real', () => {
             'ck_credit_card_statements_minimum_payment',
             'ck_credit_card_statements_status',
             'fk_credit_card_statements_credit_card_id',
+            'fk_credit_card_statements_workspace_id',
             'pk_credit_card_statements',
             'uq_credit_card_statements_credit_card_id_closes_on',
             'uq_credit_card_statements_credit_card_id_starts_on',
+            'uq_credit_card_statements_workspace_id_id',
         ]);
         expect(await constraintsOf('credit_card_statement_payments')).toEqual([
             'ck_credit_card_statement_payments_amount',
             'fk_credit_card_statement_payments_bank_account_id',
             'fk_credit_card_statement_payments_credit_card_id',
             'fk_credit_card_statement_payments_statement_id',
+            'fk_credit_card_statement_payments_workspace_id',
             'pk_credit_card_statement_payments',
         ]);
         expect(await constraintsOf('credit_card_refunds')).toEqual([
@@ -297,6 +306,7 @@ describe('migrations no banco real', () => {
             'ck_credit_card_refunds_posted_on',
             'fk_credit_card_refunds_credit_card_id',
             'fk_credit_card_refunds_expense_id',
+            'fk_credit_card_refunds_workspace_id',
             'pk_credit_card_refunds',
         ]);
 
@@ -348,22 +358,24 @@ describe('migrations no banco real', () => {
             'ck_bank_transfers_status',
             'fk_bank_transfers_from_bank_account_id',
             'fk_bank_transfers_to_bank_account_id',
+            'fk_bank_transfers_workspace_id',
             'pk_bank_transfers',
         ]);
 
         const [bank] = await dataSource.query<{ id: string }[]>(
             "INSERT INTO banks (febraban_code, name) VALUES ('260', 'Nu') RETURNING id",
         );
+        await ensureDefaultWorkspace(dataSource);
         const [account] = await dataSource.query<{ id: string }[]>(
             `INSERT INTO bank_accounts
-                (bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
-             VALUES ($1, 'CHECKING', '1-1', 'Conta', 0, 0) RETURNING id`,
+                (workspace_id, bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'CHECKING', '1-1', 'Conta', 0, 0) RETURNING id`,
             [bank!.id],
         );
         const [other] = await dataSource.query<{ id: string }[]>(
             `INSERT INTO bank_accounts
-                (bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
-             VALUES ($1, 'SAVINGS', '2-2', 'Poupança', 0, 0) RETURNING id`,
+                (workspace_id, bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'SAVINGS', '2-2', 'Poupança', 0, 0) RETURNING id`,
             [bank!.id],
         );
 
@@ -376,8 +388,8 @@ describe('migrations no banco real', () => {
         ) =>
             dataSource.query(
                 `INSERT INTO bank_transfers
-                    (from_bank_account_id, to_bank_account_id, amount_cents, occurred_on, status, completed_on, description)
-                 VALUES ($1, $2, $3, '2026-03-10', $4, $5, 'x')`,
+                    (workspace_id, from_bank_account_id, to_bank_account_id, amount_cents, occurred_on, status, completed_on, description)
+                 VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, $3, '2026-03-10', $4, $5, 'x')`,
                 [from, to, amount, status, completedOn],
             );
 

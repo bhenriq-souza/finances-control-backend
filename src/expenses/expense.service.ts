@@ -13,10 +13,12 @@ import {
 } from '../accounts';
 import { EXPENSE_CREATED, EXPENSE_PAID, type ExpenseCreated } from '../events';
 import {
+    RequestContextSymbol,
     TransactionRunnerSymbol,
     businessToday,
     monthlyInstallmentDates,
     splitCents,
+    type RequestContext,
     type TransactionRunner,
 } from '../platform';
 import { ExpenseType } from './expense-type.entity';
@@ -86,6 +88,7 @@ export class ExpenseService {
         @inject(BankAccountServiceSymbol) private readonly bankAccounts: BankAccountService,
         @inject(CreditCardServiceSymbol) private readonly creditCards: CreditCardService,
         @inject(StatementPeriodGuardSymbol) private readonly guard: StatementPeriodGuard,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     /** Last closed day of the card as `YYYY-MM-DD` (spec 0013, A janela fechada). */
@@ -100,6 +103,8 @@ export class ExpenseService {
      * Saldo e limite nunca barram o lançamento (INV-0012-09).
      */
     create(data: CreateExpense): Promise<ExpenseWithType[]> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const { manager } = scope;
 
@@ -165,6 +170,7 @@ export class ExpenseService {
                 ? (
                       await manager.getRepository(ExpenseRecurrence).save(
                           manager.getRepository(ExpenseRecurrence).create({
+                              workspaceId,
                               description: data.description,
                               expenseTypeId: data.expenseTypeId,
                               amountCents: data.amountCents,
@@ -183,6 +189,7 @@ export class ExpenseService {
             for (let index = 0; index < total; index += 1) {
                 const saved = await repository.save(
                     repository.create({
+                        workspaceId,
                         description: data.description,
                         expenseTypeId: data.expenseTypeId,
                         kind: data.kind,
@@ -203,6 +210,7 @@ export class ExpenseService {
 
                 scope.publish({
                     name: EXPENSE_CREATED,
+                    workspaceId: saved.workspaceId,
                     payload: {
                         expenseId: saved.id,
                         kind: saved.kind,
@@ -303,6 +311,7 @@ export class ExpenseService {
                 await repository.update({ id }, { status: 'PAID', paidOn });
                 scope.publish({
                     name: EXPENSE_PAID,
+                    workspaceId: expense.workspaceId,
                     payload: {
                         expenseId: id,
                         amountCents: expense.amountCents,

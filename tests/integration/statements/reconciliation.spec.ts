@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import { startApp, stopApp, type TestApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, startApp, stopApp, type TestApp } from '../app.helper';
 import { ADMIN, seedFixture, type Fixture } from '../expenses/fixture.helper';
 
 const SCHEMA = 'test_statements_reconciliation';
@@ -48,9 +48,9 @@ describe('conferência: conferido e pendente da fatura (spec 0020)', () => {
     ): Promise<string> => {
         const status = options.status ?? 'OPEN';
         const rows = (await ctx.dataSource.query(
-            `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents,
+            `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents,
                 occurred_on, credit_card_id, posted_on, reconciled_at)
-             VALUES ('Compra', $1, 'VARIABLE', $2, $3, $4::date, $5, $4::date, $6)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Compra', $1, 'VARIABLE', $2, $3, $4::date, $5, $4::date, $6)
              RETURNING id`,
             [
                 fx.typeId,
@@ -67,8 +67,8 @@ describe('conferência: conferido e pendente da fatura (spec 0020)', () => {
 
     const addRefund = (cents: number, postedOn: string) =>
         ctx.dataSource.query(
-            `INSERT INTO credit_card_refunds (credit_card_id, description, amount_cents, occurred_on, posted_on)
-             VALUES ($1, 'Estorno', $2, $3::date, $3::date)`,
+            `INSERT INTO credit_card_refunds (workspace_id, credit_card_id, description, amount_cents, occurred_on, posted_on)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'Estorno', $2, $3::date, $3::date)`,
             [fx.cardId, cents / 100, postedOn],
         );
 

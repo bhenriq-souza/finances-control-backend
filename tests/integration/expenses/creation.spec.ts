@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import { startApp, stopApp, type TestApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, startApp, stopApp, type TestApp } from '../app.helper';
 import { businessToday } from '../../../src/platform';
 
 const SCHEMA = 'test_expenses_creation';
@@ -300,8 +300,8 @@ describe('POST /expenses (spec 0012, criação)', () => {
     describe('CHECKs do banco (INV-0012-01, INV-0012-02)', () => {
         const insert = (columns: string, values: unknown[]) =>
             ctx.dataSource.query(
-                `INSERT INTO expenses (description, expense_type_id, kind, status, occurred_on, ${columns})
-                 VALUES ('x', $1, 'VARIABLE', 'OPEN', '2026-03-10', ${values.map((_, i) => `$${i + 2}`).join(', ')})`,
+                `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, occurred_on, ${columns})
+                 VALUES (${DEFAULT_WORKSPACE_SQL}, 'x', $1, 'VARIABLE', 'OPEN', '2026-03-10', ${values.map((_, i) => `$${i + 2}`).join(', ')})`,
                 [typeId, ...values],
             );
 

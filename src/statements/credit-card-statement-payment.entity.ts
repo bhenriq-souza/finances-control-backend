@@ -7,12 +7,21 @@ import { moneyTransformer } from '../platform';
  * As FKs (cartão, fatura, conta) vivem só na migration.
  */
 @Entity('credit_card_statement_payments')
+@Index('idx_credit_card_statement_payments_workspace_id', ['workspaceId'])
 @Check('ck_credit_card_statement_payments_amount', 'amount_cents > 0')
 @Index('idx_credit_card_statement_payments_statement_id', ['statementId'])
 @Index('idx_credit_card_statement_payments_credit_card_id', ['creditCardId'])
 export class CreditCardStatementPayment {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'uuid' })
     creditCardId!: string;

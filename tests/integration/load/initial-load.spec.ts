@@ -204,10 +204,15 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
 
             const before = await services.cards.findById(card.id);
             const account = await services.accounts.findById(card.paymentBankAccountId!);
-            await container.resolve(StatementPaymentService).payEarly({
-                creditCardId: card.id,
-                amountCents: 234567,
-            });
+            // Como numa requisição: o pagamento grava o espaço do contexto (spec 0021).
+            await services.inWorkspace(
+                () =>
+                    container.resolve(StatementPaymentService).payEarly({
+                        creditCardId: card.id,
+                        amountCents: 234567,
+                    }),
+                { dryRun: false },
+            );
 
             expect((await services.cards.findById(card.id)).availableLimitCents).toBe(
                 before.availableLimitCents + 234567,

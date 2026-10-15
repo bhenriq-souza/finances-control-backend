@@ -4,7 +4,7 @@ import request from 'supertest';
 
 import { container } from '../../../src/container';
 import { ExpenseServiceSymbol, ExpenseType, type ExpenseService } from '../../../src/expenses';
-import { startApp, stopApp, type TestApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, startApp, stopApp, type TestApp } from '../app.helper';
 import { ADMIN, seedFixture, type Fixture } from '../expenses/fixture.helper';
 
 const SCHEMA = 'test_statements_query';
@@ -56,10 +56,10 @@ describe('consulta e resumo de faturas (spec 0013, T-0013-05)', () => {
     const addExpense = async (row: ExpenseRow): Promise<string> => {
         const status = row.status ?? 'OPEN';
         const rows = (await ctx.dataSource.query(
-            `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents,
+            `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents,
                 occurred_on, paid_on, credit_card_id, posted_on, installment_group_id,
                 installment_number, installment_total)
-             VALUES ('Compra', $1, $2, $3, $4, $5::date, $6::date, $7, $5::date, $8, $9, $10)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Compra', $1, $2, $3, $4, $5::date, $6::date, $7, $5::date, $8, $9, $10)
              RETURNING id`,
             [
                 row.typeId,
@@ -80,15 +80,15 @@ describe('consulta e resumo de faturas (spec 0013, T-0013-05)', () => {
 
     const addRefund = (postedOn: string, cents: number) =>
         ctx.dataSource.query(
-            `INSERT INTO credit_card_refunds (credit_card_id, description, amount_cents, occurred_on, posted_on)
-             VALUES ($1, 'Estorno', $2, $3::date, $3::date)`,
+            `INSERT INTO credit_card_refunds (workspace_id, credit_card_id, description, amount_cents, occurred_on, posted_on)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'Estorno', $2, $3::date, $3::date)`,
             [fx.cardId, cents / 100, postedOn],
         );
 
     const addPayment = (cents: number, paidOn: string, statementId: string | null = null) =>
         ctx.dataSource.query(
-            `INSERT INTO credit_card_statement_payments (credit_card_id, statement_id, bank_account_id, amount_cents, paid_on)
-             VALUES ($1, $2, $3, $4, $5::date)`,
+            `INSERT INTO credit_card_statement_payments (workspace_id, credit_card_id, statement_id, bank_account_id, amount_cents, paid_on)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, $3, $4, $5::date)`,
             [fx.cardId, statementId, fx.accountId, cents / 100, paidOn],
         );
 

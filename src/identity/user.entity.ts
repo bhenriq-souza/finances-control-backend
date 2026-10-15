@@ -1,24 +1,24 @@
-import {
-    Check,
-    Column,
-    Entity,
-    JoinColumn,
-    ManyToOne,
-    PrimaryGeneratedColumn,
-    Unique,
-} from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
-import { USER_PROFILES, type UserProfile } from './user-profile';
+import type { UserProfile } from './user-profile';
+
+/** O vínculo do usuário com o espaço, como o resto do módulo o lê (spec 0021). */
+export type UserMembership = {
+    workspaceId: string;
+    profile: UserProfile;
+    grantedAt: Date;
+    grantedById: string | null;
+};
 
 /**
  * Registro local do usuário, vinculado ao UID do Firebase (ADR-0006). A senha e
- * os provedores de login ficam no Firebase; o que vive aqui é o vínculo e o
- * perfil, que é lido a cada requisição para decidir autorização.
+ * os provedores de login ficam no Firebase; o que vive aqui é o vínculo e a
+ * marca de admin da plataforma. O perfil mora no membro do espaço (spec 0021), e
+ * os dois são lidos a cada requisição para decidir autorização.
  */
 @Entity('users')
 @Unique('uq_users_firebase_uid', ['firebaseUid'])
 @Unique('uq_users_email', ['email'])
-@Check('ck_users_profile', `profile IN ('${USER_PROFILES.join("', '")}')`)
 export class User {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
@@ -37,27 +37,20 @@ export class User {
     @Column({ type: 'boolean', default: false })
     emailVerified!: boolean;
 
-    /** Nulo é o estado normal de quem acabou de se cadastrar, não dado faltando. */
-    @Column({ type: 'text', nullable: true })
-    profile!: UserProfile | null;
-
-    @Column({ type: 'timestamptz', nullable: true })
-    profileGrantedAt!: Date | null;
+    /**
+     * Quem aprova usuários, gere espaços e escreve os catálogos globais (spec
+     * 0021). Não é perfil: vale independente de o usuário ser membro de um espaço.
+     */
+    @Column({ type: 'boolean', default: false })
+    isPlatformAdmin!: boolean;
 
     /**
-     * Nulo quando a concessão veio do bootstrap: foi o sistema, não uma pessoa.
-     * O nome da coluna é declarado porque a spec 0010 o fixa como
-     * `profile_granted_by` — sem o sufixo que a estratégia de nomes daria.
+     * O membro do espaço, quando há um; nulo é o usuário pendente (INV-0021-02).
+     * Não é coluna nem relação do ORM: `withMembership` o carrega de
+     * `workspace_members`, e a relação mora só no membro, para que as duas
+     * entidades não dependam uma da outra.
      */
-    @Column({ name: 'profile_granted_by', type: 'uuid', nullable: true })
-    profileGrantedById!: string | null;
-
-    @ManyToOne(() => User, { nullable: true, onDelete: 'RESTRICT' })
-    @JoinColumn({
-        name: 'profile_granted_by',
-        foreignKeyConstraintName: 'fk_users_profile_granted_by',
-    })
-    profileGrantedBy?: User | null;
+    membership?: UserMembership | null;
 
     /**
      * Mantidas pelo banco (spec 0003): `created_at` pelo default, `updated_at`

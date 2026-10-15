@@ -4,7 +4,11 @@ import type { DataSource, Repository } from 'typeorm';
 
 import { Bank, BankAccount } from '../../../src/accounts';
 import { Earning, EarningType } from '../../../src/earnings';
-import { createIsolatedDataSource, dropIsolatedDataSource } from '../database.helper';
+import {
+    createIsolatedDataSource,
+    dropIsolatedDataSource,
+    ensureDefaultWorkspace,
+} from '../database.helper';
 
 const SCHEMA = 'test_earnings_schema';
 
@@ -13,8 +17,10 @@ describe('schema de earnings (spec 0014)', () => {
     let earnings: Repository<Earning>;
     let earningTypeId: string;
     let bankAccountId: string;
+    let workspaceId: string;
 
     const newEarning = (overrides: Partial<Earning> = {}): Partial<Earning> => ({
+        workspaceId,
         description: 'Salário de teste',
         earningTypeId,
         kind: 'VARIABLE',
@@ -36,6 +42,7 @@ describe('schema de earnings (spec 0014)', () => {
     beforeAll(async () => {
         dataSource = await createIsolatedDataSource(SCHEMA);
         await dataSource.runMigrations();
+        workspaceId = await ensureDefaultWorkspace(dataSource);
         earnings = dataSource.getRepository(Earning);
 
         const bank = await dataSource
@@ -43,6 +50,7 @@ describe('schema de earnings (spec 0014)', () => {
             .save({ febrabanCode: '260', name: 'Banco de Teste', archivedAt: null });
         bankAccountId = (
             await dataSource.getRepository(BankAccount).save({
+                workspaceId,
                 bankId: bank.id,
                 type: 'CHECKING',
                 accountNumber: '1-1',

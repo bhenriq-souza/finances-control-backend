@@ -37,7 +37,11 @@ const build = (overrides: Partial<Deps> = {}) => {
             }),
         } as unknown as TokenVerifier,
         provisioning: {
-            provision: jest.fn().mockResolvedValue({ id: 'user-id', profile: 'VIEWER' } as User),
+            provision: jest.fn().mockResolvedValue({
+                id: 'user-id',
+                isPlatformAdmin: false,
+                membership: { workspaceId: 'workspace-id', profile: 'VIEWER' },
+            } as unknown as User),
         } as unknown as UserProvisioningService,
         requestContext: new RequestContext(),
         logger,
@@ -159,15 +163,22 @@ describe('requireAuthentication', () => {
                 emailVerified: true,
                 name: 'A',
             });
-            expect(store).toMatchObject({ userId: 'user-id', userProfile: 'VIEWER' });
+            expect(store).toMatchObject({
+                userId: 'user-id',
+                workspaceId: 'workspace-id',
+                userProfile: 'VIEWER',
+                isPlatformAdmin: false,
+            });
         });
 
         it('usuário sem perfil também passa pela autenticação (INV-0010-03)', async () => {
             const { deps, middleware } = build({
                 provisioning: {
-                    provision: jest
-                        .fn()
-                        .mockResolvedValue({ id: 'pendente', profile: null } as User),
+                    provision: jest.fn().mockResolvedValue({
+                        id: 'pendente',
+                        isPlatformAdmin: false,
+                        membership: null,
+                    } as unknown as User),
                 } as unknown as UserProvisioningService,
             });
 
@@ -178,7 +189,12 @@ describe('requireAuthentication', () => {
             );
 
             expect(error).toBeUndefined();
-            expect(store).toMatchObject({ userId: 'pendente', userProfile: null });
+            expect(store).toMatchObject({
+                userId: 'pendente',
+                workspaceId: null,
+                userProfile: null,
+                isPlatformAdmin: false,
+            });
         });
 
         it('aceita token com espaços em volta', async () => {

@@ -1,12 +1,14 @@
 import { inject, injectable } from 'tsyringe';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
-import { In, Not, type DataSource, type Repository } from 'typeorm';
+import { In, Not, type DataSource, type EntityManager, type Repository } from 'typeorm';
 
 import { DatabaseConnectionSymbol } from '../platform';
 import { assertValidAvatar, type AvatarContentType } from './avatar-signature';
 import type { UserProfile } from './user-profile';
 import { UserAvatar } from './user-avatar.entity';
 import { User } from './user.entity';
+import { withMembership } from './membership';
+import { WorkspaceMember } from './workspace-member.entity';
 
 /** A foto como sai para o cliente: os bytes e o tipo gravado. */
 export type StoredAvatar = { content: Buffer; contentType: AvatarContentType };
@@ -33,11 +35,13 @@ export class UserService {
 
         if (!user) throw userNotFound();
 
-        return user;
+        return withMembership(this.dataSource.manager, user);
     }
 
-    list(): Promise<User[]> {
-        return this.users.find({ order: { createdAt: 'ASC' } });
+    async list(): Promise<User[]> {
+        const users = await this.users.find({ order: { createdAt: 'ASC' } });
+
+        return withMembership(this.dataSource.manager, users);
     }
 
     /**
@@ -105,30 +109,60 @@ export class UserService {
         return { content: avatar.content, contentType: avatar.contentType };
     }
 
+    /**
+     * Concede ou troca o perfil (spec 0010, sobre o membro da spec 0021). Quem já
+     * é membro troca o perfil no espaço em que está; o pendente vira membro do
+     * espaço de quem concede (`actorWorkspaceId`). Provisório até a aprovação com
+     * espaço da T-0021-02.
+     */
     grantProfile(params: {
         targetId: string;
         profile: UserProfile;
         actorId: string;
+        actorWorkspaceId: string;
     }): Promise<User> {
-        return this.changeProfile(params.targetId, params.actorId, {
-            profile: params.profile,
-            profileGrantedAt: new Date(),
-            profileGrantedById: params.actorId,
-        });
+        return this.changeMembership(
+            params.targetId,
+            params.actorId,
+            async (manager, target) => {
+                const members = manager.getRepository(WorkspaceMember);
+                const grant = {
+                    profile: params.profile,
+                    grantedAt: new Date(),
+                    grantedById: params.actorId,
+                };
+
+                if (target.membership) {
+                    await members.update({ userId: target.id }, grant);
+                } else {
+                    await members.insert({
+                        ...grant,
+                        workspaceId: params.actorWorkspaceId,
+                        userId: target.id,
+                    });
+                }
+            },
+            params.profile,
+        );
     }
 
+    /** Tira o usuário do espaço: ele volta a pendente, e os registros do espaço ficam. */
     revokeProfile(params: { targetId: string; actorId: string }): Promise<User> {
-        return this.changeProfile(params.targetId, params.actorId, {
-            profile: null,
-            profileGrantedAt: null,
-            profileGrantedById: null,
-        });
+        return this.changeMembership(
+            params.targetId,
+            params.actorId,
+            async (manager, target) => {
+                await manager.getRepository(WorkspaceMember).delete({ userId: target.id });
+            },
+            null,
+        );
     }
 
-    private changeProfile(
+    private changeMembership(
         targetId: string,
         actorId: string,
-        changes: Partial<User>,
+        change: (manager: EntityManager, target: User) => Promise<void>,
+        nextProfile: UserProfile | null,
     ): Promise<User> {
         // Ninguém muda o próprio perfil (INV-0010-05). A checagem vem antes de
         // qualquer leitura: é regra sobre quem pede, não sobre o estado do banco.
@@ -143,14 +177,16 @@ export class UserService {
 
         return this.dataSource.transaction(async (manager) => {
             const users = manager.getRepository(User);
-            const target = await users.findOne({ where: { id: targetId } });
+            const found = await users.findOne({ where: { id: targetId } });
 
-            if (!target) throw userNotFound();
+            if (!found) throw userNotFound();
 
-            await assertAdminRemains(users, target, changes.profile ?? null);
-            await users.update({ id: targetId }, changes);
+            const target = await withMembership(manager, found);
 
-            return users.findOneByOrFail({ id: targetId });
+            await assertAdminRemains(manager, target, nextProfile);
+            await change(manager, target);
+
+            return withMembership(manager, await users.findOneByOrFail({ id: targetId }));
         });
     }
 }
@@ -166,15 +202,17 @@ const userNotFound = (): CustomError =>
  * o alvo, que é quem está prestes a deixar de ser um.
  */
 async function assertAdminRemains(
-    users: Repository<User>,
+    manager: EntityManager,
     target: User,
     nextProfile: UserProfile | null,
 ): Promise<void> {
-    const losingAdmin = target.profile === 'ADMIN' && nextProfile !== 'ADMIN';
+    const losingAdmin = target.membership?.profile === 'ADMIN' && nextProfile !== 'ADMIN';
 
     if (!losingAdmin) return;
 
-    const otherAdmins = await users.count({ where: { profile: 'ADMIN', id: Not(target.id) } });
+    const otherAdmins = await manager
+        .getRepository(WorkspaceMember)
+        .count({ where: { profile: 'ADMIN', userId: Not(target.id) } });
 
     if (otherAdmins === 0) {
         throw new CustomError(

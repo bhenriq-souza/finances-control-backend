@@ -10,6 +10,8 @@ import {
     UserProvisioningServiceSymbol,
     createAuthenticationMiddleware,
     createRequireProfile,
+    createRequirePlatformAdmin,
+    createRequireMemberOrPlatformAdmin,
     UserProvisioningService,
     type TokenVerifier,
 } from './identity';
@@ -30,6 +32,8 @@ import {
     JobQueueSymbol,
     RequireAuthenticationSymbol,
     RequireProfileSymbol,
+    RequirePlatformAdminSymbol,
+    RequireMemberOrPlatformAdminSymbol,
     EnvServiceSymbol,
     HttpResponsesSymbol,
     LoggerServiceSymbol,
@@ -81,6 +85,18 @@ container.register(RequireAuthenticationSymbol, {
 container.register(RequireProfileSymbol, {
     useFactory: instanceCachingFactory((c) =>
         createRequireProfile(c.resolve<RequestContext>(RequestContextSymbol)),
+    ),
+});
+
+container.register(RequirePlatformAdminSymbol, {
+    useFactory: instanceCachingFactory((c) =>
+        createRequirePlatformAdmin(c.resolve<RequestContext>(RequestContextSymbol)),
+    ),
+});
+
+container.register(RequireMemberOrPlatformAdminSymbol, {
+    useFactory: instanceCachingFactory((c) =>
+        createRequireMemberOrPlatformAdmin(c.resolve<RequestContext>(RequestContextSymbol)),
     ),
 });
 

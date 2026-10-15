@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import { stopApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, stopApp } from '../app.helper';
 import {
     ADMIN,
     DATE_ONLY,
@@ -179,9 +179,9 @@ describe('GET /reports/account-movements (spec 0015, AC-0015-14, AC-0015-15, INV
         };
         const earning = (status: string, cents: number, description: string) =>
             insert(
-                `INSERT INTO earnings (description, earning_type_id, kind, status, amount_cents,
+                `INSERT INTO earnings (workspace_id, description, earning_type_id, kind, status, amount_cents,
                                        occurred_on, received_on, bank_account_id)
-                 VALUES ($5, $1, 'VARIABLE', $2, $3::numeric / 100, '2026-03-12',
+                 VALUES (${DEFAULT_WORKSPACE_SQL}, $5, $1, 'VARIABLE', $2, $3::numeric / 100, '2026-03-12',
                          CASE WHEN $2 = 'RECEIVED' THEN '2026-03-12'::date END, $4)`,
                 [fx.earningTypeId, status, cents, account, description],
             );
@@ -193,21 +193,21 @@ describe('GET /reports/account-movements (spec 0015, AC-0015-14, AC-0015-15, INV
         await earning('RECEIVED', 2200, 'Segunda');
         await earning('RECEIVED', 3300, 'Terceira');
         await insert(
-            `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents,
+            `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents,
                                    occurred_on, credit_card_id, posted_on)
-             VALUES ('Cartão', $1, 'VARIABLE', 'OPEN', 77.77, '2026-03-12', $2, '2026-03-12')`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Cartão', $1, 'VARIABLE', 'OPEN', 77.77, '2026-03-12', $2, '2026-03-12')`,
             [fx.expenseTypeId, fx.cardId],
         );
         await insert(
-            `INSERT INTO bank_transfers (from_bank_account_id, to_bank_account_id, amount_cents,
+            `INSERT INTO bank_transfers (workspace_id, from_bank_account_id, to_bank_account_id, amount_cents,
                                          occurred_on, status, description)
-             VALUES ($1, $2, 500, '2026-03-12', 'SCHEDULED', 'Agendada')`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, 500, '2026-03-12', 'SCHEDULED', 'Agendada')`,
             [account, otherId],
         );
         // Pagamento antecipado ainda sem fatura.
         await insert(
-            `INSERT INTO credit_card_statement_payments (credit_card_id, bank_account_id, amount_cents, paid_on)
-             VALUES ($1, $2, 10, '2026-03-13')`,
+            `INSERT INTO credit_card_statement_payments (workspace_id, credit_card_id, bank_account_id, amount_cents, paid_on)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, 10, '2026-03-13')`,
             [fx.cardId, account],
         );
         await insert('UPDATE bank_accounts SET archived_at = now() WHERE id = $1', [account]);

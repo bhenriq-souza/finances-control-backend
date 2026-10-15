@@ -36,6 +36,7 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
     ): Promise<string> =>
         (
             await ctx.dataSource.getRepository(Expense).save({
+                workspaceId: ctx.workspaceId,
                 description: 'Compra',
                 expenseTypeId: typeId,
                 kind: 'VARIABLE',
@@ -55,6 +56,7 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
 
     const addRefund = (postedOn: string, amountCents: number) =>
         ctx.dataSource.getRepository(CreditCardRefund).save({
+            workspaceId: ctx.workspaceId,
             creditCardId: cardId,
             expenseId: null,
             description: 'Estorno',
@@ -66,6 +68,7 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
 
     const addPayment = (amountCents: number, paidOn: string, statementId: string | null = null) =>
         ctx.dataSource.getRepository(CreditCardStatementPayment).save({
+            workspaceId: ctx.workspaceId,
             creditCardId: cardId,
             statementId,
             bankAccountId: accountId,
@@ -100,6 +103,7 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
 
         accountId = (
             await ctx.dataSource.getRepository(BankAccount).save({
+                workspaceId: ctx.workspaceId,
                 bankId: bank.id,
                 type: 'CHECKING',
                 accountNumber: '1-1',
@@ -112,6 +116,7 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
         ).id;
         cardId = (
             await ctx.dataSource.getRepository(CreditCard).save({
+                workspaceId: ctx.workspaceId,
                 bankId: bank.id,
                 name: 'Cartão',
                 creditLimitCents: 500000,

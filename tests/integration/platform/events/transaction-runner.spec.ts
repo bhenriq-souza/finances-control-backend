@@ -49,7 +49,7 @@ describe('TransactionRunner (banco real)', () => {
 
         await runner.run(async (scope) => {
             await scope.manager.query('INSERT INTO runner_probe (id) VALUES ($1)', ['a']);
-            scope.publish({ name: 'RowSaved', payload: { id: 'a' } });
+            scope.publish({ name: 'RowSaved', workspaceId: null, payload: { id: 'a' } });
         });
 
         expect(seenByHandler).toBe(true);
@@ -63,7 +63,7 @@ describe('TransactionRunner (banco real)', () => {
         await expect(
             runner.run(async (scope) => {
                 await scope.manager.query('INSERT INTO runner_probe (id) VALUES ($1)', ['b']);
-                scope.publish({ name: 'RowSaved', payload: { id: 'b' } });
+                scope.publish({ name: 'RowSaved', workspaceId: null, payload: { id: 'b' } });
                 throw failure;
             }),
         ).rejects.toBe(failure);
@@ -79,7 +79,7 @@ describe('TransactionRunner (banco real)', () => {
         dispatcher.subscribe('Outer', async () => {
             await runner.run(async (scope) => {
                 await scope.manager.query('INSERT INTO runner_probe (id) VALUES ($1)', ['inner']);
-                scope.publish({ name: 'Inner', payload: {} });
+                scope.publish({ name: 'Inner', workspaceId: null, payload: {} });
             });
             order.push('outer-handler-done');
         });
@@ -89,7 +89,7 @@ describe('TransactionRunner (banco real)', () => {
         });
 
         await runner.run((scope) => {
-            scope.publish({ name: 'Outer', payload: {} });
+            scope.publish({ name: 'Outer', workspaceId: null, payload: {} });
             return Promise.resolve();
         });
         order.push('outer-run-resolved');

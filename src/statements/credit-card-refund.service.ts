@@ -5,7 +5,13 @@ import type { EntityManager } from 'typeorm';
 import { CreditCardServiceSymbol, type CreditCardService } from '../accounts';
 import { CREDIT_CARD_REFUND_REGISTERED } from '../events';
 import { ExpenseServiceSymbol, type ExpenseService } from '../expenses';
-import { TransactionRunnerSymbol, businessToday, type TransactionRunner } from '../platform';
+import {
+    RequestContextSymbol,
+    TransactionRunnerSymbol,
+    businessToday,
+    type RequestContext,
+    type TransactionRunner,
+} from '../platform';
 import { CreditCardRefund } from './credit-card-refund.entity';
 import type {
     CreateCreditCardRefund,
@@ -50,6 +56,7 @@ export class CreditCardRefundService {
         @inject(CreditCardServiceSymbol) private readonly creditCards: CreditCardService,
         @inject(ExpenseServiceSymbol) private readonly expenses: ExpenseService,
         private readonly guard: StatementPeriodGuardService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     /**
@@ -90,6 +97,7 @@ export class CreditCardRefundService {
             const repository = manager.getRepository(CreditCardRefund);
             const saved = await repository.save(
                 repository.create({
+                    workspaceId: this.requestContext.requireWorkspaceId(),
                     creditCardId: data.creditCardId,
                     expenseId: data.expenseId ?? null,
                     description: data.description,
@@ -108,6 +116,7 @@ export class CreditCardRefundService {
 
             scope.publish({
                 name: CREDIT_CARD_REFUND_REGISTERED,
+                workspaceId: saved.workspaceId,
                 payload: {
                     refundId: saved.id,
                     creditCardId: saved.creditCardId,

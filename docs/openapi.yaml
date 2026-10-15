@@ -4176,6 +4176,7 @@ components:
                 - UNAUTHENTICATED
                 - USER_NOT_FOUND
                 - VALIDATION_ERROR
+                - WORKSPACE_CONTEXT_MISSING
 
         Error:
             type: object
