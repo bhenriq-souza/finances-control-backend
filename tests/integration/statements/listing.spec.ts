@@ -415,6 +415,7 @@ describe('consulta e resumo de faturas (spec 0013, T-0013-05)', () => {
                 status: 'OPEN',
                 expenseType: { id: alphaId, name: 'T-Alpha' },
                 installment: { groupId, number: 2, total: 4 },
+                reconciledAt: null,
             },
         ]);
     });

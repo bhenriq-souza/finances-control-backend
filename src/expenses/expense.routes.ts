@@ -70,6 +70,12 @@ export class ExpenseRoutes extends BaseRoute {
                 middlewares: write,
                 handler: this.bind(this.controller, this.controller.handleChangePaymentMethod),
             },
+            {
+                method: 'PATCH',
+                path: '/:id/reconciliation',
+                middlewares: write,
+                handler: this.bind(this.controller, this.controller.handleChangeReconciliation),
+            },
         ];
     }
 }

@@ -31,6 +31,7 @@ const expense = (
     status,
     expenseType: { id: type[0], name: type[1] },
     installment: null,
+    reconciledAt: null,
 });
 
 const paying = (...amounts: number[]): StatementBase['payments'] =>
