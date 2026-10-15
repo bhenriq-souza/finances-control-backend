@@ -528,6 +528,57 @@ Tarefas da [spec 0020](../specs/0020-statement-reconciliation.md), que fecha a i
     - Done when: `AC-0020-09`, `AC-0020-10` e `AC-0020-11` cobertos; `INV-0020-03`, `INV-0020-04` e
       `INV-0020-05` verificados; última tarefa: fecha FCB-024 e muda o `status` para `implemented`
 
+## Espaços e isolamento
+
+Tarefas da [spec 0021](../specs/0021-workspaces.md) e do [ADR-0003 local](../specs/adr/0003-workspace-scoping.md),
+que fecham a issue de entrega [FCB-025](https://github.com/bhenriq-souza/finances-control-backend/issues/205).
+Fase 5 do hub (FC-013). A base dos espaços vem sozinha e bloqueia as demais; as seis tarefas de
+módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rota fecha.
+
+- [ ] **T-0021-01 — Base dos espaços: esquema e contexto** · #206
+    - What: migration e entidades da spec 0021, espaço e marca no `RequestStore`, as três guardas,
+      `workspaceId` no envelope `DomainEvent` e harness de dois espaços; módulos gravam o espaço
+    - Where: `src/platform/`, `src/identity/`, migration nova, entidades, `tests/integration/platform/`
+    - Done when: `AC-0021-01` a `AC-0021-04` cobertos; `INV-0021-01` e `INV-0021-04` verificados;
+      `ERR-0021-13` coberto; suíte atual verde
+- [ ] **T-0021-02 — Espaços e membros no identity** · #207
+    - What: rotas de espaço, aprovação com espaço novo ou existente, troca e remoção do membro,
+      `UserResponse` com espaço e marca, bootstrap criando o espaço, gestão de usuários pelo admin
+      da plataforma
+    - Where: `src/identity/`, `docs/openapi.yaml`, `docs/postman/`, `tests/integration/identity/`
+    - Done when: `AC-0021-05` a `AC-0021-10` cobertos; `INV-0021-02`, `INV-0021-05`, `INV-0021-07` e
+      `INV-0021-09` verificados; `ERR-0021-03` a `ERR-0021-12` cobertos
+- [ ] **T-0021-03 — Contas e cartões por espaço** · #208
+    - What: escopo nas leituras de contas e cartões; bancos como catálogo do admin da plataforma
+    - Where: `src/accounts/` (sem transferências), `docs/openapi.yaml`, `tests/integration/accounts/isolation.spec.ts`
+    - Done when: `AC-0021-11` e a parte de bancos de `AC-0021-18` cobertos
+- [ ] **T-0021-04 — Despesas por espaço e tipos globais** · #209
+    - What: escopo em despesas, séries, conferência e jobs de despesa; tipos de despesa só pelo
+      admin da plataforma; `workspaceId` explícito em `src/expenses/index.ts`
+    - Where: `src/expenses/`, `docs/openapi.yaml`, `tests/integration/expenses/isolation.spec.ts`
+    - Done when: `AC-0021-12`, a parte de despesas de `AC-0021-17` e a de tipos de despesa de
+      `AC-0021-18` cobertos; `INV-0021-06` verificado nos jobs de despesa
+- [ ] **T-0021-05 — Receitas por espaço e tipos globais** · #210
+    - What: escopo em receitas, séries e jobs de receita; tipos de receita só pelo admin da plataforma
+    - Where: `src/earnings/`, `docs/openapi.yaml`, `tests/integration/earnings/isolation.spec.ts`
+    - Done when: `AC-0021-13`, a parte de receitas de `AC-0021-17` e a de tipos de receita de
+      `AC-0021-18` cobertos
+- [ ] **T-0021-06 — Faturas e transferências por espaço** · #211
+    - What: escopo em faturas, pagamentos, estornos, fechamento e transferências
+    - Where: `src/statements/`, transferências em `src/accounts/`, `tests/integration/statements/isolation.spec.ts`,
+      `tests/integration/accounts/transfers-isolation.spec.ts`
+    - Done when: `AC-0021-14`, `AC-0021-15` e a parte de faturas de `AC-0021-17` cobertos
+- [ ] **T-0021-07 — Relatórios e carga por espaço** · #212
+    - What: espaço em todas as consultas do `reporting`; `--workspace` obrigatório na carga
+    - Where: `src/reporting/`, `src/load/`, `tests/integration/reporting/isolation.spec.ts`, `tests/load/workspace.spec.ts`
+    - Done when: `AC-0021-16` e `AC-0021-19` cobertos; `ERR-0021-14` coberto
+- [ ] **T-0021-08 — Suíte de isolamento por rota** · #213
+    - What: teste que percorre as rotas registradas com dois espaços e falha em rota sem caso
+    - Where: `tests/integration/isolation/routes.spec.ts`
+    - Done when: `AC-0021-20` e `AC-0021-21` cobertos; `INV-0021-03` e `INV-0021-10` verificados por
+      rota; `ERR-0021-01` e `ERR-0021-02` cobertos; última tarefa: fecha FCB-025 e muda o `status`
+      para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:

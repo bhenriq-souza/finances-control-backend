@@ -16,6 +16,10 @@ e decide autorização por um perfil lido do banco — nunca do token. Ao final,
 domínio pode exigir autenticação e um perfil sem conhecer o módulo `identity`, e um usuário novo não
 enxerga dado financeiro nenhum até que um Admin decida o contrário.
 
+> **Revisão de 2026-10-15 (spec `0021`, FCB-025):** o perfil passa de `users` para o membro de um
+> espaço, e a gestão de usuários passa ao admin da plataforma. Onde esta spec e a `0021` divergem,
+> vale a `0021`.
+
 ## Scope / Non-goals
 
 - **Em escopo:** verificação do ID token; criação do registro de usuário no primeiro acesso; o perfil
