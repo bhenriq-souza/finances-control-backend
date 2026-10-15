@@ -21,7 +21,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0017](0017-jobs-and-recurrence.md)      | Jobs e recorrência — pg-boss, rotinas diárias e lançamentos fixos  | approved    |
 | [0018](0018-transfers.md)                | Transfers — transferências entre contas próprias                   | approved    |
 | [0019](0019-initial-load.md)             | Carga inicial — dados reais de prd a partir da planilha            | implemented |
-| [0020](0020-statement-reconciliation.md) | Conferência da fatura — despesas incluídas na fatura do banco      | draft       |
+| [0020](0020-statement-reconciliation.md) | Conferência da fatura — despesas incluídas na fatura do banco      | approved    |
 
 Specs de domínio planejadas (ainda não escritas): `0016` imports — **adiada** (FCB-013).
 
