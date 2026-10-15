@@ -39,6 +39,10 @@ export type StatementView = {
     purchasesCents: number;
     refundsCents: number;
     totalCents: number;
+    /** Marked purchases minus refunds: the figure to compare with the bank (spec 0020). */
+    reconciledCents: number;
+    /** Counted purchases not yet marked (spec 0020). */
+    pendingReconciliationCents: number;
     previousBalanceCents: number;
     amountDueCents: number;
     paidCents: number;
@@ -85,6 +89,11 @@ export function summarizeStatement(
     const purchasesCents = sum(counted.map((expense) => expense.amountCents));
     const refundsCents = sum(refunds.map((refund) => refund.amountCents));
     const totalCents = purchasesCents - refundsCents;
+    // Refunds carry no mark and always count as reconciled (INV-0020-04).
+    const pendingReconciliationCents = sum(
+        counted.filter((expense) => expense.reconciledAt === null).map((e) => e.amountCents),
+    );
+    const reconciledCents = totalCents - pendingReconciliationCents;
     const amountDueCents = totalCents + base.previousBalanceCents;
     const paidCents = sum(base.payments.map((payment) => payment.amountCents));
     const remainingCents = amountDueCents - paidCents;
@@ -113,6 +122,8 @@ export function summarizeStatement(
         purchasesCents,
         refundsCents,
         totalCents,
+        reconciledCents,
+        pendingReconciliationCents,
         previousBalanceCents: base.previousBalanceCents,
         amountDueCents,
         paidCents,
