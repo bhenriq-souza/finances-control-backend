@@ -22,10 +22,13 @@ import {
     ExpenseTypeServiceSymbol,
 } from '../expenses';
 import {
+    AppDataSource,
     DatabaseConnectionSymbol,
     EnvListSymbol,
+    RequestContextSymbol,
     envList,
     initializeDataSource,
+    type RequestContext,
 } from '../platform';
 
 /** The services the initial load writes through (INV-0019-02), resolved by their symbols. */
@@ -37,7 +40,36 @@ export type LoadServices = {
     expenses: ExpenseService;
     earningTypes: EarningTypeService;
     earnings: EarningService;
+    /**
+     * Runs the writes with the load's workspace in the context, as a request would have it
+     * (spec 0021): the services store the workspace they read from there. A dry run never
+     * creates the workspace: it writes nothing.
+     */
+    inWorkspace: <T>(work: () => Promise<T>, options: { dryRun: boolean }) => Promise<T>;
 };
+
+/**
+ * The workspace the load writes into. Provisional until `--workspace` (T-0021-07): the only
+ * workspace there is, or a new `Principal` one in an empty database, as the workspaces
+ * migration does; with more than one, the load refuses instead of guessing.
+ */
+async function loadWorkspace(dataSource: DataSource, dryRun: boolean): Promise<string | null> {
+    const rows: { id: string }[] = await dataSource.query(
+        'SELECT id FROM workspaces ORDER BY created_at LIMIT 2',
+    );
+
+    if (rows.length > 1) {
+        throw new Error('the initial load cannot choose among several workspaces');
+    }
+    if (rows[0]) return rows[0].id;
+    if (dryRun) return null;
+
+    const [created]: { id: string }[] = await dataSource.query(
+        "INSERT INTO workspaces (name) VALUES ('Principal') RETURNING id",
+    );
+
+    return created!.id;
+}
 
 /**
  * The API's environment list with only `DATABASE_URL` required (AC-0019-10): the load checks no
@@ -70,6 +102,9 @@ export async function composeLoad(dataSource?: DataSource): Promise<LoadServices
     container.registerSingleton(EarningTypeServiceSymbol, EarningTypeService);
     container.registerSingleton(EarningServiceSymbol, EarningService);
 
+    const requestContext = container.resolve<RequestContext>(RequestContextSymbol);
+    const connection = dataSource ?? AppDataSource;
+
     return {
         banks: container.resolve(BankServiceSymbol),
         accounts: container.resolve(BankAccountServiceSymbol),
@@ -78,5 +113,13 @@ export async function composeLoad(dataSource?: DataSource): Promise<LoadServices
         expenses: container.resolve(ExpenseServiceSymbol),
         earningTypes: container.resolve(EarningTypeServiceSymbol),
         earnings: container.resolve(EarningServiceSymbol),
+        inWorkspace: async (work, options) => {
+            const workspaceId = await loadWorkspace(connection, options.dryRun);
+
+            return requestContext.run(
+                { correlationId: 'initial-load', startedAt: Date.now(), workspaceId },
+                work,
+            );
+        },
     };
 }

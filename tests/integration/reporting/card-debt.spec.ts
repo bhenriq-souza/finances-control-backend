@@ -1,4 +1,4 @@
-import { stopApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, stopApp } from '../app.helper';
 import {
     addAccount,
     addCard,
@@ -35,17 +35,17 @@ describe('dívida dos cartões (spec 0015, AC-0015-04, 05, 13, INV-0015-06)', ()
         // Cartão com crédito: 11/01-10/02 rolada (as compras dela não contam) e 11/02-10/03
         // paga com restante -200 (um estorno de 200 e nenhuma compra).
         await fx.ctx.dataSource.query(
-            `INSERT INTO credit_card_statements (credit_card_id, starts_on, closes_on, due_on,
+            `INSERT INTO credit_card_statements (workspace_id, credit_card_id, starts_on, closes_on, due_on,
                                                  status, previous_balance_cents, closed_at)
-             VALUES ($1, '2026-01-11', '2026-02-10', '2026-02-20', 'ROLLED_OVER', 0, now()),
-                    ($1, '2026-02-11', '2026-03-10', '2026-03-20', 'PAID', 0, now())`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, '2026-01-11', '2026-02-10', '2026-02-20', 'ROLLED_OVER', 0, now()),
+                    (${DEFAULT_WORKSPACE_SQL}, $1, '2026-02-11', '2026-03-10', '2026-03-20', 'PAID', 0, now())`,
             [creditCardId],
         );
         await insertExpense(fx, 'OPEN', 50000, '2026-01-20', { cardId: creditCardId });
         await fx.ctx.dataSource.query(
-            `INSERT INTO credit_card_refunds (credit_card_id, description, amount_cents,
+            `INSERT INTO credit_card_refunds (workspace_id, credit_card_id, description, amount_cents,
                                               occurred_on, posted_on)
-             VALUES ($1, 'Estorno', 200, '2026-02-20', '2026-02-20')`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'Estorno', 200, '2026-02-20', '2026-02-20')`,
             [creditCardId],
         );
 
@@ -57,9 +57,9 @@ describe('dívida dos cartões (spec 0015, AC-0015-04, 05, 13, INV-0015-06)', ()
         // Fecha as faturas vencidas antes do pagamento antecipado, que só vale para a aberta.
         await getBalance(fx, '2026-03', '2026-03');
         await fx.ctx.dataSource.query(
-            `INSERT INTO credit_card_statement_payments (credit_card_id, bank_account_id,
+            `INSERT INTO credit_card_statement_payments (workspace_id, credit_card_id, bank_account_id,
                                                          amount_cents, paid_on)
-             VALUES ($1, $2, 50, '2026-03-14')`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, 50, '2026-03-14')`,
             [paidCardId, fx.accountId],
         );
     });

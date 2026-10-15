@@ -1,25 +1,45 @@
 import 'reflect-metadata';
-import type { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 
 import { RequestContext } from '../../src/platform/context/request-context';
-import { createRequireProfile } from '../../src/identity/profile.guard';
+import {
+    createRequireMemberOrPlatformAdmin,
+    createRequirePlatformAdmin,
+    createRequireProfile,
+} from '../../src/identity/profile.guard';
 import type { UserProfile } from '../../src/identity/user-profile';
 
-type Store = { userId?: string; userProfile?: string | null };
+type Store = {
+    userId?: string;
+    workspaceId?: string | null;
+    userProfile?: string | null;
+    isPlatformAdmin?: boolean;
+};
 
-/** Executa a guarda dentro de um contexto de requisição já autenticado (ou não). */
-const run = (store: Store, allowed: UserProfile[]): Promise<unknown> => {
+type GuardFactory = (requestContext: RequestContext) => RequestHandler;
+
+/**
+ * Executa a guarda dentro de um contexto de requisição já autenticado (ou não).
+ * Sem `workspaceId` explícito, o usuário é membro de um espaço (spec 0021).
+ */
+const runGuard = (store: Store, factory: GuardFactory): Promise<unknown> => {
     const requestContext = new RequestContext();
-    const requireProfile = createRequireProfile(requestContext);
+    const guard = factory(requestContext);
 
     return new Promise((resolve) => {
-        requestContext.run({ correlationId: 'c', startedAt: Date.now(), ...store }, () => {
-            const next: NextFunction = (error?: unknown) => resolve(error);
-            requireProfile(...allowed)({} as Request, {} as Response, next);
-        });
+        requestContext.run(
+            { correlationId: 'c', startedAt: Date.now(), workspaceId: 'w', ...store },
+            () => {
+                const next: NextFunction = (error?: unknown) => resolve(error);
+                guard({} as Request, {} as Response, next);
+            },
+        );
     });
 };
+
+const run = (store: Store, allowed: UserProfile[]): Promise<unknown> =>
+    runGuard(store, (context) => createRequireProfile(context)(...allowed));
 
 describe('requireProfile', () => {
     describe('conta sem perfil (ERR-0010-04)', () => {
@@ -38,6 +58,15 @@ describe('requireProfile', () => {
 
             expect((error as CustomError).exposeMessage).toBe(true);
             expect((error as CustomError).message).toMatch(/administrator must grant/i);
+        });
+
+        it('sem espaço é pendente, mesmo com perfil no contexto (ERR-0021-03)', async () => {
+            const error = await run(
+                { userId: 'u', workspaceId: null, userProfile: 'ADMIN', isPlatformAdmin: true },
+                ['ADMIN'],
+            );
+
+            expect(error).toMatchObject({ status: 403, code: 'PROFILE_PENDING' });
         });
 
         it('valor fora do enum é tratado como ausência de perfil', async () => {
@@ -99,6 +128,60 @@ describe('requireProfile', () => {
             });
 
             expect(error).toMatchObject({ status: 500 });
+        });
+    });
+});
+
+describe('requirePlatformAdmin (spec 0021)', () => {
+    const run = (store: Store) =>
+        runGuard(store, (context) => createRequirePlatformAdmin(context)());
+
+    it('passa o admin da plataforma, mesmo sem espaço', async () => {
+        await expect(
+            run({ userId: 'u', workspaceId: null, userProfile: null, isPlatformAdmin: true }),
+        ).resolves.toBeUndefined();
+    });
+
+    it('recusa com 403 FORBIDDEN o ADMIN de espaço sem a marca (ERR-0021-04)', async () => {
+        await expect(
+            run({ userId: 'u', userProfile: 'ADMIN', isPlatformAdmin: false }),
+        ).resolves.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+    });
+
+    it('sem autenticação antes, é erro de fiação', async () => {
+        await expect(run({})).resolves.toMatchObject({
+            status: 500,
+            code: 'PROFILE_GUARD_WITHOUT_AUTHENTICATION',
+        });
+    });
+});
+
+describe('requireMemberOrPlatformAdmin (spec 0021)', () => {
+    const run = (store: Store) =>
+        runGuard(store, (context) => createRequireMemberOrPlatformAdmin(context)());
+
+    it.each([['ADMIN'], ['BILLER'], ['VIEWER']])('passa o membro %s', async (profile) => {
+        await expect(
+            run({ userId: 'u', userProfile: profile, isPlatformAdmin: false }),
+        ).resolves.toBeUndefined();
+    });
+
+    it('passa o admin da plataforma sem espaço', async () => {
+        await expect(
+            run({ userId: 'u', workspaceId: null, userProfile: null, isPlatformAdmin: true }),
+        ).resolves.toBeUndefined();
+    });
+
+    it('recusa o pendente com 403 PROFILE_PENDING', async () => {
+        await expect(
+            run({ userId: 'u', workspaceId: null, userProfile: null, isPlatformAdmin: false }),
+        ).resolves.toMatchObject({ status: 403, code: 'PROFILE_PENDING' });
+    });
+
+    it('sem autenticação antes, é erro de fiação', async () => {
+        await expect(run({})).resolves.toMatchObject({
+            status: 500,
+            code: 'PROFILE_GUARD_WITHOUT_AUTHENTICATION',
         });
     });
 });

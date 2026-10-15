@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 import type { ILogger } from '@bhs-dev/typescript-common-types';
 
-import type { RequestContext } from '../platform';
+import type { RequestContext, UserAccess } from '../platform';
 import {
     AuthUnavailableError,
     ExpiredTokenError,
@@ -29,8 +29,8 @@ export function createAuthenticationMiddleware(deps: {
 }): RequestHandler {
     return (req, _res, next) => {
         void authenticate(deps, req.header('authorization')).then(
-            ({ id, profile }) => {
-                deps.requestContext.setUser(id, profile);
+            ({ id, access }) => {
+                deps.requestContext.setUser(id, access);
                 next();
             },
             (error: unknown) => next(error),
@@ -46,7 +46,7 @@ async function authenticate(
         logger: ILogger;
     },
     header: string | undefined,
-): Promise<{ id: string; profile: string | null }> {
+): Promise<{ id: string; access: UserAccess }> {
     const idToken = BEARER.exec(header ?? '')?.[1]?.trim();
 
     if (!idToken) {
@@ -66,7 +66,16 @@ async function authenticate(
 
     const user = await deps.provisioning.provision(verified);
 
-    return { id: user.id, profile: user.profile };
+    // Espaço, perfil e marca saem do banco nesta requisição, nunca do token
+    // (INV-0010-02, INV-0021-05).
+    return {
+        id: user.id,
+        access: {
+            workspaceId: user.membership?.workspaceId ?? null,
+            userProfile: user.membership?.profile ?? null,
+            isPlatformAdmin: user.isPlatformAdmin,
+        },
+    };
 }
 
 function toHttpError(

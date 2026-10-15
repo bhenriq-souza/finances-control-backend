@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import { stopApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, stopApp } from '../app.helper';
 import { ADMIN, seedReporting, type ReportingFixture } from './reporting-fixtures.helper';
 
 const SCHEMA = 'test_reporting_by_type';
@@ -34,9 +34,9 @@ describe('relatórios por tipo (spec 0015, AC-0015-07, AC-0015-08, INV-0015-07)'
         card = false,
     ) =>
         fx.ctx.dataSource.query(
-            `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents,
+            `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents,
                                    occurred_on, paid_on, bank_account_id, credit_card_id, posted_on)
-             VALUES ('Despesa', $1, 'VARIABLE', $2, $3::numeric / 100, $4,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Despesa', $1, 'VARIABLE', $2, $3::numeric / 100, $4,
                      CASE WHEN $2 = 'PAID' THEN $4::date END,
                      CASE WHEN $5 THEN NULL ELSE $6::uuid END,
                      CASE WHEN $5 THEN $7::uuid END,
@@ -46,9 +46,9 @@ describe('relatórios por tipo (spec 0015, AC-0015-07, AC-0015-08, INV-0015-07)'
 
     const insertEarning = (typeId: string, status: string, cents: number, occurredOn: string) =>
         fx.ctx.dataSource.query(
-            `INSERT INTO earnings (description, earning_type_id, kind, status, amount_cents,
+            `INSERT INTO earnings (workspace_id, description, earning_type_id, kind, status, amount_cents,
                                    occurred_on, received_on, bank_account_id)
-             VALUES ('Receita', $1, 'VARIABLE', $2, $3::numeric / 100, $4,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Receita', $1, 'VARIABLE', $2, $3::numeric / 100, $4,
                      CASE WHEN $2 = 'RECEIVED' THEN $4::date END, $5)`,
             [typeId, status, cents, occurredOn, fx.accountId],
         );
@@ -83,9 +83,9 @@ describe('relatórios por tipo (spec 0015, AC-0015-07, AC-0015-08, INV-0015-07)'
 
         // Estornos de cartão: um em março (410,05) e outro em abril.
         await fx.ctx.dataSource.query(
-            `INSERT INTO credit_card_refunds (credit_card_id, description, amount_cents, occurred_on, posted_on)
-             VALUES ($1, 'Estorno', 41005::numeric / 100, '2026-03-12', '2026-03-12'),
-                    ($1, 'Estorno', 1000::numeric / 100, '2026-04-02', '2026-04-02')`,
+            `INSERT INTO credit_card_refunds (workspace_id, credit_card_id, description, amount_cents, occurred_on, posted_on)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'Estorno', 41005::numeric / 100, '2026-03-12', '2026-03-12'),
+                    (${DEFAULT_WORKSPACE_SQL}, $1, 'Estorno', 1000::numeric / 100, '2026-04-02', '2026-04-02')`,
             [fx.cardId],
         );
 

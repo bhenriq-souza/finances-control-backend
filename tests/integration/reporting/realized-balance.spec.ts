@@ -1,4 +1,4 @@
-import { stopApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, stopApp } from '../app.helper';
 import {
     currentBalanceCents,
     payStatement,
@@ -74,13 +74,13 @@ describe('saldo realizado de uma conta (spec 0015, AC-0015-01, INV-0015-03)', ()
         const before = await realizedBalanceService().balanceOn(fx.accountId, '2026-12-31');
 
         await fx.ctx.dataSource.query(
-            `INSERT INTO earnings (description, earning_type_id, kind, status, amount_cents, occurred_on, bank_account_id)
-             VALUES ('Aberta', $1, 'VARIABLE', 'OPEN', 999.99, '2026-03-12', $2)`,
+            `INSERT INTO earnings (workspace_id, description, earning_type_id, kind, status, amount_cents, occurred_on, bank_account_id)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Aberta', $1, 'VARIABLE', 'OPEN', 999.99, '2026-03-12', $2)`,
             [fx.earningTypeId, fx.accountId],
         );
         await fx.ctx.dataSource.query(
-            `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents, occurred_on, credit_card_id, posted_on)
-             VALUES ('Cartão', $1, 'VARIABLE', 'OPEN', 77.77, '2026-03-12', $2, '2026-03-12')`,
+            `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents, occurred_on, credit_card_id, posted_on)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Cartão', $1, 'VARIABLE', 'OPEN', 77.77, '2026-03-12', $2, '2026-03-12')`,
             [fx.expenseTypeId, fx.cardId],
         );
 

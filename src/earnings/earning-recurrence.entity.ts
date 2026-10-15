@@ -13,6 +13,7 @@ import { EarningType } from './earning-type.entity';
 
 /** A série de uma receita `FIXED` (spec 0017): o modelo dos meses seguintes. */
 @Entity('earning_recurrences')
+@Index('idx_earning_recurrences_workspace_id', ['workspaceId'])
 @Check('ck_earning_recurrences_amount', 'amount_cents > 0')
 @Check('ck_earning_recurrences_day_of_month', 'day_of_month BETWEEN 1 AND 31')
 @Check('ck_earning_recurrences_ends_on', 'ends_on IS NULL OR ends_on >= starts_on')
@@ -20,6 +21,14 @@ import { EarningType } from './earning-type.entity';
 export class EarningRecurrence {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'text' })
     description!: string;

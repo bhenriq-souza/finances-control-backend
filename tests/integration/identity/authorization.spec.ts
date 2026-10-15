@@ -23,6 +23,7 @@ describe('autorização nas rotas de usuário (spec 0010)', () => {
     });
 
     afterEach(async () => {
+        await ctx.dataSource.query('DELETE FROM workspace_members');
         await ctx.dataSource.query('DELETE FROM users');
     });
 
@@ -104,7 +105,7 @@ describe('autorização nas rotas de usuário (spec 0010)', () => {
 
             await expect(ctx.findByUid('uid-novo')).resolves.toMatchObject({
                 email: 'uid-novo@exemplo.com',
-                profile: null,
+                membership: null,
             });
         });
     });

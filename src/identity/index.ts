@@ -4,7 +4,10 @@
  */
 export { USER_PROFILES, isUserProfile, type UserProfile } from './user-profile';
 export { normalizeEmail } from './email';
-export { User } from './user.entity';
+export { User, type UserMembership } from './user.entity';
+export { withMembership } from './membership';
+export { Workspace } from './workspace.entity';
+export { WorkspaceMember } from './workspace-member.entity';
 export {
     AuthUnavailableError,
     ExpiredTokenError,
@@ -15,7 +18,11 @@ export {
 export { FirebaseTokenVerifier, type VerifyIdToken } from './firebase-token-verifier';
 export { UserProvisioningService } from './user-provisioning.service';
 export { createAuthenticationMiddleware } from './authentication.middleware';
-export { createRequireProfile } from './profile.guard';
+export {
+    createRequireProfile,
+    createRequirePlatformAdmin,
+    createRequireMemberOrPlatformAdmin,
+} from './profile.guard';
 export { UserService } from './user.service';
 export { UserController } from './user.controller';
 export { UserRoutes } from './user.routes';

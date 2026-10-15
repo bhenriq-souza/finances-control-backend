@@ -39,6 +39,7 @@ describe('autorização de /bank-transfers (AC-0018-12, INV-0018-08)', () => {
         const make = (accountNumber: string) =>
             repository.save(
                 repository.create({
+                    workspaceId: ctx.workspaceId,
                     bankId: bank!.id,
                     type: 'CHECKING',
                     accountNumber,

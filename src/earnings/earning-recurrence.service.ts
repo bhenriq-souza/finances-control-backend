@@ -204,6 +204,8 @@ export class EarningRecurrenceService {
             for (const date of missing) {
                 const saved = await repository.save(
                     repository.create({
+                        // A ocorrência herda o espaço da série, nunca o de um contexto (INV-0021-06).
+                        workspaceId: recurrence.workspaceId,
                         description: recurrence.description,
                         earningTypeId: recurrence.earningTypeId,
                         kind: 'FIXED',
@@ -222,6 +224,7 @@ export class EarningRecurrenceService {
 
                 scope.publish({
                     name: EARNING_CREATED,
+                    workspaceId: saved.workspaceId,
                     payload: {
                         earningId: saved.id,
                         kind: saved.kind,

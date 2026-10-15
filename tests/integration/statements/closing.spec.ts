@@ -19,6 +19,7 @@ describe('fechamento: closeDue (spec 0013, Fechamento)', () => {
 
     const newCard = async (name: string, archived = false): Promise<string> => {
         const card = await ctx.dataSource.getRepository(CreditCard).save({
+            workspaceId: ctx.workspaceId,
             bankId,
             name,
             creditLimitCents: 500000,

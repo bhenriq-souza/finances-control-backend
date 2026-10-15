@@ -63,6 +63,7 @@ describe('foto do usuário (spec 0010)', () => {
     afterEach(async () => {
         jest.restoreAllMocks();
         // A FK em cascata leva as fotos junto com os usuários.
+        await ctx.dataSource.query('DELETE FROM workspace_members');
         await ctx.dataSource.query('DELETE FROM users');
     });
 

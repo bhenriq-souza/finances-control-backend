@@ -8,7 +8,7 @@ import {
     type CreditCardRefundRegistered,
 } from '../../../src/events';
 import { DomainEventDispatcherSymbol, type DomainEventDispatcher } from '../../../src/platform';
-import { startApp, stopApp, type TestApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, startApp, stopApp, type TestApp } from '../app.helper';
 import {
     ADMIN,
     cleanFixture,
@@ -76,8 +76,8 @@ describe('estornos de cartão (spec 0013, Estornos)', () => {
         (
             (await ctx.dataSource.query(
                 `INSERT INTO credit_card_refunds
-                    (credit_card_id, description, amount_cents, occurred_on, posted_on)
-                 VALUES ($1, 'Antigo', 50.00, '2026-03-05', '2026-03-05') RETURNING id`,
+                    (workspace_id, credit_card_id, description, amount_cents, occurred_on, posted_on)
+                 VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'Antigo', 50.00, '2026-03-05', '2026-03-05') RETURNING id`,
                 [fx.cardId],
             )) as [{ id: string }]
         )[0].id;

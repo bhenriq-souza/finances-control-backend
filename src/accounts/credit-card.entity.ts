@@ -2,6 +2,7 @@ import {
     Check,
     Column,
     Entity,
+    Index,
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
@@ -13,13 +14,22 @@ import { BankAccount } from './bank-account.entity';
 import { Bank } from './bank.entity';
 
 @Entity('credit_cards')
-@Unique('uq_credit_cards_bank_id_name', ['bankId', 'name'])
+@Index('idx_credit_cards_workspace_id', ['workspaceId'])
+@Unique('uq_credit_cards_bank_id_name', ['workspaceId', 'bankId', 'name'])
 @Check('ck_credit_cards_credit_limit', 'credit_limit_cents > 0')
 @Check('ck_credit_cards_closing_day', 'closing_day BETWEEN 1 AND 31')
 @Check('ck_credit_cards_due_day', 'due_day BETWEEN 1 AND 31')
 export class CreditCard {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'uuid' })
     bankId!: string;

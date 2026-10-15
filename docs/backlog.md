@@ -535,7 +535,7 @@ que fecham a issue de entrega [FCB-025](https://github.com/bhenriq-souza/finance
 Fase 5 do hub (FC-013). A base dos espaços vem sozinha e bloqueia as demais; as seis tarefas de
 módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rota fecha.
 
-- [ ] **T-0021-01 — Base dos espaços: esquema e contexto** · #206
+- [x] **T-0021-01 — Base dos espaços: esquema e contexto** · #206
     - What: migration e entidades da spec 0021, espaço e marca no `RequestStore`, as três guardas,
       `workspaceId` no envelope `DomainEvent` e harness de dois espaços; módulos gravam o espaço
     - Where: `src/platform/`, `src/identity/`, migration nova, entidades, `tests/integration/platform/`

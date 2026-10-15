@@ -7,7 +7,7 @@ import {
     type ExpenseRecurrenceService,
 } from '../../../src/expenses';
 import { DomainEventDispatcherSymbol, type DomainEventDispatcher } from '../../../src/platform';
-import { startApp, stopApp, type TestApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, startApp, stopApp, type TestApp } from '../app.helper';
 import { ADMIN, cleanFixture, seedFixture, type Fixture } from './fixture.helper';
 
 const SCHEMA = 'test_expenses_recurrence_generation';
@@ -243,9 +243,9 @@ describe('série de despesas: criação e extensão (spec 0017)', () => {
 
         const insert = (recurrence: string | null, date: string) =>
             ctx.dataSource.query(
-                `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents,
+                `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents,
                     occurred_on, bank_account_id, recurrence_id)
-                 VALUES ('x', $1, 'FIXED', 'FORECAST', 1, $2::date, $3, $4)`,
+                 VALUES (${DEFAULT_WORKSPACE_SQL}, 'x', $1, 'FIXED', 'FORECAST', 1, $2::date, $3, $4)`,
                 [fixture.typeId, date, fixture.accountId, recurrence],
             );
         const [{ id }] = (await ctx.dataSource.query('SELECT id FROM expense_recurrences')) as [

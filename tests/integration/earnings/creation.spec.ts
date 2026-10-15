@@ -51,6 +51,7 @@ describe('POST /earnings (spec 0014)', () => {
         const accounts = ctx.dataSource.getRepository(BankAccount);
         const account = await accounts.save(
             accounts.create({
+                workspaceId: ctx.workspaceId,
                 bankId: bank.id,
                 type: 'CHECKING',
                 accountNumber: '1-1',

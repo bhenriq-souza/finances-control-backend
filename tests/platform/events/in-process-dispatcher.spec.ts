@@ -19,6 +19,7 @@ function makeEvent(name: string, correlationId: string | null = 'corr-1'): Domai
         name,
         occurredAt: new Date('2026-01-01T00:00:00Z'),
         correlationId,
+        workspaceId: null,
         payload: { id: name },
     };
 }

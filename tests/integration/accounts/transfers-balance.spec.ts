@@ -6,8 +6,10 @@ import { container } from '../../../src/container';
 import { TRANSFER_COMPLETED } from '../../../src/events';
 import {
     DomainEventDispatcherSymbol,
+    RequestContextSymbol,
     TransactionRunnerSymbol,
     type DomainEvent,
+    type RequestContext,
     type DomainEventDispatcher,
     type TransactionRunner,
 } from '../../../src/platform';
@@ -50,6 +52,7 @@ describe('saldo das transferências (spec 0018)', () => {
         const make = (accountNumber: string, balance: number) =>
             repository.save(
                 repository.create({
+                    workspaceId: ctx.workspaceId,
                     bankId: bank!.id,
                     type: 'CHECKING',
                     accountNumber,
@@ -118,7 +121,8 @@ describe('saldo das transferências (spec 0018)', () => {
     });
 
     it('AC-0018-03, INV-0018-03: falha no movimento da segunda conta não deixa saldo nem evento', async () => {
-        const accounts = new BankAccountService(dataSource);
+        const requestContext = container.resolve<RequestContext>(RequestContextSymbol);
+        const accounts = new BankAccountService(dataSource, requestContext);
         const original = accounts.applyBalanceDelta.bind(accounts);
         let calls = 0;
         jest.spyOn(accounts, 'applyBalanceDelta').mockImplementation(async (...args) => {
@@ -129,16 +133,20 @@ describe('saldo das transferências (spec 0018)', () => {
         const service = new BankTransferService(
             container.resolve<TransactionRunner>(TransactionRunnerSymbol),
             accounts,
+            requestContext,
         );
+        const store = { correlationId: 'c', startedAt: 0, workspaceId: ctx.workspaceId };
 
         await expect(
-            service.create({
-                fromBankAccountId: accountA,
-                toBankAccountId: accountB,
-                amountCents: 30000,
-                occurredOn: '2026-03-10',
-                description: 'Reserva',
-            }),
+            requestContext.run(store, () =>
+                service.create({
+                    fromBankAccountId: accountA,
+                    toBankAccountId: accountB,
+                    amountCents: 30000,
+                    occurredOn: '2026-03-10',
+                    description: 'Reserva',
+                }),
+            ),
         ).rejects.toThrow('segunda conta falhou');
 
         expect(calls).toBe(2);

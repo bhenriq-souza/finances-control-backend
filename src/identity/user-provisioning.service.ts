@@ -1,12 +1,18 @@
 import { CustomError } from '@bhs-dev/typescript-common-errors';
 import { inject, injectable } from 'tsyringe';
-import { QueryFailedError, type DataSource, type Repository } from 'typeorm';
+import { QueryFailedError, type DataSource, type EntityManager, type Repository } from 'typeorm';
 import type { IEnvService } from '@bhs-dev/typescript-common-types';
 
 import { DatabaseConnectionSymbol, EnvServiceSymbol } from '../platform';
 import { normalizeEmail } from './email';
+import { withMembership } from './membership';
 import type { VerifiedToken } from './token-verifier';
 import { User } from './user.entity';
+import { WorkspaceMember } from './workspace-member.entity';
+import { Workspace } from './workspace.entity';
+
+/** Limite do nome do espaço (spec 0021, `ck_workspaces_name`). */
+const WORKSPACE_NAME_MAX = 80;
 
 /**
  * Traz o usuário do Firebase para dentro da plataforma (spec 0010).
@@ -15,6 +21,9 @@ import { User } from './user.entity';
  * local aparece na primeira requisição autenticada — sem perfil, que é o estado
  * normal de quem acabou de se cadastrar, e sem acesso a dado financeiro nenhum
  * até que um Admin decida o contrário.
+ *
+ * O usuário sai daqui com o membro carregado (`membership`), nulo para quem está
+ * pendente: é dele que a autenticação lê espaço e perfil (spec 0021).
  */
 @injectable()
 export class UserProvisioningService {
@@ -43,16 +52,57 @@ export class UserProvisioningService {
             const users = manager.getRepository(User);
             const existing = await users.findOne({ where: { firebaseUid: token.uid } });
 
-            if (existing) return this.refresh(users, existing, token);
+            const user = existing
+                ? await this.refresh(users, existing, token)
+                : await this.relinkOrCreate(users, token);
 
-            // UID desconhecido, mas o email já é de alguém: o usuário voltou com
-            // outro UID (outro projeto Firebase, conta recriada). Só um email
-            // verificado autoriza assumir a linha (INV-0010-11).
-            const sameEmail = await users.findOne({ where: { email: token.email } });
+            if (this.isBootstrapAdmin(token)) await this.bootstrap(manager, user);
 
-            if (sameEmail) return this.relink(users, sameEmail, token);
+            return withMembership(manager, await users.findOneByOrFail({ id: user.id }));
+        });
+    }
 
-            return this.create(users, token);
+    private async relinkOrCreate(users: Repository<User>, token: VerifiedToken): Promise<User> {
+        // UID desconhecido, mas o email já é de alguém: o usuário voltou com
+        // outro UID (outro projeto Firebase, conta recriada). Só um email
+        // verificado autoriza assumir a linha (INV-0010-11).
+        const sameEmail = await users.findOne({ where: { email: token.email } });
+
+        if (sameEmail) return this.relink(users, sameEmail, token);
+
+        return this.create(users, token);
+    }
+
+    /**
+     * O bootstrap **só promove** (INV-0010-04, spec 0021): marca o admin da
+     * plataforma e, se o usuário não é membro de espaço algum, cria um espaço com
+     * o nome dele e o torna `ADMIN`, numa concessão do sistema. Quem já é admin da
+     * plataforma e membro não é tocado — nem perde o espaço, nem ganha outro.
+     */
+    private async bootstrap(manager: EntityManager, user: User): Promise<void> {
+        if (!user.isPlatformAdmin) {
+            await manager.getRepository(User).update({ id: user.id }, { isPlatformAdmin: true });
+        }
+
+        const members = manager.getRepository(WorkspaceMember);
+
+        if (await members.exists({ where: { userId: user.id } })) return;
+
+        const workspaces = manager.getRepository(Workspace);
+        const workspace = await workspaces.save(
+            workspaces.create({
+                // O nome do usuário (que já é o email, sem display name), no limite de
+                // `ck_workspaces_name`.
+                name: (user.name.trim() || user.email).slice(0, WORKSPACE_NAME_MAX).trim(),
+            }),
+        );
+
+        await members.insert({
+            workspaceId: workspace.id,
+            userId: user.id,
+            profile: 'ADMIN',
+            grantedAt: new Date(),
+            grantedById: null,
         });
     }
 
@@ -76,8 +126,6 @@ export class UserProvisioningService {
     }
 
     private async create(users: Repository<User>, token: VerifiedToken): Promise<User> {
-        const bootstrap = this.isBootstrapAdmin(token);
-
         const created = await users.save(
             users.create({
                 firebaseUid: token.uid,
@@ -87,10 +135,6 @@ export class UserProvisioningService {
                 // honesto, melhor do que inventar um nome.
                 name: token.name ?? token.email,
                 emailVerified: token.emailVerified,
-                profile: bootstrap ? 'ADMIN' : null,
-                profileGrantedAt: bootstrap ? new Date() : null,
-                // Concessão do sistema, não de uma pessoa.
-                profileGrantedById: null,
             }),
         );
 
@@ -115,15 +159,6 @@ export class UserProvisioningService {
         // Só sobrescreve o nome quando o Firebase de fato tem um: caso contrário,
         // um usuário que já tinha nome voltaria a se chamar pelo email.
         if (token.name && token.name !== existing.name) changes.name = token.name;
-
-        // O bootstrap **só promove** (INV-0010-04). Quem já é ADMIN não é tocado,
-        // e assim uma concessão feita por gente preserva o seu `profileGrantedById`
-        // (AC-0010-04). O perfil nunca muda por outro caminho aqui.
-        if (this.isBootstrapAdmin(token) && existing.profile !== 'ADMIN') {
-            changes.profile = 'ADMIN';
-            changes.profileGrantedAt = new Date();
-            changes.profileGrantedById = null;
-        }
 
         if (Object.keys(changes).length === 0) return existing;
 

@@ -2,6 +2,7 @@ import {
     Check,
     Column,
     Entity,
+    Index,
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
@@ -13,12 +14,21 @@ import { BANK_ACCOUNT_TYPES, type BankAccountType } from './bank-account-type';
 import { Bank } from './bank.entity';
 
 @Entity('bank_accounts')
-@Unique('uq_bank_accounts_bank_id_account_number', ['bankId', 'accountNumber'])
+@Index('idx_bank_accounts_workspace_id', ['workspaceId'])
+@Unique('uq_bank_accounts_bank_id_account_number', ['workspaceId', 'bankId', 'accountNumber'])
 @Check('ck_bank_accounts_type', `type IN ('${BANK_ACCOUNT_TYPES.join("', '")}')`)
 @Check('ck_bank_accounts_overdraft_limit', 'overdraft_limit_cents >= 0')
 export class BankAccount {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'uuid' })
     bankId!: string;

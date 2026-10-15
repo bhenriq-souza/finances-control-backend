@@ -22,8 +22,9 @@ export const toUserResponse = (user: User, avatarUpdatedAt: Date | null): UserRe
     email: user.email,
     emailVerified: user.emailVerified,
     name: user.name,
-    profile: user.profile,
-    profileGrantedAt: user.profileGrantedAt?.toISOString() ?? null,
+    // O perfil é o do membro do espaço (spec 0021); pendente não tem nenhum.
+    profile: user.membership?.profile ?? null,
+    profileGrantedAt: user.membership?.grantedAt.toISOString() ?? null,
     avatarUpdatedAt: avatarUpdatedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
 });

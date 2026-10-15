@@ -90,3 +90,29 @@ export async function migrateJobsSchema(databaseUrl = process.env.DATABASE_URL):
         await run();
     }
 }
+
+/** Nome do espaço que toda app de teste já tem ao subir (spec 0021). */
+export const DEFAULT_WORKSPACE_NAME = 'Principal';
+
+/**
+ * O id do espaço padrão em SQL, para os fixtures que inserem linha de domínio
+ * direto no banco: `workspace_id` é obrigatório (INV-0021-01).
+ */
+export const DEFAULT_WORKSPACE_SQL = `(SELECT id FROM workspaces WHERE name = '${DEFAULT_WORKSPACE_NAME}')`;
+
+/** Cria o espaço padrão, se ainda não existe, e devolve o id. */
+export async function ensureDefaultWorkspace(dataSource: DataSource): Promise<string> {
+    const [existing]: { id: string }[] = await dataSource.query(
+        'SELECT id FROM workspaces WHERE name = $1',
+        [DEFAULT_WORKSPACE_NAME],
+    );
+
+    if (existing) return existing.id;
+
+    const [created]: { id: string }[] = await dataSource.query(
+        'INSERT INTO workspaces (name) VALUES ($1) RETURNING id',
+        [DEFAULT_WORKSPACE_NAME],
+    );
+
+    return created!.id;
+}
