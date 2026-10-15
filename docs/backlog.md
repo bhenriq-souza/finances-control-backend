@@ -515,7 +515,7 @@ Tarefas da [spec 0020](../specs/0020-statement-reconciliation.md), que fecha a i
 [FCB-024](https://github.com/bhenriq-souza/finances-control-backend/issues/198). Depende das specs
 0012 e 0013 implementadas; é o pedido do responsável no primeiro uso de `prd` (Fase 4.1 do hub).
 
-- [ ] **T-0020-01 — Marca de incluída na despesa de cartão** · #199
+- [x] **T-0020-01 — Marca de incluída na despesa de cartão** · #199
     - What: coluna `reconciled_at` com `ck_expenses_reconciled_at`, `PATCH /expenses/:id/reconciliation`
       (com a confirmação da `FORECAST`), marca removida na troca de cartão e `reconciledAt` nos corpos
     - Where: `src/expenses/`, migration nova, `docs/openapi.yaml`, `docs/postman/`, `tests/integration/expenses/`

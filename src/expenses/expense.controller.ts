@@ -6,6 +6,7 @@ import { toExpenseResponse } from './expense.response';
 import {
     changeExpenseStatusSchema,
     changePaymentMethodSchema,
+    changeReconciliationSchema,
     createExpenseSchema,
     expenseIdParamsSchema,
     listExpensesQuerySchema,
@@ -32,6 +33,16 @@ export class ExpenseController {
         return HttpResponses.ok(
             res,
             toExpenseResponse(await this.service.changeStatus(id, change)),
+        );
+    }
+
+    async handleChangeReconciliation(req: Request, res: Response): Promise<Response> {
+        const { id } = expenseIdParamsSchema.parse(req.params);
+        const change = changeReconciliationSchema.parse(req.body);
+
+        return HttpResponses.ok(
+            res,
+            toExpenseResponse(await this.service.changeReconciliation(id, change)),
         );
     }
 

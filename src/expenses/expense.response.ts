@@ -18,6 +18,7 @@ export type ExpenseResponse = {
     postedOn: string | null;
     installment: { groupId: string; number: number; total: number } | null;
     recurrenceId: string | null;
+    reconciledAt: string | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -49,6 +50,7 @@ export const toExpenseResponse = (
               }
             : null,
     recurrenceId: expense.recurrenceId,
+    reconciledAt: expense.reconciledAt?.toISOString() ?? null,
     createdAt: expense.createdAt.toISOString(),
     updatedAt: expense.updatedAt.toISOString(),
 });
