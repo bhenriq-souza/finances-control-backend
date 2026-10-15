@@ -1238,6 +1238,25 @@
                     }
                 },
                 {
+                    "name": "Marca ou desmarca a despesa de cartão como incluída na fatura do banco",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/expenses/:id/reconciliation",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["expenses", ":id", "reconciliation"],
+                            "variable": [{ "key": "id", "value": "{{expenseId}}" }]
+                        },
+                        "description": "Exige perfil `ADMIN` ou `BILLER` (spec 0020). `reconciled: true` grava\n`reconciledAt`; marcar de novo mantém a data original. `reconciled: false` a\nlimpa, e desmarcar o que não está marcado responde 200 sem efeito. Marcar uma\n`FORECAST` a confirma (`FORECAST → OPEN`, abatendo o limite) na mesma transação;\nna janela fechada é 409 `STATEMENT_CLOSED` e nada muda. Fora isso, nada move\nsaldo, limite nem o total da fatura, e desmarcar não desfaz a confirmação.\nDespesa de conta é 409 `EXPENSE_NOT_ON_CREDIT_CARD`.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"reconciled\": false\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
+                    }
+                },
+                {
                     "name": "Troca a forma de pagamento de uma despesa",
                     "request": {
                         "method": "PATCH",

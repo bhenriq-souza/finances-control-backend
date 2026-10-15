@@ -110,6 +110,11 @@ export const changeExpenseStatusSchema = z
 
 export type ChangeExpenseStatus = z.infer<typeof changeExpenseStatusSchema>;
 
+/** Corpo de `PATCH /expenses/:id/reconciliation` (spec 0020); fora dele é ERR-0020-02. */
+export const changeReconciliationSchema = z.object({ reconciled: z.boolean() }).strict();
+
+export type ChangeReconciliation = z.infer<typeof changeReconciliationSchema>;
+
 export const expenseIdParamsSchema = z.object({ id: z.uuid() });
 
 /**

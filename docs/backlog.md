@@ -487,6 +487,47 @@ da spec 0004 implementada; a parte de relatórios, da spec 0015.
     - Where: `src/accounts/bank-transfer.service.ts`, `docs/openapi.yaml`
     - Done when: `AC-0018-13` coberto; última tarefa: fecha de novo FCB-018
 
+## Carga inicial
+
+Tarefas da [spec 0019](../specs/0019-initial-load.md), que fecha a issue de entrega
+[FCB-023](https://github.com/bhenriq-souza/finances-control-backend/issues/189). Depende das specs
+0011, 0012, 0014 e 0017 implementadas; é a carga dos dados reais de `prd` da Fase 4 do hub.
+
+- [x] **T-0019-01 — Leitura, validação e simulação da carga** · #191
+    - What: leitor de CSV (RFC 4180), conversão de valores e datas, validação de todas as abas e
+      referências com o relatório de erros, o plano e o comando `npm run load:initial -- --dir
+<pasta> --dry-run`
+    - Where: `src/load/`, `package.json`, `tests/load/`
+    - Done when: `AC-0019-02`, `AC-0019-03` (só o plano) e `AC-0019-05` cobertos; `INV-0019-01`,
+      `INV-0019-04` e `INV-0019-07` verificados
+- [x] **T-0019-02 — Gravação pelos serviços, repetição e tipos** · #192
+    - What: a gravação na ordem da spec pelos serviços públicos, a chave natural que pula o que já
+      existe, o arquivamento dos tipos de despesa fora da planilha, o relatório final e o
+      ambiente reduzido a `DATABASE_URL`
+    - Where: `src/load/`, `tests/integration/load/`
+    - Done when: `AC-0019-01`, `AC-0019-03`, `AC-0019-04` e `AC-0019-06` a `AC-0019-11` cobertos;
+      `INV-0019-02`, `INV-0019-03`, `INV-0019-05` e `INV-0019-06` verificados; última tarefa: fecha
+      FCB-023 e muda o `status` para `implemented`
+
+## Conferência da fatura
+
+Tarefas da [spec 0020](../specs/0020-statement-reconciliation.md), que fecha a issue de entrega
+[FCB-024](https://github.com/bhenriq-souza/finances-control-backend/issues/198). Depende das specs
+0012 e 0013 implementadas; é o pedido do responsável no primeiro uso de `prd` (Fase 4.1 do hub).
+
+- [x] **T-0020-01 — Marca de incluída na despesa de cartão** · #199
+    - What: coluna `reconciled_at` com `ck_expenses_reconciled_at`, `PATCH /expenses/:id/reconciliation`
+      (com a confirmação da `FORECAST`), marca removida na troca de cartão e `reconciledAt` nos corpos
+    - Where: `src/expenses/`, migration nova, `docs/openapi.yaml`, `docs/postman/`, `tests/integration/expenses/`
+    - Done when: `AC-0020-01` a `AC-0020-08` cobertos; `INV-0020-01` e `INV-0020-02` verificados
+- [x] **T-0020-02 — Conferido e pendente na fatura** · #200
+    - What: `reconciledCents` e `pendingReconciliationCents` na fatura aberta, nas projetadas e nas
+      fechadas, na listagem e no detalhe, e os campos no `openapi.yaml`
+    - Where: `src/statements/`, `docs/openapi.yaml`, `docs/postman/`,
+      `tests/integration/statements/reconciliation.spec.ts`
+    - Done when: `AC-0020-09`, `AC-0020-10` e `AC-0020-11` cobertos; `INV-0020-03`, `INV-0020-04` e
+      `INV-0020-05` verificados; última tarefa: fecha FCB-024 e muda o `status` para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:

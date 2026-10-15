@@ -10,4 +10,6 @@ export type CardExpenseSummary = {
     status: ExpenseStatus;
     expenseType: { id: string; name: string };
     installment: { groupId: string; number: number; total: number } | null;
+    /** Vista na fatura do banco (spec 0020), em ISO 8601; nula se ainda não conferida. */
+    reconciledAt: string | null;
 };

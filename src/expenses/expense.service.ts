@@ -29,6 +29,7 @@ import { StatementPeriodGuardSymbol, type StatementPeriodGuard } from './stateme
 import type {
     ChangeExpenseStatus,
     ChangePaymentMethod,
+    ChangeReconciliation,
     CreateExpense,
     ListExpensesQuery,
     MutationScope,
@@ -335,6 +336,59 @@ export class ExpenseService {
         });
     }
 
+    /**
+     * Marca ou desmarca a despesa de cartão como incluída na fatura do banco (spec 0020).
+     * Marcar uma `FORECAST` a confirma (`FORECAST → OPEN`, consumindo o limite) na mesma
+     * transação; fora isso, nada move saldo, limite nem total (INV-0020-02). Marcar de novo
+     * mantém a data original (AC-0020-02).
+     */
+    changeReconciliation(id: string, change: ChangeReconciliation): Promise<ExpenseWithType> {
+        return this.runner.run(async ({ manager }) => {
+            const repository = manager.getRepository(Expense);
+            const expense = await repository.findOne({
+                where: { id },
+                lock: { mode: 'for_no_key_update' },
+            });
+
+            if (!expense) throw expenseNotFound();
+
+            if (expense.creditCardId === null) {
+                throw new CustomError(
+                    409,
+                    'EXPENSE_NOT_ON_CREDIT_CARD',
+                    'Only credit card expenses can be reconciled with a statement',
+                    { exposeMessage: true },
+                );
+            }
+
+            if (!change.reconciled) {
+                if (expense.reconciledAt !== null) {
+                    await repository.update({ id }, { reconciledAt: null });
+                }
+            } else if (expense.status === 'FORECAST') {
+                const closedThrough = await this.closedThrough(manager, expense.creditCardId);
+
+                if (expense.postedOn !== null && expense.postedOn <= closedThrough) {
+                    throw statementClosed(closedThrough);
+                }
+
+                await this.creditCards.applyAvailableLimitDelta(
+                    manager,
+                    expense.creditCardId,
+                    -expense.amountCents,
+                );
+                await repository.update({ id }, { status: 'OPEN', reconciledAt: new Date() });
+            } else if (expense.reconciledAt === null) {
+                await repository.update({ id }, { reconciledAt: new Date() });
+            }
+
+            return (await repository.findOneOrFail({
+                where: { id },
+                relations: { expenseType: true },
+            })) as ExpenseWithType;
+        });
+    }
+
     /** ERR-0012-02 para `:id` inexistente. */
     async findById(id: string): Promise<ExpenseWithType> {
         const expense = await this.runner.run((scope) =>
@@ -424,6 +478,7 @@ export class ExpenseService {
                               total: expense.installmentTotal,
                           }
                         : null,
+                reconciledAt: expense.reconciledAt?.toISOString() ?? null,
             }));
         };
 
@@ -707,12 +762,19 @@ export class ExpenseService {
                                     ? (change.postedOn ?? defaultPostedOn)
                                     : defaultPostedOn,
                             status,
+                            // A marca era da fatura de outro banco (spec 0020).
+                            reconciledAt: null,
                         },
                     );
                 } else {
                     await repository.update(
                         { id: row.id },
-                        { bankAccountId: destAccountId, creditCardId: null, postedOn: null },
+                        {
+                            bankAccountId: destAccountId,
+                            creditCardId: null,
+                            postedOn: null,
+                            reconciledAt: null,
+                        },
                     );
                 }
             }

@@ -117,6 +117,7 @@ describe('POST /expenses (spec 0012, criação)', () => {
                     postedOn: null,
                     installment: null,
                     recurrenceId: null,
+                    reconciledAt: null,
                     createdAt: expect.any(String),
                     updatedAt: expect.any(String),
                 },

@@ -34,6 +34,10 @@ import { ExpenseType } from './expense-type.entity';
     'ck_expenses_posted_on',
     '(posted_on IS NOT NULL) = (credit_card_id IS NOT NULL) AND (posted_on IS NULL OR posted_on >= occurred_on)',
 )
+@Check(
+    'ck_expenses_reconciled_at',
+    "reconciled_at IS NULL OR (credit_card_id IS NOT NULL AND status <> 'FORECAST')",
+)
 @Index('idx_expenses_occurred_on', ['occurredOn'])
 @Index('idx_expenses_bank_account_id', ['bankAccountId'])
 @Index('idx_expenses_credit_card_id', ['creditCardId'])
@@ -98,6 +102,10 @@ export class Expense {
 
     @Column({ type: 'text', nullable: true })
     notes!: string | null;
+
+    /** Quando a despesa de cartão foi vista na fatura do banco (spec 0020); nulo nas demais. */
+    @Column({ type: 'timestamptz', nullable: true })
+    reconciledAt!: Date | null;
 
     @Column({ type: 'timestamptz', insert: false, update: false, default: () => 'now()' })
     createdAt!: Date;
