@@ -509,6 +509,25 @@ Tarefas da [spec 0019](../specs/0019-initial-load.md), que fecha a issue de entr
       `INV-0019-02`, `INV-0019-03`, `INV-0019-05` e `INV-0019-06` verificados; última tarefa: fecha
       FCB-023 e muda o `status` para `implemented`
 
+## Conferência da fatura
+
+Tarefas da [spec 0020](../specs/0020-statement-reconciliation.md), que fecha a issue de entrega
+[FCB-024](https://github.com/bhenriq-souza/finances-control-backend/issues/198). Depende das specs
+0012 e 0013 implementadas; é o pedido do responsável no primeiro uso de `prd` (Fase 4.1 do hub).
+
+- [ ] **T-0020-01 — Marca de incluída na despesa de cartão** · #199
+    - What: coluna `reconciled_at` com `ck_expenses_reconciled_at`, `PATCH /expenses/:id/reconciliation`
+      (com a confirmação da `FORECAST`), marca removida na troca de cartão e `reconciledAt` nos corpos
+    - Where: `src/expenses/`, migration nova, `docs/openapi.yaml`, `docs/postman/`, `tests/integration/expenses/`
+    - Done when: `AC-0020-01` a `AC-0020-08` cobertos; `INV-0020-01` e `INV-0020-02` verificados
+- [ ] **T-0020-02 — Conferido e pendente na fatura** · #200
+    - What: `reconciledCents` e `pendingReconciliationCents` na fatura aberta, nas projetadas e nas
+      fechadas, na listagem e no detalhe, e os campos no `openapi.yaml`
+    - Where: `src/statements/`, `docs/openapi.yaml`, `docs/postman/`,
+      `tests/integration/statements/reconciliation.spec.ts`
+    - Done when: `AC-0020-09`, `AC-0020-10` e `AC-0020-11` cobertos; `INV-0020-03`, `INV-0020-04` e
+      `INV-0020-05` verificados; última tarefa: fecha FCB-024 e muda o `status` para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
