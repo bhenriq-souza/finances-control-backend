@@ -25,8 +25,9 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
     let dataSource: DataSource;
     let services: LoadServices;
 
-    const workspaceOf = async (): Promise<string> =>
-        ((await dataSource.query('SELECT id FROM workspaces')) as { id: string }[])[0]!.id;
+    let workspaceId: string;
+
+    const workspaceOf = (): Promise<string> => Promise.resolve(workspaceId);
 
     const count = async (table: string): Promise<number> => {
         const rows = (await dataSource.query(`SELECT count(*) AS n FROM ${table}`)) as [
@@ -39,6 +40,14 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         dataSource = await createIsolatedDataSource(SCHEMA);
         await dataSource.runMigrations();
         services = await composeLoad(dataSource);
+        const existing = (await dataSource.query('SELECT id FROM workspaces')) as { id: string }[];
+        workspaceId =
+            existing[0]?.id ??
+            (
+                (await dataSource.query(
+                    "INSERT INTO workspaces (name) VALUES ('Principal') RETURNING id",
+                )) as { id: string }[]
+            )[0]!.id;
     });
 
     afterAll(async () => {
@@ -57,7 +66,7 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
     it('ERR-0019-03: tipo de receita que não existe no sistema barra tudo antes da primeira escrita', async () => {
         const plan = planOf(withReplaced('recebimentos.csv', 'Bônus,Outros', 'Bônus,Inexistente'));
 
-        const result = await writePlan(plan, services, { dryRun: false });
+        const result = await writePlan(plan, services, { workspaceId, dryRun: false });
 
         expect(result.errors).toEqual([
             expect.objectContaining({
@@ -73,7 +82,7 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
     it('AC-0019-03: --dry-run conta o que seria criado e não grava nada', async () => {
         const predefinedTypes = await count('expense_types');
 
-        const result = await writePlan(planOf(), services, { dryRun: true });
+        const result = await writePlan(planOf(), services, { workspaceId, dryRun: true });
 
         expect(result.errors).toEqual([]);
         expect(result.sections).toMatchObject({
@@ -99,8 +108,8 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         let real: Awaited<ReturnType<typeof writePlan>>;
 
         beforeAll(async () => {
-            dryRun = await writePlan(planOf(), services, { dryRun: true });
-            real = await writePlan(planOf(), services, { dryRun: false });
+            dryRun = await writePlan(planOf(), services, { workspaceId, dryRun: true });
+            real = await writePlan(planOf(), services, { workspaceId, dryRun: false });
         });
 
         it('AC-0019-01, AC-0019-03: grava tudo, com as mesmas contagens da simulação', () => {
@@ -109,7 +118,9 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         });
 
         it('AC-0019-01: contas e cartões com os campos do contrato', async () => {
-            const accounts = await services.accounts.list();
+            const accounts = await services.inWorkspace(workspaceId, () =>
+                services.accounts.list(),
+            );
             const alfa = accounts.find((account) => account.description === 'Alfa CC')!;
             const cards = await services.cards.list(await workspaceOf());
             const black = cards.find((card) => card.name === 'Alfa Black')!;
@@ -129,7 +140,9 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         });
 
         it('AC-0019-09, INV-0019-05: o saldo de cada conta é o saldo_inicial', async () => {
-            const accounts = await services.accounts.list();
+            const accounts = await services.inWorkspace(workspaceId, () =>
+                services.accounts.list(),
+            );
 
             expect(
                 accounts.map((account) => [account.description, account.currentBalanceCents]),
@@ -151,9 +164,9 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         });
 
         it('AC-0019-06: parcelada vira um grupo cuja soma é o total, com a numeração original', async () => {
-            const rows = (await services.expenses.list()).filter((expense) =>
-                expense.description.startsWith('Geladeira'),
-            );
+            const rows = (
+                await services.inWorkspace(workspaceId, () => services.expenses.list())
+            ).filter((expense) => expense.description.startsWith('Geladeira'));
 
             expect(rows).toHaveLength(8);
             expect(rows.reduce((sum, row) => sum + row.amountCents, 0)).toBe(25000 * 8);
@@ -162,19 +175,21 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
             );
             expect(new Set(rows.map((row) => row.installmentGroupId)).size).toBe(1);
 
-            const single = (await services.expenses.list()).filter(
-                (expense) => expense.description === 'Consulta (4/4)',
-            );
+            const single = (
+                await services.inWorkspace(workspaceId, () => services.expenses.list())
+            ).filter((expense) => expense.description === 'Consulta (4/4)');
             expect(single).toEqual([
                 expect.objectContaining({ kind: 'VARIABLE', amountCents: 12000 }),
             ]);
         });
 
         it('AC-0019-01: despesa fixa vira série com fim e notas; receitas com pagante nas notas', async () => {
-            const rent = (await services.expenses.list()).filter(
-                (expense) => expense.description === 'Aluguel',
+            const rent = (
+                await services.inWorkspace(workspaceId, () => services.expenses.list())
+            ).filter((expense) => expense.description === 'Aluguel');
+            const earnings = await services.inWorkspace(workspaceId, () =>
+                services.earnings.list(),
             );
-            const earnings = await services.earnings.list();
 
             expect(rent[0]).toMatchObject({
                 kind: 'FIXED',
@@ -195,9 +210,11 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
             const card = (await services.cards.list(await workspaceOf())).find(
                 (row) => row.name === 'Alfa Black',
             )!;
-            const entry = (await services.expenses.list({ creditCardId: card.id })).find((row) =>
-                row.description.startsWith('Fatura anterior'),
-            )!;
+            const entry = (
+                await services.inWorkspace(workspaceId, () =>
+                    services.expenses.list({ creditCardId: card.id }),
+                )
+            ).find((row) => row.description.startsWith('Fatura anterior'))!;
 
             expect(entry).toMatchObject({
                 description: 'Fatura anterior Alfa Black (vence 2026-10-16)',
@@ -213,13 +230,11 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
                 card.paymentBankAccountId!,
             );
             // Como numa requisição: o pagamento grava o espaço do contexto (spec 0021).
-            await services.inWorkspace(
-                () =>
-                    container.resolve(StatementPaymentService).payEarly({
-                        creditCardId: card.id,
-                        amountCents: 234567,
-                    }),
-                { dryRun: false },
+            await services.inWorkspace(workspaceId, () =>
+                container.resolve(StatementPaymentService).payEarly({
+                    creditCardId: card.id,
+                    amountCents: 234567,
+                }),
             );
 
             expect(
@@ -232,7 +247,7 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         });
 
         it('AC-0019-04, INV-0019-03: a segunda execução não cria nada', async () => {
-            const again = await writePlan(planOf(), services, { dryRun: false });
+            const again = await writePlan(planOf(), services, { workspaceId, dryRun: false });
 
             expect(again.errors).toEqual([]);
             for (const section of Object.values(again.sections)) {
@@ -258,7 +273,10 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
                 }) as unknown as LoadServices['earnings'],
             };
 
-            const stopped = await writePlan(planOf(files), refusing, { dryRun: false });
+            const stopped = await writePlan(planOf(files), refusing, {
+                workspaceId,
+                dryRun: false,
+            });
 
             expect(stopped.errors).toEqual([
                 {
@@ -270,7 +288,10 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
             ]);
             expect(stopped.sections.recebimentos.created).toBe(0);
 
-            const resumed = await writePlan(planOf(files), services, { dryRun: false });
+            const resumed = await writePlan(planOf(files), services, {
+                workspaceId,
+                dryRun: false,
+            });
 
             expect(resumed.errors).toEqual([]);
             expect(resumed.sections.recebimentos).toEqual({ created: 2, existing: 3 });
@@ -291,7 +312,10 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
                 }) as unknown as LoadServices['expenses'],
             };
 
-            const stopped = await writePlan(planOf(files), refusing, { dryRun: false });
+            const stopped = await writePlan(planOf(files), refusing, {
+                workspaceId,
+                dryRun: false,
+            });
 
             expect(stopped.errors[0]?.message).toBe('BANK_ACCOUNT_ARCHIVED: conta arquivada');
         });

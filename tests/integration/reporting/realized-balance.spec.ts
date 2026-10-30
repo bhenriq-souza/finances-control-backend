@@ -9,6 +9,13 @@ import {
     type ReportingFixture,
 } from './reporting-fixtures.helper';
 
+const workspaceOf = async (fx: ReportingFixture): Promise<string> =>
+    (
+        (await fx.ctx.dataSource.query('SELECT workspace_id FROM bank_accounts WHERE id = $1', [
+            fx.accountId,
+        ])) as Array<{ workspace_id: string }>
+    )[0]!.workspace_id;
+
 const SCHEMA = 'test_reporting_realized_balance';
 
 /** Fixes only `Date`, so timers and the database driver keep working. */
@@ -51,13 +58,25 @@ describe('saldo realizado de uma conta (spec 0015, AC-0015-01, INV-0015-03)', ()
         await payStatement(fx, 10000, '2026-03-20');
         const service = realizedBalanceService();
 
-        expect(await service.balanceOn(fx.accountId, '2026-03-09')).toBe(100000);
-        expect(await service.balanceOn(fx.accountId, '2026-03-10')).toBe(150000);
-        expect(await service.balanceOn(fx.accountId, '2026-03-14')).toBe(150000);
-        expect(await service.balanceOn(fx.accountId, '2026-03-15')).toBe(130000);
-        expect(await service.balanceOn(fx.accountId, '2026-03-20')).toBe(120000);
-        expect(await service.balanceOn(fx.accountId, '2026-03-31')).toBe(120000);
-        expect(await service.balanceOn(fx.accountId, '2026-03-31')).toBe(
+        expect(await service.balanceOn(await workspaceOf(fx), fx.accountId, '2026-03-09')).toBe(
+            100000,
+        );
+        expect(await service.balanceOn(await workspaceOf(fx), fx.accountId, '2026-03-10')).toBe(
+            150000,
+        );
+        expect(await service.balanceOn(await workspaceOf(fx), fx.accountId, '2026-03-14')).toBe(
+            150000,
+        );
+        expect(await service.balanceOn(await workspaceOf(fx), fx.accountId, '2026-03-15')).toBe(
+            130000,
+        );
+        expect(await service.balanceOn(await workspaceOf(fx), fx.accountId, '2026-03-20')).toBe(
+            120000,
+        );
+        expect(await service.balanceOn(await workspaceOf(fx), fx.accountId, '2026-03-31')).toBe(
+            120000,
+        );
+        expect(await service.balanceOn(await workspaceOf(fx), fx.accountId, '2026-03-31')).toBe(
             await currentBalanceCents(fx),
         );
     });
@@ -65,13 +84,17 @@ describe('saldo realizado de uma conta (spec 0015, AC-0015-01, INV-0015-03)', ()
     it('INV-0015-03: no dia de hoje bate com o saldo corrente', async () => {
         const today = new Date().toISOString().slice(0, 10);
 
-        expect(await realizedBalanceService().balanceOn(fx.accountId, today)).toBe(
-            await currentBalanceCents(fx),
-        );
+        expect(
+            await realizedBalanceService().balanceOn(await workspaceOf(fx), fx.accountId, today),
+        ).toBe(await currentBalanceCents(fx));
     });
 
     it('não conta pendências nem despesa de cartão: só o realizado', async () => {
-        const before = await realizedBalanceService().balanceOn(fx.accountId, '2026-12-31');
+        const before = await realizedBalanceService().balanceOn(
+            await workspaceOf(fx),
+            fx.accountId,
+            '2026-12-31',
+        );
 
         await fx.ctx.dataSource.query(
             `INSERT INTO earnings (workspace_id, description, earning_type_id, kind, status, amount_cents, occurred_on, bank_account_id)
@@ -84,12 +107,19 @@ describe('saldo realizado de uma conta (spec 0015, AC-0015-01, INV-0015-03)', ()
             [fx.expenseTypeId, fx.cardId],
         );
 
-        expect(await realizedBalanceService().balanceOn(fx.accountId, '2026-12-31')).toBe(before);
+        expect(
+            await realizedBalanceService().balanceOn(
+                await workspaceOf(fx),
+                fx.accountId,
+                '2026-12-31',
+            ),
+        ).toBe(before);
     });
 
     it('conta inexistente é BANK_ACCOUNT_NOT_FOUND', async () => {
         await expect(
             realizedBalanceService().balanceOn(
+                await workspaceOf(fx),
                 '00000000-0000-4000-8000-000000000000',
                 '2026-03-31',
             ),

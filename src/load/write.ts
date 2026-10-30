@@ -60,11 +60,10 @@ const entryKey = (description: string, target: string, occurredOn: string): stri
 export function writePlan(
     plan: LoadPlan,
     services: LoadServices,
-    options: { dryRun: boolean; today?: string },
+    options: { workspaceId: string; dryRun: boolean; today?: string },
 ): Promise<WriteResult> {
-    return services.inWorkspace(
-        (workspaceId) => writeInWorkspace(plan, services, options, workspaceId),
-        options,
+    return services.inWorkspace(options.workspaceId, () =>
+        writeInWorkspace(plan, services, options, options.workspaceId),
     );
 }
 
@@ -72,7 +71,7 @@ async function writeInWorkspace(
     plan: LoadPlan,
     services: LoadServices,
     options: { dryRun: boolean; today?: string },
-    workspaceId: string | null,
+    workspaceId: string,
 ): Promise<WriteResult> {
     const sections = emptySections();
     const today = options.today ?? businessToday();
@@ -170,10 +169,7 @@ async function writeInWorkspace(
 
         /* 3. cartoes, by bank + name */
         const cardIds = new Map<string, string>();
-        const cards =
-            workspaceId === null
-                ? []
-                : await services.cards.list(workspaceId, { archived: 'true' });
+        const cards = await services.cards.list(workspaceId, { archived: 'true' });
         for (const card of plan.cards) {
             const bankId = bankIds.get(card.febrabanCode)!;
             const existing = cards.find(

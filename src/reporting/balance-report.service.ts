@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 
-import { businessToday } from '../platform';
+import { RequestContextSymbol, businessToday, type RequestContext } from '../platform';
 import type { BalanceQuery } from './balance.schemas';
 import { cardDebtOn, cardDueIn, type CardDebtService, type CardLedger } from './card-debt.service';
 import type { ForecastBalanceService, MonthlyPending } from './forecast-balance.service';
@@ -62,19 +62,21 @@ export class BalanceReportService {
         @inject(ForecastBalanceServiceSymbol) private readonly forecast: ForecastBalanceService,
         @inject(CardDebtServiceSymbol) private readonly cardDebt: CardDebtService,
         @inject(RealizedBalanceServiceSymbol) private readonly realized: RealizedBalanceService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     async balance({ from, to, bankAccountId }: BalanceQuery): Promise<BalanceReport> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const currentMonth = businessToday().slice(0, 7);
-        const accounts = await this.forecast.accounts(bankAccountId);
+        const accounts = await this.forecast.accounts(workspaceId, bankAccountId);
         const months = monthsInWindow(from, to);
         const hasForecast = to >= currentMonth;
 
         const pending = hasForecast
-            ? await this.forecast.pendingByMonth(currentMonth, to, bankAccountId)
+            ? await this.forecast.pendingByMonth(workspaceId, currentMonth, to, bankAccountId)
             : new Map<string, Map<string, MonthlyPending>>();
         const ledgers = hasForecast
-            ? await this.cardDebt.ledgers(lastDayOf(to), bankAccountId)
+            ? await this.cardDebt.ledgers(workspaceId, lastDayOf(to), bankAccountId)
             : [];
 
         // Carry-forward: o saldo previsto de cada conta, do mês corrente até `to`.
@@ -110,7 +112,7 @@ export class BalanceReportService {
         for (const month of months) {
             points.push(
                 month < currentMonth
-                    ? await this.realizedPoint(month, accounts, bankAccountId)
+                    ? await this.realizedPoint(workspaceId, month, accounts, bankAccountId)
                     : this.forecastPoint(
                           month,
                           accounts.map((a) => a.id),
@@ -126,13 +128,14 @@ export class BalanceReportService {
     }
 
     private async realizedPoint(
+        workspaceId: string,
         month: string,
         accounts: Array<{ id: string }>,
         bankAccountId: string | undefined,
     ): Promise<BalancePoint> {
         const date = lastDayOf(month);
         const balances = await Promise.all(
-            accounts.map((account) => this.realized.balanceOn(account.id, date)),
+            accounts.map((account) => this.realized.balanceOn(workspaceId, account.id, date)),
         );
         const accountsTotalCents = sum(balances);
 

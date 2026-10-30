@@ -568,7 +568,7 @@ módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rot
     - Where: `src/statements/`, transferências em `src/accounts/`, `tests/integration/statements/isolation.spec.ts`,
       `tests/integration/accounts/transfers-isolation.spec.ts`
     - Done when: `AC-0021-14`, `AC-0021-15` e a parte de faturas de `AC-0021-17` cobertos
-- [ ] **T-0021-07 — Relatórios e carga por espaço** · #212
+- [x] **T-0021-07 — Relatórios e carga por espaço** · #212
     - What: espaço em todas as consultas do `reporting`; `--workspace` obrigatório na carga
     - Where: `src/reporting/`, `src/load/`, `tests/integration/reporting/isolation.spec.ts`, `tests/load/workspace.spec.ts`
     - Done when: `AC-0021-16` e `AC-0021-19` cobertos; `ERR-0021-14` coberto
