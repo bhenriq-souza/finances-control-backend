@@ -189,7 +189,7 @@ export class EarningService {
 
         // Recarrega porque `created_at` é do banco e o INSERT do ORM não a traz.
         const rows = await this.dataSource.getRepository(Earning).find({
-            where: { id: In(ids) },
+            where: { id: In(ids), workspaceId },
             relations: { earningType: true },
         });
         const byId = new Map(rows.map((row) => [row.id, row]));
@@ -197,11 +197,15 @@ export class EarningService {
         return ids.map((id) => byId.get(id) as EarningWithType);
     }
 
-    /** ERR-0014-02 para `:id` inexistente. */
-    async findById(id: string): Promise<EarningWithType> {
+    /** ERR-0014-02 para `:id` inexistente ou de outro espaço (INV-0021-03). */
+    findById(id: string): Promise<EarningWithType> {
+        return this.findInWorkspace(this.requestContext.requireWorkspaceId(), id);
+    }
+
+    private async findInWorkspace(workspaceId: string, id: string): Promise<EarningWithType> {
         const earning = await this.dataSource
             .getRepository(Earning)
-            .findOne({ where: { id }, relations: { earningType: true } });
+            .findOne({ where: { id, workspaceId }, relations: { earningType: true } });
 
         if (!earning) throw earningNotFound();
 
@@ -214,6 +218,9 @@ export class EarningService {
             .getRepository(Earning)
             .createQueryBuilder('e')
             .innerJoinAndSelect('e.earningType', 'earningType')
+            .where('e.workspaceId = :workspaceId', {
+                workspaceId: this.requestContext.requireWorkspaceId(),
+            })
             .orderBy('e.occurredOn', 'ASC')
             .addOrderBy('e.createdAt', 'ASC')
             .addOrderBy('e.id', 'ASC');
@@ -245,12 +252,16 @@ export class EarningService {
         changes: UpdateEarningInput,
         mutationScope?: MutationScope,
     ): Promise<EarningWithType> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         await this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
 
-            if (mutationScope === 'following') await this.lockSeriesOf(scope.manager, id);
+            if (mutationScope === 'following') {
+                await this.lockSeriesOf(scope.manager, workspaceId, id);
+            }
 
-            const locked = await this.lockGroup(repository, id);
+            const locked = await this.lockGroup(repository, workspaceId, id);
             const earning = locked.find((row) => row.id === id);
 
             if (!earning) throw earningNotFound();
@@ -266,10 +277,7 @@ export class EarningService {
                 changes.bankAccountId !== undefined &&
                 changes.bankAccountId !== earning.bankAccountId
             ) {
-                const account = await this.accounts.findById(
-                    earning.workspaceId,
-                    changes.bankAccountId,
-                );
+                const account = await this.accounts.findById(workspaceId, changes.bankAccountId);
 
                 if (account.archivedAt) {
                     throw new CustomError(
@@ -297,10 +305,10 @@ export class EarningService {
                 }
             }
 
-            await repository.update({ id }, changes);
+            await repository.update({ id, workspaceId }, changes);
 
             if (mutationScope === 'following') {
-                await this.applyModelToFollowing(scope.manager, earning, changes);
+                await this.applyModelToFollowing(scope.manager, workspaceId, earning, changes);
             }
 
             // Trocar a conta de uma parcela troca a de todas as não recebidas do grupo; as
@@ -312,14 +320,14 @@ export class EarningService {
 
                 if (siblings.length > 0) {
                     await repository.update(
-                        { id: In(siblings) },
+                        { id: In(siblings), workspaceId },
                         { bankAccountId: changes.bankAccountId },
                     );
                 }
             }
         });
 
-        return this.findById(id);
+        return this.findInWorkspace(workspaceId, id);
     }
 
     /**
@@ -328,27 +336,30 @@ export class EarningService {
      * ficam (INV-0014-10).
      */
     delete(id: string): Promise<void> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
-            const probe = await repository.findOne({ where: { id } });
+            const probe = await repository.findOne({ where: { id, workspaceId } });
 
             if (!probe) throw earningNotFound();
 
             const inSeries = probe.recurrenceId !== null;
 
             // Série (spec 0017): a ocorrência e todas as seguintes; a série é travada antes.
-            if (inSeries) await this.lockSeriesOf(scope.manager, id);
+            if (inSeries) await this.lockSeriesOf(scope.manager, workspaceId, id);
 
             const locked = inSeries
                 ? await repository.find({
                       where: {
+                          workspaceId,
                           recurrenceId: probe.recurrenceId as string,
                           occurredOn: MoreThanOrEqual(probe.occurredOn),
                       },
                       order: { id: 'ASC' },
                       lock: { mode: 'for_no_key_update' },
                   })
-                : await this.lockGroup(repository, id);
+                : await this.lockGroup(repository, workspaceId, id);
             const target = locked.find((row) => row.id === id);
 
             if (!target) throw earningNotFound();
@@ -356,9 +367,9 @@ export class EarningService {
 
             const doomed = locked.filter((row) => row.status !== 'RECEIVED');
 
-            await repository.delete({ id: In(doomed.map((row) => row.id)) });
+            await repository.delete({ id: In(doomed.map((row) => row.id)), workspaceId });
 
-            if (inSeries) await this.endSeriesBefore(scope.manager, probe);
+            if (inSeries) await this.endSeriesBefore(scope.manager, workspaceId, probe);
         });
     }
 
@@ -366,8 +377,12 @@ export class EarningService {
      * Trava a série da ocorrência `id` (antes de qualquer linha de receita, como a extensão)
      * e exige que ela exista: sem série, `?scope=following` é ERR-0017-02.
      */
-    private async lockSeriesOf(manager: EntityManager, id: string): Promise<void> {
-        const probe = await manager.getRepository(Earning).findOne({ where: { id } });
+    private async lockSeriesOf(
+        manager: EntityManager,
+        workspaceId: string,
+        id: string,
+    ): Promise<void> {
+        const probe = await manager.getRepository(Earning).findOne({ where: { id, workspaceId } });
 
         if (!probe) throw earningNotFound();
 
@@ -383,7 +398,7 @@ export class EarningService {
         }
 
         await manager.getRepository(EarningRecurrence).findOne({
-            where: { id: probe.recurrenceId },
+            where: { id: probe.recurrenceId, workspaceId },
             lock: { mode: 'for_no_key_update' },
         });
     }
@@ -395,6 +410,7 @@ export class EarningService {
      */
     private async applyModelToFollowing(
         manager: EntityManager,
+        workspaceId: string,
         origin: Earning,
         changes: UpdateEarningInput,
     ): Promise<void> {
@@ -415,9 +431,10 @@ export class EarningService {
 
         await manager
             .getRepository(EarningRecurrence)
-            .update({ id: origin.recurrenceId as string }, patch);
+            .update({ id: origin.recurrenceId as string, workspaceId }, patch);
         await manager.getRepository(Earning).update(
             {
+                workspaceId,
                 recurrenceId: origin.recurrenceId as string,
                 status: 'FORECAST',
                 occurredOn: MoreThan(origin.occurredOn),
@@ -432,16 +449,22 @@ export class EarningService {
      * ocorrência excluída com outras que ficam), a série passa a começar e terminar na
      * primeira que ficou, para que a extensão não recrie a excluída.
      */
-    private async endSeriesBefore(manager: EntityManager, deleted: Earning): Promise<void> {
+    private async endSeriesBefore(
+        manager: EntityManager,
+        workspaceId: string,
+        deleted: Earning,
+    ): Promise<void> {
         const recurrences = manager.getRepository(EarningRecurrence);
         const recurrenceId = deleted.recurrenceId as string;
-        const series = await recurrences.findOneOrFail({ where: { id: recurrenceId } });
+        const series = await recurrences.findOneOrFail({
+            where: { id: recurrenceId, workspaceId },
+        });
         const endsOn = new Date(new Date(`${deleted.occurredOn}T00:00:00.000Z`).getTime() - DAY_MS)
             .toISOString()
             .slice(0, 10);
 
         if (endsOn >= series.startsOn) {
-            await recurrences.update({ id: recurrenceId }, { endsOn });
+            await recurrences.update({ id: recurrenceId, workspaceId }, { endsOn });
 
             return;
         }
@@ -450,16 +473,19 @@ export class EarningService {
             .getRepository(Earning)
             .createQueryBuilder('e')
             .select('MIN(e.occurredOn)::text', 'first')
-            .where('e.recurrenceId = :recurrenceId', { recurrenceId })
+            .where('e.recurrenceId = :recurrenceId AND e.workspaceId = :workspaceId', {
+                recurrenceId,
+                workspaceId,
+            })
             .getRawOne<{ first: string | null }>();
 
         if (first?.first) {
             await recurrences.update(
-                { id: recurrenceId },
+                { id: recurrenceId, workspaceId },
                 { startsOn: first.first, endsOn: first.first },
             );
         } else {
-            await recurrences.delete({ id: recurrenceId });
+            await recurrences.delete({ id: recurrenceId, workspaceId });
         }
     }
 
@@ -469,15 +495,19 @@ export class EarningService {
      * se travem em ordem cruzada. `for_no_key_update` por causa do KEY SHARE das FKs.
      * Devolve vazio se `id` não existe.
      */
-    private async lockGroup(repository: Repository<Earning>, id: string): Promise<Earning[]> {
-        const probe = await repository.findOne({ where: { id } });
+    private async lockGroup(
+        repository: Repository<Earning>,
+        workspaceId: string,
+        id: string,
+    ): Promise<Earning[]> {
+        const probe = await repository.findOne({ where: { id, workspaceId } });
 
         if (!probe) return [];
 
         const where: FindOptionsWhere<Earning> =
             probe.installmentGroupId !== null
-                ? { installmentGroupId: probe.installmentGroupId }
-                : { id };
+                ? { workspaceId, installmentGroupId: probe.installmentGroupId }
+                : { workspaceId, id };
 
         return repository.find({
             where,
@@ -491,13 +521,25 @@ export class EarningService {
      * conta e desfazer o devolve, na mesma transação (INV-0014-03); `EarningReceived`
      * só sai após o commit e desfazer não publica evento.
      */
-    async changeStatus(id: string, change: ChangeEarningStatusInput): Promise<EarningWithType> {
+    changeStatus(id: string, change: ChangeEarningStatusInput): Promise<EarningWithType> {
+        return this.changeStatusIn(this.requestContext.requireWorkspaceId(), id, change);
+    }
+
+    /**
+     * `changeStatus` com o espaço explícito, para o job de promoção de séries, que roda sem
+     * requisição e usa o espaço da própria ocorrência (INV-0021-06).
+     */
+    async changeStatusIn(
+        workspaceId: string,
+        id: string,
+        change: ChangeEarningStatusInput,
+    ): Promise<EarningWithType> {
         await this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
             // `for_no_key_update`: `pessimistic_write` conflita com o KEY SHARE das FKs.
             // Sem relations, pois o lock não se aplica a JOIN externo.
             const earning = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
@@ -522,17 +564,17 @@ export class EarningService {
             if (to === 'RECEIVED') {
                 const receivedOn = change.receivedOn ?? businessToday();
 
-                await repository.update({ id }, { status: to, receivedOn });
+                await repository.update({ id, workspaceId }, { status: to, receivedOn });
                 await this.accounts.applyBalanceDelta(
                     scope.manager,
-                    earning.workspaceId,
+                    workspaceId,
                     earning.bankAccountId,
                     earning.amountCents,
                 );
 
                 const event: Omit<EarningReceived, 'occurredAt' | 'correlationId'> = {
                     name: EARNING_RECEIVED,
-                    workspaceId: earning.workspaceId,
+                    workspaceId,
                     payload: {
                         earningId: id,
                         amountCents: earning.amountCents,
@@ -542,21 +584,21 @@ export class EarningService {
                 };
                 scope.publish(event);
             } else if (from === 'RECEIVED') {
-                await repository.update({ id }, { status: to, receivedOn: null });
+                await repository.update({ id, workspaceId }, { status: to, receivedOn: null });
                 await this.accounts.applyBalanceDelta(
                     scope.manager,
-                    earning.workspaceId,
+                    workspaceId,
                     earning.bankAccountId,
                     -earning.amountCents,
                 );
             } else {
-                await repository.update({ id }, { status: to });
+                await repository.update({ id, workspaceId }, { status: to });
             }
         });
 
         const updated = await this.dataSource
             .getRepository(Earning)
-            .findOneOrFail({ where: { id }, relations: { earningType: true } });
+            .findOneOrFail({ where: { id, workspaceId }, relations: { earningType: true } });
 
         return updated as EarningWithType;
     }

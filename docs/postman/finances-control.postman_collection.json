@@ -690,7 +690,7 @@
                                 }
                             ]
                         },
-                        "description": "Qualquer perfil. Ordenados por nome."
+                        "description": "Qualquer membro de espaço ou admin da plataforma (catálogo global, spec 0021). Ordenados por nome."
                     }
                 },
                 {
@@ -703,7 +703,7 @@
                             "host": ["{{baseUrl}}"],
                             "path": ["earning-types"]
                         },
-                        "description": "Exige perfil `ADMIN` ou `BILLER`. O nome é único sem diferenciar\nmaiúsculas (ERR-0014-01).",
+                        "description": "Exige admin da plataforma (catálogo global, spec 0021). O nome é único sem diferenciar\nmaiúsculas (ERR-0014-01).",
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"name\": \"Exemplo name\"\n}",
@@ -736,7 +736,7 @@
                             "path": ["earning-types", ":id"],
                             "variable": [{ "key": "id", "value": "{{earningTypeId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN` ou `BILLER`. Só o nome é alterável; `archivedAt` muda\nsó pelo arquivamento.",
+                        "description": "Exige admin da plataforma (catálogo global, spec 0021). Só o nome é alterável; `archivedAt` muda\nsó pelo arquivamento.",
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"name\": \"Exemplo name\"\n}",
@@ -755,7 +755,7 @@
                             "path": ["earning-types", ":id", "archive"],
                             "variable": [{ "key": "id", "value": "{{earningTypeId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN` ou `BILLER`. Arquivar o tira da listagem padrão e o\nmantém sustentando os lançamentos antigos; um tipo arquivado não recebe\nlançamento novo. Idempotente (ERR-0014-14)."
+                        "description": "Exige admin da plataforma (catálogo global, spec 0021). Arquivar o tira da listagem padrão e o\nmantém sustentando os lançamentos antigos; um tipo arquivado não recebe\nlançamento novo. Idempotente (ERR-0014-14)."
                     }
                 },
                 {
@@ -769,7 +769,7 @@
                             "path": ["earning-types", ":id", "archive"],
                             "variable": [{ "key": "id", "value": "{{earningTypeId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN` ou `BILLER`. Idempotente."
+                        "description": "Exige admin da plataforma (catálogo global, spec 0021). Idempotente."
                     }
                 },
                 {
