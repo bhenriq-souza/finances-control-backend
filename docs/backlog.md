@@ -552,7 +552,7 @@ módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rot
     - What: escopo nas leituras de contas e cartões; bancos como catálogo do admin da plataforma
     - Where: `src/accounts/` (sem transferências), `docs/openapi.yaml`, `tests/integration/accounts/isolation.spec.ts`
     - Done when: `AC-0021-11` e a parte de bancos de `AC-0021-18` cobertos
-- [ ] **T-0021-04 — Despesas por espaço e tipos globais** · #209
+- [x] **T-0021-04 — Despesas por espaço e tipos globais** · #209
     - What: escopo em despesas, séries, conferência e jobs de despesa; tipos de despesa só pelo
       admin da plataforma; `workspaceId` explícito em `src/expenses/index.ts`
     - Where: `src/expenses/`, `docs/openapi.yaml`, `tests/integration/expenses/isolation.spec.ts`

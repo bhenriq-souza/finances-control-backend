@@ -35,7 +35,13 @@ export class ExpenseController {
 
         return HttpResponses.ok(
             res,
-            toExpenseResponse(await this.service.changeStatus(id, change)),
+            toExpenseResponse(
+                await this.service.changeStatus(
+                    this.requestContext.requireWorkspaceId(),
+                    id,
+                    change,
+                ),
+            ),
         );
     }
 

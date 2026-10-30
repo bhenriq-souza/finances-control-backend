@@ -5,9 +5,10 @@ import type { RouteDef } from '@bhs-dev/typescript-common-types';
 import {
     BaseRoute,
     RequireAuthenticationSymbol,
-    RequireProfileSymbol,
-    USER_PROFILES,
-    type RequireProfile,
+    RequireMemberOrPlatformAdminSymbol,
+    RequirePlatformAdminSymbol,
+    type RequireMemberOrPlatformAdmin,
+    type RequirePlatformAdmin,
 } from '../platform';
 import type { ExpenseTypeController } from './expense-type.controller';
 import { ExpenseTypeControllerSymbol } from './expenses.symbols';
@@ -17,14 +18,17 @@ export class ExpenseTypeRoutes extends BaseRoute {
     constructor(
         @inject(ExpenseTypeControllerSymbol) private readonly controller: ExpenseTypeController,
         @inject(RequireAuthenticationSymbol) private readonly requireAuthentication: RequestHandler,
-        @inject(RequireProfileSymbol) private readonly requireProfile: RequireProfile,
+        @inject(RequirePlatformAdminSymbol)
+        private readonly requirePlatformAdmin: RequirePlatformAdmin,
+        @inject(RequireMemberOrPlatformAdminSymbol)
+        private readonly requireMemberOrPlatformAdmin: RequireMemberOrPlatformAdmin,
     ) {
         super();
     }
 
     routes(): RouteDef[] {
-        const write = [this.requireAuthentication, this.requireProfile('ADMIN', 'BILLER')];
-        const read = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
+        const write = [this.requireAuthentication, this.requirePlatformAdmin()];
+        const read = [this.requireAuthentication, this.requireMemberOrPlatformAdmin()];
 
         return [
             {
