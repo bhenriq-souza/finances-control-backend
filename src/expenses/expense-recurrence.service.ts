@@ -4,7 +4,13 @@ import { IsNull, MoreThan, MoreThanOrEqual, Or, type EntityManager } from 'typeo
 import { ZodError } from 'zod';
 
 import { EXPENSE_CREATED, type ExpenseCreated } from '../events';
-import { TransactionRunnerSymbol, businessToday, type TransactionRunner } from '../platform';
+import {
+    RequestContextSymbol,
+    TransactionRunnerSymbol,
+    businessToday,
+    type RequestContext,
+    type TransactionRunner,
+} from '../platform';
 import { nextBusinessDay, recurrenceHorizon, seriesDates } from './expense-recurrence.dates';
 import { ExpenseRecurrence } from './expense-recurrence.entity';
 import type { ExpenseRecurrenceView } from './expense-recurrence.response';
@@ -32,13 +38,14 @@ export class ExpenseRecurrenceService {
         @inject(TransactionRunnerSymbol) private readonly runner: TransactionRunner,
         @inject(StatementPeriodGuardSymbol) private readonly guard: StatementPeriodGuard,
         @inject(ExpenseServiceSymbol) private readonly expenses: ExpenseService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     /**
      * Cria, para toda série sem `ends_on` ou com `ends_on` futuro, as ocorrências que faltam
      * até o horizonte de `asOf`, como `FORECAST`, copiando o modelo atual da série.
-     * Idempotente: um mês que já tem ocorrência nunca recebe outra. Cada série é estendida
-     * numa transação própria. Devolve quantas criou.
+     * Idempotente: um mês que já tem ocorrência nunca recebe outra. Percorre todos os espaços (sem
+     * requisição); cada série é estendida no seu, numa transação própria. Devolve quantas criou.
      */
     async extend(asOf: Date): Promise<number> {
         const today = businessToday(asOf);
@@ -61,7 +68,8 @@ export class ExpenseRecurrenceService {
 
     /**
      * Passa a `OPEN` toda ocorrência de série em `FORECAST` com `occurred_on <= asOf`, pela
-     * transição `FORECAST → OPEN` da spec 0012 (a de cartão consome limite). Uma ocorrência
+     * transição `FORECAST → OPEN` da spec 0012 (a de cartão consome limite), no espaço da própria
+     * ocorrência (INV-0021-06). Uma ocorrência
      * na janela fechada do cartão fica `FORECAST` (spec 0013). Devolve quantas promoveu.
      */
     async promote(asOf: Date): Promise<number> {
@@ -71,18 +79,19 @@ export class ExpenseRecurrenceService {
                 .getRepository(Expense)
                 .createQueryBuilder('e')
                 .select('e.id', 'id')
+                .addSelect('e.workspaceId', 'workspaceId')
                 .where('e.recurrenceId IS NOT NULL')
                 .andWhere("e.status = 'FORECAST'")
                 .andWhere('e.occurredOn <= :today', { today })
                 .orderBy('e.occurredOn', 'ASC')
                 .addOrderBy('e.id', 'ASC')
-                .getRawMany<{ id: string }>(),
+                .getRawMany<{ id: string; workspaceId: string }>(),
         );
         let promoted = 0;
 
-        for (const { id } of due) {
+        for (const { id, workspaceId } of due) {
             try {
-                await this.expenses.changeStatus(id, { status: 'OPEN' });
+                await this.expenses.changeStatus(workspaceId, id, { status: 'OPEN' });
                 promoted += 1;
             } catch (error) {
                 if (!(error instanceof CustomError) || error.code !== 'STATEMENT_CLOSED') {
@@ -97,10 +106,13 @@ export class ExpenseRecurrenceService {
     /** As séries, da mais recente para a mais antiga; `active` tira as de `ends_on` passado. */
     list(query: ListRecurrencesQuery = {}): Promise<ExpenseRecurrenceView[]> {
         const today = businessToday(new Date());
+        const workspaceId = this.requestContext.requireWorkspaceId();
 
         return this.runner.run(async ({ manager }) => {
             const rows = await manager.getRepository(ExpenseRecurrence).find({
-                where: query.active ? { endsOn: Or(IsNull(), MoreThanOrEqual(today)) } : undefined,
+                where: query.active
+                    ? { workspaceId, endsOn: Or(IsNull(), MoreThanOrEqual(today)) }
+                    : { workspaceId },
                 order: { createdAt: 'DESC', id: 'ASC' },
             });
 
@@ -110,11 +122,13 @@ export class ExpenseRecurrenceService {
 
     findById(id: string): Promise<ExpenseRecurrenceView> {
         const today = businessToday(new Date());
+        const workspaceId = this.requestContext.requireWorkspaceId();
 
         return this.runner.run(async ({ manager }) => {
             const series = await manager
                 .getRepository(ExpenseRecurrence)
-                .findOne({ where: { id } });
+
+                .findOne({ where: { id, workspaceId } });
 
             if (!series) throw recurrenceNotFound();
 
@@ -130,11 +144,12 @@ export class ExpenseRecurrenceService {
      */
     end(id: string, change: EndRecurrence): Promise<ExpenseRecurrenceView> {
         const today = businessToday(new Date());
+        const workspaceId = this.requestContext.requireWorkspaceId();
 
         return this.runner.run(async ({ manager }) => {
             const recurrences = manager.getRepository(ExpenseRecurrence);
             const series = await recurrences.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
@@ -152,13 +167,14 @@ export class ExpenseRecurrenceService {
             }
 
             await manager.getRepository(Expense).delete({
+                workspaceId,
                 recurrenceId: id,
                 status: 'FORECAST',
                 occurredOn: MoreThan(change.endsOn),
             });
-            await recurrences.update({ id }, { endsOn: change.endsOn });
+            await recurrences.update({ id, workspaceId }, { endsOn: change.endsOn });
 
-            const updated = await recurrences.findOneOrFail({ where: { id } });
+            const updated = await recurrences.findOneOrFail({ where: { id, workspaceId } });
 
             return (
                 await this.withNextOccurrence(manager, [updated], today)

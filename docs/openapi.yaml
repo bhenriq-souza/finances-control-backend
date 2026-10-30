@@ -1361,7 +1361,9 @@ paths:
         get:
             tags: [Expenses]
             summary: Lista os tipos de despesa
-            description: Qualquer perfil. Ordenados por nome.
+            description: |
+                Catálogo global, igual em todos os espaços. Exige perfil em algum espaço ou ser admin
+                da plataforma. Ordenados por nome.
             operationId: listExpenseTypes
             security: [{ bearerAuth: [] }]
             parameters:
@@ -1388,7 +1390,7 @@ paths:
             tags: [Expenses]
             summary: Cadastra um tipo de despesa
             description: |
-                Exige perfil `ADMIN` ou `BILLER`. O nome é único sem diferenciar
+                Catálogo global: exige admin da plataforma (`403 FORBIDDEN` para os demais). O nome é único sem diferenciar
                 maiúsculas (ERR-0012-01).
             operationId: createExpenseType
             security: [{ bearerAuth: [] }]
@@ -1417,7 +1419,7 @@ paths:
             tags: [Expenses]
             summary: Renomeia um tipo de despesa
             description: |
-                Exige perfil `ADMIN` ou `BILLER`. Só o nome é alterável; `archivedAt` muda
+                Catálogo global: exige admin da plataforma. Só o nome é alterável; `archivedAt` muda
                 só pelo arquivamento.
             operationId: updateExpenseType
             security: [{ bearerAuth: [] }]
@@ -1448,7 +1450,7 @@ paths:
             tags: [Expenses]
             summary: Arquiva um tipo de despesa
             description: |
-                Exige perfil `ADMIN` ou `BILLER`. Arquivar o tira da listagem padrão e o
+                Catálogo global: exige admin da plataforma. Arquivar o tira da listagem padrão e o
                 mantém sustentando os lançamentos antigos; um tipo arquivado não recebe
                 lançamento novo. Idempotente (ERR-0012-16).
             operationId: archiveExpenseType
@@ -1467,7 +1469,7 @@ paths:
         delete:
             tags: [Expenses]
             summary: Desarquiva um tipo de despesa
-            description: Exige perfil `ADMIN` ou `BILLER`. Idempotente.
+            description: 'Catálogo global: exige admin da plataforma. Idempotente.'
             operationId: unarchiveExpenseType
             security: [{ bearerAuth: [] }]
             responses:

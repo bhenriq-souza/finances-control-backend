@@ -1000,7 +1000,7 @@
                                 }
                             ]
                         },
-                        "description": "Qualquer perfil. Ordenados por nome."
+                        "description": "Catálogo global, igual em todos os espaços. Exige perfil em algum espaço ou ser admin\nda plataforma. Ordenados por nome."
                     }
                 },
                 {
@@ -1013,7 +1013,7 @@
                             "host": ["{{baseUrl}}"],
                             "path": ["expense-types"]
                         },
-                        "description": "Exige perfil `ADMIN` ou `BILLER`. O nome é único sem diferenciar\nmaiúsculas (ERR-0012-01).",
+                        "description": "Catálogo global: exige admin da plataforma (`403 FORBIDDEN` para os demais). O nome é único sem diferenciar\nmaiúsculas (ERR-0012-01).",
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"name\": \"Exemplo name\"\n}",
@@ -1046,7 +1046,7 @@
                             "path": ["expense-types", ":id"],
                             "variable": [{ "key": "id", "value": "{{expenseTypeId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN` ou `BILLER`. Só o nome é alterável; `archivedAt` muda\nsó pelo arquivamento.",
+                        "description": "Catálogo global: exige admin da plataforma. Só o nome é alterável; `archivedAt` muda\nsó pelo arquivamento.",
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"name\": \"Exemplo name\"\n}",
@@ -1065,7 +1065,7 @@
                             "path": ["expense-types", ":id", "archive"],
                             "variable": [{ "key": "id", "value": "{{expenseTypeId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN` ou `BILLER`. Arquivar o tira da listagem padrão e o\nmantém sustentando os lançamentos antigos; um tipo arquivado não recebe\nlançamento novo. Idempotente (ERR-0012-16)."
+                        "description": "Catálogo global: exige admin da plataforma. Arquivar o tira da listagem padrão e o\nmantém sustentando os lançamentos antigos; um tipo arquivado não recebe\nlançamento novo. Idempotente (ERR-0012-16)."
                     }
                 },
                 {
@@ -1079,7 +1079,7 @@
                             "path": ["expense-types", ":id", "archive"],
                             "variable": [{ "key": "id", "value": "{{expenseTypeId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN` ou `BILLER`. Idempotente."
+                        "description": "Catálogo global: exige admin da plataforma. Idempotente."
                     }
                 },
                 {
