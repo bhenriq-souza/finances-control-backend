@@ -60,6 +60,7 @@ describe('despesa: máquina de status (spec 0012)', () => {
     beforeEach(async () => {
         await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
         await ctx.setProfile('uid-admin', 'ADMIN');
+        await ctx.setPlatformAdmin('uid-admin');
 
         const bank = await send('/banks', { febrabanCode: '260', name: 'Nu Pagamentos' });
         const bankId = bank.body.data.id as string;

@@ -10,6 +10,7 @@ export type Fixture = { accountId: string; cardId: string; typeId: string };
 export async function seedFixture(ctx: TestApp): Promise<Fixture> {
     await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
     await ctx.setProfile('uid-admin', 'ADMIN');
+    await ctx.setPlatformAdmin('uid-admin');
 
     const send = (path: string, body: Record<string, unknown>) =>
         request(ctx.app).post(path).set('Authorization', ADMIN).send(body);
