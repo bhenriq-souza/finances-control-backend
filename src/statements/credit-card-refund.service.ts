@@ -67,14 +67,16 @@ export class CreditCardRefundService {
      * dos estornos não passa dela (ERR-0013-14).
      */
     create(data: CreateCreditCardRefund): Promise<CreditCardRefund> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const { manager } = scope;
 
-            await this.creditCards.findById(data.creditCardId);
+            await this.creditCards.findById(workspaceId, data.creditCardId);
             await lockCreditCard(manager, data.creditCardId);
 
             const closedThrough = businessToday(
-                await this.guard.closedThrough(manager, data.creditCardId),
+                await this.guard.closedThrough(manager, workspaceId, data.creditCardId),
             );
 
             if (data.postedOn !== undefined && data.postedOn <= closedThrough) {
@@ -87,6 +89,7 @@ export class CreditCardRefundService {
 
             if (data.expenseId !== undefined) {
                 await this.assertExpenseIsRefundable(
+                    workspaceId,
                     data.expenseId,
                     data.creditCardId,
                     data.amountCents,
@@ -97,7 +100,7 @@ export class CreditCardRefundService {
             const repository = manager.getRepository(CreditCardRefund);
             const saved = await repository.save(
                 repository.create({
-                    workspaceId: this.requestContext.requireWorkspaceId(),
+                    workspaceId,
                     creditCardId: data.creditCardId,
                     expenseId: data.expenseId ?? null,
                     description: data.description,
@@ -110,6 +113,7 @@ export class CreditCardRefundService {
 
             await this.creditCards.applyAvailableLimitDelta(
                 manager,
+                workspaceId,
                 saved.creditCardId,
                 saved.amountCents,
             );
@@ -207,7 +211,7 @@ export class CreditCardRefundService {
             if (!refund) throw refundNotFound();
 
             const closedThrough = businessToday(
-                await this.guard.closedThrough(manager, refund.creditCardId),
+                await this.guard.closedThrough(manager, refund.workspaceId, refund.creditCardId),
             );
 
             if (refund.postedOn <= closedThrough) throw statementClosed(closedThrough);
@@ -215,6 +219,7 @@ export class CreditCardRefundService {
             await repository.delete({ id });
             await this.creditCards.applyAvailableLimitDelta(
                 manager,
+                refund.workspaceId,
                 refund.creditCardId,
                 -refund.amountCents,
             );
@@ -223,16 +228,17 @@ export class CreditCardRefundService {
 
     /** ERR-0013-05 (via `expenses`), ERR-0013-13 and ERR-0013-14. */
     private async assertExpenseIsRefundable(
+        workspaceId: string,
         expenseId: string,
         creditCardId: string,
         amountCents: number,
         manager: EntityManager,
     ): Promise<void> {
-        const expense = await this.expenses.findCardExpense(manager, expenseId);
+        const expense = await this.expenses.findCardExpense(manager, workspaceId, expenseId);
 
         if (expense === null) {
             // `null` covers a missing expense (404) and an account expense (409).
-            await this.expenses.findById(expenseId);
+            await this.expenses.findById(workspaceId, expenseId);
             throw refundExpenseMismatch();
         }
 

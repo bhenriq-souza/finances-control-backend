@@ -84,7 +84,8 @@ export class EarningService {
      */
     async create(input: CreateEarningInput): Promise<EarningWithType[]> {
         // Existência (404) antes de arquivamento (409), conta antes de tipo.
-        const account = await this.accounts.findById(input.bankAccountId);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+        const account = await this.accounts.findById(workspaceId, input.bankAccountId);
         const type = await this.types.findById(input.earningTypeId);
 
         if (account.archivedAt) {
@@ -122,7 +123,6 @@ export class EarningService {
             ? dates.map(() => input.amountCents)
             : splitCents(input.amountCents, total);
 
-        const workspaceId = this.requestContext.requireWorkspaceId();
         const ids = await this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
             const created: string[] = [];
@@ -266,7 +266,10 @@ export class EarningService {
                 changes.bankAccountId !== undefined &&
                 changes.bankAccountId !== earning.bankAccountId
             ) {
-                const account = await this.accounts.findById(changes.bankAccountId);
+                const account = await this.accounts.findById(
+                    earning.workspaceId,
+                    changes.bankAccountId,
+                );
 
                 if (account.archivedAt) {
                     throw new CustomError(
@@ -522,6 +525,7 @@ export class EarningService {
                 await repository.update({ id }, { status: to, receivedOn });
                 await this.accounts.applyBalanceDelta(
                     scope.manager,
+                    earning.workspaceId,
                     earning.bankAccountId,
                     earning.amountCents,
                 );
@@ -541,6 +545,7 @@ export class EarningService {
                 await repository.update({ id }, { status: to, receivedOn: null });
                 await this.accounts.applyBalanceDelta(
                     scope.manager,
+                    earning.workspaceId,
                     earning.bankAccountId,
                     -earning.amountCents,
                 );

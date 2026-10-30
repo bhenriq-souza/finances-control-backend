@@ -47,16 +47,31 @@ export class CreditCardService {
         return this.dataSource.getRepository(CreditCard);
     }
 
-    list(query: { archived?: 'true' | 'false' } = {}): Promise<CreditCardWithBank[]> {
+    list(
+        workspaceId: string,
+        query: { archived?: 'true' | 'false' } = {},
+    ): Promise<CreditCardWithBank[]> {
         return this.cards.find({
-            where: archivedFilter(query),
+            where: { ...archivedFilter(query), workspaceId },
             relations: { bank: true },
             order: { name: 'ASC' },
         }) as Promise<CreditCardWithBank[]>;
     }
 
-    async findById(id: string): Promise<CreditCardWithBank> {
-        const card = await this.cards.findOne({ where: { id }, relations: { bank: true } });
+    /**
+     * Every card of every workspace, archived included, as `{ id, workspaceId }`. For jobs
+     * only (statement closing): a job has no request context, so it traverses all
+     * workspaces and takes the workspace from the card row (spec 0021, Jobs e eventos).
+     */
+    listAllForJobs(): Promise<{ id: string; workspaceId: string }[]> {
+        return this.cards.find({ select: { id: true, workspaceId: true }, order: { id: 'ASC' } });
+    }
+
+    async findById(workspaceId: string, id: string): Promise<CreditCardWithBank> {
+        const card = await this.cards.findOne({
+            where: { id, workspaceId },
+            relations: { bank: true },
+        });
 
         if (!card) throw cardNotFound();
 
@@ -67,11 +82,12 @@ export class CreditCardService {
         await this.assertBankIsUsable(data.bankId);
         await this.assertPayingAccountIsUsable(data.paymentBankAccountId);
 
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const created = await asConflict(
             this.cards.save(
                 this.cards.create({
                     ...data,
-                    workspaceId: this.requestContext.requireWorkspaceId(),
+                    workspaceId,
                     paymentBankAccountId: data.paymentBankAccountId ?? null,
                     // Nasce igual ao limite total: o cartão não tem gasto nenhum.
                     availableLimitCents: data.creditLimitCents,
@@ -81,21 +97,24 @@ export class CreditCardService {
             CONFLICTS,
         );
 
-        return this.findById(created.id);
+        return this.findById(workspaceId, created.id);
     }
 
     async setArchived(id: string, archived: boolean): Promise<CreditCardWithBank> {
-        const card = await this.findById(id);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+        const card = await this.findById(workspaceId, id);
 
         if (!needsArchiveChange(card.archivedAt, archived)) return card;
 
         await this.cards.update({ id }, { archivedAt: archived ? new Date() : null });
 
-        return this.findById(id);
+        return this.findById(workspaceId, id);
     }
 
     async update(id: string, changes: UpdateCreditCard): Promise<CreditCardWithBank> {
-        if (Object.keys(changes).length === 0) return this.findById(id);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
+        if (Object.keys(changes).length === 0) return this.findById(workspaceId, id);
 
         await this.assertPayingAccountIsUsable(changes.paymentBankAccountId);
 
@@ -110,7 +129,7 @@ export class CreditCardService {
             );
         });
 
-        return this.findById(id);
+        return this.findById(workspaceId, id);
     }
 
     /**
@@ -124,6 +143,7 @@ export class CreditCardService {
      */
     async applyAvailableLimitDelta(
         manager: EntityManager,
+        workspaceId: string,
         id: string,
         deltaCents: number,
     ): Promise<void> {
@@ -133,7 +153,7 @@ export class CreditCardService {
 
         const repository = manager.getRepository(CreditCard);
         const card = await repository.findOne({
-            where: { id },
+            where: { id, workspaceId },
             lock: { mode: 'for_no_key_update' },
         });
 

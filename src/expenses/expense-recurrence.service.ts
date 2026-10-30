@@ -214,7 +214,13 @@ export class ExpenseRecurrenceService {
             const earliestOpen =
                 recurrence.creditCardId === null
                     ? null
-                    : nextBusinessDay(await this.closedThrough(manager, recurrence.creditCardId));
+                    : nextBusinessDay(
+                          await this.closedThrough(
+                              manager,
+                              recurrence.workspaceId,
+                              recurrence.creditCardId,
+                          ),
+                      );
 
             for (const date of missing) {
                 const saved = await repository.save(
@@ -265,7 +271,11 @@ export class ExpenseRecurrenceService {
         });
     }
 
-    private async closedThrough(manager: EntityManager, creditCardId: string): Promise<string> {
-        return businessToday(await this.guard.closedThrough(manager, creditCardId));
+    private async closedThrough(
+        manager: EntityManager,
+        workspaceId: string,
+        creditCardId: string,
+    ): Promise<string> {
+        return businessToday(await this.guard.closedThrough(manager, workspaceId, creditCardId));
     }
 }

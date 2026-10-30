@@ -151,13 +151,19 @@ describe('janela fechada (spec 0013, A janela fechada)', () => {
     it('INV-0013-08: o último dia fechado vale antes e depois de closeDue registrar a fatura', async () => {
         const guard = container.resolve<StatementPeriodGuard>(StatementPeriodGuardSymbol);
         const read = async (): Promise<string> =>
-            (await ctx.dataSource.transaction((manager) => guard.closedThrough(manager, fx.cardId)))
+            (
+                await ctx.dataSource.transaction((manager) =>
+                    guard.closedThrough(manager, ctx.workspaceId, fx.cardId),
+                )
+            )
                 .toISOString()
                 .slice(0, 10);
 
         expect(await read()).toBe(CLOSED_THROUGH);
 
-        const registered = await container.resolve(StatementService).closeDue(NOW, fx.cardId);
+        const registered = await container
+            .resolve(StatementService)
+            .closeDue(NOW, { workspaceId: ctx.workspaceId, creditCardId: fx.cardId });
 
         expect(registered).toBe(2);
         expect(await read()).toBe(CLOSED_THROUGH);

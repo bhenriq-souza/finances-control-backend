@@ -43,9 +43,13 @@ export type LoadServices = {
     /**
      * Runs the writes with the load's workspace in the context, as a request would have it
      * (spec 0021): the services store the workspace they read from there. A dry run never
-     * creates the workspace: it writes nothing.
+     * creates the workspace: it writes nothing, and `work` then receives `null` (an empty
+     * database has no records to look up).
      */
-    inWorkspace: <T>(work: () => Promise<T>, options: { dryRun: boolean }) => Promise<T>;
+    inWorkspace: <T>(
+        work: (workspaceId: string | null) => Promise<T>,
+        options: { dryRun: boolean },
+    ) => Promise<T>;
 };
 
 /**
@@ -118,7 +122,7 @@ export async function composeLoad(dataSource?: DataSource): Promise<LoadServices
 
             return requestContext.run(
                 { correlationId: 'initial-load', startedAt: Date.now(), workspaceId },
-                work,
+                () => work(workspaceId),
             );
         },
     };

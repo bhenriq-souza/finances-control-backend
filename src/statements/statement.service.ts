@@ -12,9 +12,11 @@ import {
 import { STATEMENT_CLOSED, STATEMENT_PAID } from '../events';
 import { ExpenseServiceSymbol, type ExpenseService } from '../expenses';
 import {
+    RequestContextSymbol,
     TransactionRunnerSymbol,
     addMonths,
     businessToday,
+    type RequestContext,
     type TransactionRunner,
     type TransactionScope,
 } from '../platform';
@@ -60,24 +62,32 @@ export class StatementService {
         @inject(TransactionRunnerSymbol) private readonly runner: TransactionRunner,
         @inject(CreditCardServiceSymbol) private readonly creditCards: CreditCardService,
         @inject(ExpenseServiceSymbol) private readonly expenses: ExpenseService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     /**
      * Registers, for one card or for all of them, every chained cycle whose `closesOn` is
      * before `asOf` (business date) and has no row yet, in chronological order. Each card
      * runs in its own transaction under its advisory lock; returns how many statements were
-     * registered (INV-0013-07, INV-0013-08).
+     * registered (INV-0013-07, INV-0013-08). Without `only` it is the job: it traverses the
+     * cards of every workspace and takes each workspace from the card row, never from the
+     * context. With `only`, the caller (a request) names the card and its workspace.
      */
-    async closeDue(asOf: Date, creditCardId?: string): Promise<number> {
+    async closeDue(
+        asOf: Date,
+        only?: { workspaceId: string; creditCardId: string },
+    ): Promise<number> {
         const asOfIso = businessToday(asOf);
-        const cardIds =
-            creditCardId !== undefined
-                ? [creditCardId]
-                : (await this.creditCards.list({ archived: 'true' })).map((card) => card.id);
+        const cards =
+            only !== undefined
+                ? [{ id: only.creditCardId, workspaceId: only.workspaceId }]
+                : await this.creditCards.listAllForJobs();
         let registered = 0;
 
-        for (const id of cardIds) {
-            registered += await this.runner.run((scope) => this.closeCard(scope, id, asOfIso));
+        for (const { id, workspaceId } of cards) {
+            registered += await this.runner.run((scope) =>
+                this.closeCard(scope, workspaceId, id, asOfIso),
+            );
         }
 
         return registered;
@@ -85,6 +95,7 @@ export class StatementService {
 
     private async closeCard(
         scope: TransactionScope,
+        workspaceId: string,
         creditCardId: string,
         asOfIso: string,
     ): Promise<number> {
@@ -93,7 +104,7 @@ export class StatementService {
         await lockCreditCard(manager, creditCardId);
 
         // Read under the lock: a concurrent call has already committed its rows by now.
-        const card = await this.creditCards.findById(creditCardId);
+        const card = await this.creditCards.findById(workspaceId, creditCardId);
         const statements = await manager.getRepository(CreditCardStatement).find({
             where: { creditCardId },
             order: { closesOn: 'ASC' },
@@ -150,7 +161,13 @@ export class StatementService {
             where: { creditCardId: card.id, statementId: IsNull() },
             order: { paidOn: 'ASC', createdAt: 'ASC' },
         });
-        const totalCents = await this.totalOf(manager, card.id, cycle.startsOn, cycle.closesOn);
+        const totalCents = await this.totalOf(
+            manager,
+            card.workspaceId,
+            card.id,
+            cycle.startsOn,
+            cycle.closesOn,
+        );
         const amountDueCents = totalCents + previousBalanceCents;
         const paidCents = earlyPayments.reduce((sum, payment) => sum + payment.amountCents, 0);
         const paidInFull = amountDueCents - paidCents <= 0;
@@ -205,6 +222,7 @@ export class StatementService {
 
             await this.expenses.markPaidByStatement(
                 manager,
+                card.workspaceId,
                 card.id,
                 { from: noon(chainStart), to: noon(saved.closesOn) },
                 noon(paidOn),
@@ -222,11 +240,12 @@ export class StatementService {
     /** `purchasesCents - refundsCents` of the window; nothing is stored (INV-0013-02). */
     async totalOf(
         manager: EntityManager,
+        workspaceId: string,
         creditCardId: string,
         startsOn: string,
         closesOn: string,
     ): Promise<number> {
-        const expenses = await this.expenses.listByCreditCard(creditCardId, {
+        const expenses = await this.expenses.listByCreditCard(workspaceId, creditCardId, {
             from: noon(startsOn),
             to: noon(closesOn),
         });
@@ -252,6 +271,7 @@ export class StatementService {
     ): Promise<number> {
         const totalCents = await this.totalOf(
             manager,
+            statement.workspaceId,
             creditCardId,
             statement.startsOn,
             statement.closesOn,
@@ -272,11 +292,13 @@ export class StatementService {
     async list(query: ListStatementsQuery): Promise<StatementView[]> {
         const today = businessToday();
 
-        await this.creditCards.findById(query.creditCardId);
-        await this.closeDue(noon(today), query.creditCardId);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
+        await this.creditCards.findById(workspaceId, query.creditCardId);
+        await this.closeDue(noon(today), { workspaceId, creditCardId: query.creditCardId });
 
         return this.runner.run(async ({ manager }) => {
-            const card = await this.creditCards.findById(query.creditCardId);
+            const card = await this.creditCards.findById(workspaceId, query.creditCardId);
             const { persisted, current } = await this.chainOf(manager, card);
             const currentClosesOn = isoOf(current.closesOn);
             const to =
@@ -320,11 +342,13 @@ export class StatementService {
     async current(creditCardId: string): Promise<StatementView> {
         const today = businessToday();
 
-        await this.creditCards.findById(creditCardId);
-        await this.closeDue(noon(today), creditCardId);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
+        await this.creditCards.findById(workspaceId, creditCardId);
+        await this.closeDue(noon(today), { workspaceId, creditCardId });
 
         return this.runner.run(async ({ manager }) => {
-            const card = await this.creditCards.findById(creditCardId);
+            const card = await this.creditCards.findById(workspaceId, creditCardId);
             const { persisted, current } = await this.chainOf(manager, card);
             const [view] = await this.buildViews(
                 manager,
@@ -342,20 +366,21 @@ export class StatementService {
     /** A persisted statement, with the detail (`GET /statements/:id`). */
     async findById(id: string): Promise<StatementView> {
         const today = businessToday();
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const found = await this.runner.run(({ manager }) =>
             manager.getRepository(CreditCardStatement).findOne({ where: { id } }),
         );
 
         if (!found) throw statementNotFound();
 
-        await this.closeDue(noon(today), found.creditCardId);
+        await this.closeDue(noon(today), { workspaceId, creditCardId: found.creditCardId });
 
         return this.runner.run(async ({ manager }) => {
             const row = await manager.getRepository(CreditCardStatement).findOne({ where: { id } });
 
             if (!row) throw statementNotFound();
 
-            const card = await this.creditCards.findById(row.creditCardId);
+            const card = await this.creditCards.findById(workspaceId, row.creditCardId);
             const [view] = await this.buildViews(
                 manager,
                 card,
@@ -457,6 +482,7 @@ export class StatementService {
         const spanFrom = all[0]!.startsOn;
         const spanTo = all.at(-1)!.closesOn;
         const expenses = await this.expenses.listByCreditCard(
+            card.workspaceId,
             card.id,
             { from: noon(spanFrom), to: noon(spanTo) },
             manager,

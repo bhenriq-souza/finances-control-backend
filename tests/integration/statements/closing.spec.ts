@@ -84,7 +84,10 @@ describe('fechamento: closeDue (spec 0013, Fechamento)', () => {
     });
 
     it('AC-0013-05: registra os três ciclos passados em ordem, publica três StatementClosed depois do commit e a segunda chamada devolve 0', async () => {
-        const registered = await service.closeDue(at('2026-04-11'), cardId);
+        const registered = await service.closeDue(at('2026-04-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
 
         expect(registered).toBe(3);
         expect(await closesOnOf(cardId)).toEqual(['2026-02-10', '2026-03-10', '2026-04-10']);
@@ -109,19 +112,35 @@ describe('fechamento: closeDue (spec 0013, Fechamento)', () => {
         // O handler só roda depois do commit e já enxerga a linha.
         expect(rowsSeenByHandler).toEqual([1, 1, 1]);
 
-        expect(await service.closeDue(at('2026-04-11'), cardId)).toBe(0);
+        expect(
+            await service.closeDue(at('2026-04-11'), {
+                workspaceId: ctx.workspaceId,
+                creditCardId: cardId,
+            }),
+        ).toBe(0);
         expect(received).toHaveLength(3);
     });
 
     it('INV-0013-07: ciclo com closesOn igual a asOf ainda não fechou', async () => {
-        expect(await service.closeDue(at('2026-04-10'), cardId)).toBe(2);
+        expect(
+            await service.closeDue(at('2026-04-10'), {
+                workspaceId: ctx.workspaceId,
+                creditCardId: cardId,
+            }),
+        ).toBe(2);
         expect(await closesOnOf(cardId)).toEqual(['2026-02-10', '2026-03-10']);
     });
 
     it('AC-0013-05, INV-0013-07: duas chamadas concorrentes registram cada ciclo uma vez só', async () => {
         const [first, second] = await Promise.all([
-            service.closeDue(at('2026-04-11'), cardId),
-            service.closeDue(at('2026-04-11'), cardId),
+            service.closeDue(at('2026-04-11'), {
+                workspaceId: ctx.workspaceId,
+                creditCardId: cardId,
+            }),
+            service.closeDue(at('2026-04-11'), {
+                workspaceId: ctx.workspaceId,
+                creditCardId: cardId,
+            }),
         ]);
 
         expect(first + second).toBe(3);

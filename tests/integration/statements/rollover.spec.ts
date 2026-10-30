@@ -161,7 +161,10 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
 
     it('AC-0013-15, INV-0013-09, INV-0013-10: fatura de 1500 com 400 pagos rola; a nova nasce com previousBalance 1100 e amountDue = total + 1100', async () => {
         await addExpense('2026-02-05', 1500);
-        await service.closeDue(at('2026-02-11'), cardId);
+        await service.closeDue(at('2026-02-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
 
         const february = await statementAt('2026-02-10');
         expect(february.status).toBe('CLOSED');
@@ -169,7 +172,10 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
 
         await addPayment(400, '2026-02-15', february.id);
         await addExpense('2026-03-02', 700);
-        await service.closeDue(at('2026-03-11'), cardId);
+        await service.closeDue(at('2026-03-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
 
         expect((await statementAt('2026-02-10')).status).toBe('ROLLED_OVER');
 
@@ -188,13 +194,19 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
 
     it('INV-0013-10: o restante da rolada está inteiro, e uma vez só, na fatura seguinte', async () => {
         await addExpense('2026-02-05', 1500);
-        await service.closeDue(at('2026-02-11'), cardId);
+        await service.closeDue(at('2026-02-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
         await addPayment(400, '2026-02-15', (await statementAt('2026-02-10')).id);
         await addExpense('2026-03-02', 700);
 
         // Março e abril fecham em sequência: o restante de fevereiro (1100) já vive dentro do
         // devido de março (1800) e só este é carregado para abril.
-        await service.closeDue(at('2026-04-11'), cardId);
+        await service.closeDue(at('2026-04-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
 
         expect((await statementAt('2026-02-10')).status).toBe('ROLLED_OVER');
         expect((await statementAt('2026-03-10')).status).toBe('ROLLED_OVER');
@@ -207,7 +219,10 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
 
     it('INV-0013-09: fatura anterior quitada não leva nada para a seguinte e continua PAID', async () => {
         await addExpense('2026-02-05', 1500);
-        await service.closeDue(at('2026-02-11'), cardId);
+        await service.closeDue(at('2026-02-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
         const february = await statementAt('2026-02-10');
         await addPayment(1500, '2026-02-15', february.id);
         // O pagamento (T-0013-06) quita a fatura; aqui a quitação é montada direto.
@@ -215,7 +230,10 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
             "UPDATE credit_card_statements SET status = 'PAID' WHERE id = $1",
             [february.id],
         );
-        await service.closeDue(at('2026-03-11'), cardId);
+        await service.closeDue(at('2026-03-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
 
         expect((await statementAt('2026-02-10')).status).toBe('PAID');
         expect((await statementAt('2026-03-10')).previousBalanceCents).toBe(0);
@@ -225,7 +243,10 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
         const purchase = await addExpense('2026-02-05', 1000);
         const forecast = await addExpense('2026-02-06', 900, 'FORECAST');
         await addRefund('2026-02-07', 1200);
-        await service.closeDue(at('2026-02-11'), cardId);
+        await service.closeDue(at('2026-02-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
 
         const february = await statementAt('2026-02-10');
         expect(february.status).toBe('PAID');
@@ -246,7 +267,10 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
         expect((await expenseRow(forecast)).status).toBe('FORECAST');
 
         await addExpense('2026-03-02', 300);
-        await service.closeDue(at('2026-03-11'), cardId);
+        await service.closeDue(at('2026-03-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
 
         const march = await statementAt('2026-03-10');
         expect(march.previousBalanceCents).toBe(-200);
@@ -262,13 +286,19 @@ describe('rolagem e quitação no fechamento (spec 0013, Fechamento)', () => {
     it('pagamentos antecipados passam a apontar para a fatura que nasce; cobrindo o devido, ela nasce PAID com o paidOn do último', async () => {
         const february = await addExpense('2026-02-05', 1500);
         const verifying = await addExpense('2026-02-06', 500, 'VERIFYING');
-        await service.closeDue(at('2026-02-11'), cardId);
+        await service.closeDue(at('2026-02-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
         await addPayment(400, '2026-02-15', (await statementAt('2026-02-10')).id);
 
         const march = await addExpense('2026-03-02', 200);
         const early = await addPayment(1000, '2026-03-03');
         const last = await addPayment(800, '2026-03-05');
-        await service.closeDue(at('2026-03-11'), cardId);
+        await service.closeDue(at('2026-03-11'), {
+            workspaceId: ctx.workspaceId,
+            creditCardId: cardId,
+        });
 
         const statement = await statementAt('2026-03-10');
         // devido = 200 + (2000 - 400) = 1800; pago = 1000 + 800 = 1800.

@@ -136,7 +136,7 @@ describe('despesa: consulta e listagem (spec 0012)', () => {
             occurredOn: '2026-03-10',
         });
 
-        const rows = await service.listByCreditCard(fx.cardId, {
+        const rows = await service.listByCreditCard(ctx.workspaceId, fx.cardId, {
             from: new Date('2026-03-01T12:00:00Z'),
             to: new Date('2026-03-31T12:00:00Z'),
         });

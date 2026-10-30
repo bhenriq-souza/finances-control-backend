@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 
-import { HttpResponses } from '../platform';
+import { HttpResponses, RequestContextSymbol, type RequestContext } from '../platform';
 import { toExpenseResponse } from './expense.response';
 import {
     changeExpenseStatusSchema,
@@ -18,7 +18,10 @@ import { ExpenseServiceSymbol } from './expenses.symbols';
 
 @injectable()
 export class ExpenseController {
-    constructor(@inject(ExpenseServiceSymbol) private readonly service: ExpenseService) {}
+    constructor(
+        @inject(ExpenseServiceSymbol) private readonly service: ExpenseService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
+    ) {}
 
     async handleCreateExpense(req: Request, res: Response): Promise<Response> {
         const data = createExpenseSchema.parse(req.body);
@@ -55,7 +58,12 @@ export class ExpenseController {
     async handleGetExpense(req: Request, res: Response): Promise<Response> {
         const { id } = expenseIdParamsSchema.parse(req.params);
 
-        return HttpResponses.ok(res, toExpenseResponse(await this.service.findById(id)));
+        return HttpResponses.ok(
+            res,
+            toExpenseResponse(
+                await this.service.findById(this.requestContext.requireWorkspaceId(), id),
+            ),
+        );
     }
 
     async handleUpdateExpense(req: Request, res: Response): Promise<Response> {

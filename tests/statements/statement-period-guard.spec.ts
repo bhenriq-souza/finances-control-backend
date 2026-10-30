@@ -20,7 +20,7 @@ const guardFor = (
     } as unknown as EntityManager;
     const service = new StatementPeriodGuardService(creditCards as unknown as CreditCardService);
 
-    return () => service.closedThrough(manager, 'card-id');
+    return () => service.closedThrough(manager, 'workspace-id', 'card-id');
 };
 
 describe('StatementPeriodGuardService (spec 0013, A janela fechada)', () => {
