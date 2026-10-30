@@ -80,9 +80,10 @@ export class CreditCardService {
 
     async create(data: CreateCreditCard): Promise<CreditCardWithBank> {
         await this.assertBankIsUsable(data.bankId);
-        await this.assertPayingAccountIsUsable(data.paymentBankAccountId);
 
         const workspaceId = this.requestContext.requireWorkspaceId();
+        await this.assertPayingAccountIsUsable(workspaceId, data.paymentBankAccountId);
+
         const created = await asConflict(
             this.cards.save(
                 this.cards.create({
@@ -106,7 +107,7 @@ export class CreditCardService {
 
         if (!needsArchiveChange(card.archivedAt, archived)) return card;
 
-        await this.cards.update({ id }, { archivedAt: archived ? new Date() : null });
+        await this.cards.update({ id, workspaceId }, { archivedAt: archived ? new Date() : null });
 
         return this.findById(workspaceId, id);
     }
@@ -116,15 +117,15 @@ export class CreditCardService {
 
         if (Object.keys(changes).length === 0) return this.findById(workspaceId, id);
 
-        await this.assertPayingAccountIsUsable(changes.paymentBankAccountId);
+        await this.assertPayingAccountIsUsable(workspaceId, changes.paymentBankAccountId);
 
         await this.dataSource.transaction(async (manager) => {
-            const card = await this.loadForUpdate(manager, id);
+            const card = await this.loadForUpdate(manager, workspaceId, id);
 
             await asConflict(
                 manager
                     .getRepository(CreditCard)
-                    .update({ id }, this.withAdjustedLimit(card, changes)),
+                    .update({ id, workspaceId }, this.withAdjustedLimit(card, changes)),
                 CONFLICTS,
             );
         });
@@ -160,7 +161,7 @@ export class CreditCardService {
         if (!card) throw cardNotFound();
 
         await repository.update(
-            { id },
+            { id, workspaceId },
             { availableLimitCents: card.availableLimitCents + deltaCents },
         );
     }
@@ -187,8 +188,14 @@ export class CreditCardService {
         return { ...changes, availableLimitCents: card.availableLimitCents + delta };
     }
 
-    private async loadForUpdate(manager: EntityManager, id: string): Promise<CreditCard> {
-        const card = await manager.getRepository(CreditCard).findOne({ where: { id } });
+    private async loadForUpdate(
+        manager: EntityManager,
+        workspaceId: string,
+        id: string,
+    ): Promise<CreditCard> {
+        const card = await manager.getRepository(CreditCard).findOne({
+            where: { id, workspaceId },
+        });
 
         if (!card) throw cardNotFound();
 
@@ -196,12 +203,15 @@ export class CreditCardService {
     }
 
     /** Conta pagadora existe (ERR-0011-06) e não está arquivada (ERR-0011-13); `null` remove. */
-    private async assertPayingAccountIsUsable(accountId: string | null | undefined): Promise<void> {
+    private async assertPayingAccountIsUsable(
+        workspaceId: string,
+        accountId: string | null | undefined,
+    ): Promise<void> {
         if (!accountId) return;
 
         const account = await this.dataSource
             .getRepository(BankAccount)
-            .findOne({ where: { id: accountId } });
+            .findOne({ where: { id: accountId, workspaceId } });
 
         if (!account) {
             throw CustomError.notFound('Account not found', 'BANK_ACCOUNT_NOT_FOUND', {

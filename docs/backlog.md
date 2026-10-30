@@ -548,7 +548,7 @@ módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rot
     - Where: `src/identity/`, `docs/openapi.yaml`, `docs/postman/`, `tests/integration/identity/`
     - Done when: `AC-0021-05` a `AC-0021-10` cobertos; `INV-0021-02`, `INV-0021-05`, `INV-0021-07` e
       `INV-0021-09` verificados; `ERR-0021-03` a `ERR-0021-12` cobertos
-- [ ] **T-0021-03 — Contas e cartões por espaço** · #208
+- [x] **T-0021-03 — Contas e cartões por espaço** · #208
     - What: escopo nas leituras de contas e cartões; bancos como catálogo do admin da plataforma
     - Where: `src/accounts/` (sem transferências), `docs/openapi.yaml`, `tests/integration/accounts/isolation.spec.ts`
     - Done when: `AC-0021-11` e a parte de bancos de `AC-0021-18` cobertos
