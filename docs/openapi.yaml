@@ -937,7 +937,7 @@ paths:
         get:
             tags: [Earnings]
             summary: Lista os tipos de receita
-            description: Qualquer perfil. Ordenados por nome.
+            description: Qualquer membro de espaço ou admin da plataforma (catálogo global, spec 0021). Ordenados por nome.
             operationId: listEarningTypes
             security: [{ bearerAuth: [] }]
             parameters:
@@ -964,7 +964,7 @@ paths:
             tags: [Earnings]
             summary: Cadastra um tipo de receita
             description: |
-                Exige perfil `ADMIN` ou `BILLER`. O nome é único sem diferenciar
+                Exige admin da plataforma (catálogo global, spec 0021). O nome é único sem diferenciar
                 maiúsculas (ERR-0014-01).
             operationId: createEarningType
             security: [{ bearerAuth: [] }]
@@ -993,7 +993,7 @@ paths:
             tags: [Earnings]
             summary: Renomeia um tipo de receita
             description: |
-                Exige perfil `ADMIN` ou `BILLER`. Só o nome é alterável; `archivedAt` muda
+                Exige admin da plataforma (catálogo global, spec 0021). Só o nome é alterável; `archivedAt` muda
                 só pelo arquivamento.
             operationId: updateEarningType
             security: [{ bearerAuth: [] }]
@@ -1024,7 +1024,7 @@ paths:
             tags: [Earnings]
             summary: Arquiva um tipo de receita
             description: |
-                Exige perfil `ADMIN` ou `BILLER`. Arquivar o tira da listagem padrão e o
+                Exige admin da plataforma (catálogo global, spec 0021). Arquivar o tira da listagem padrão e o
                 mantém sustentando os lançamentos antigos; um tipo arquivado não recebe
                 lançamento novo. Idempotente (ERR-0014-14).
             operationId: archiveEarningType
@@ -1043,7 +1043,7 @@ paths:
         delete:
             tags: [Earnings]
             summary: Desarquiva um tipo de receita
-            description: Exige perfil `ADMIN` ou `BILLER`. Idempotente.
+            description: Exige admin da plataforma (catálogo global, spec 0021). Idempotente.
             operationId: unarchiveEarningType
             security: [{ bearerAuth: [] }]
             responses:
