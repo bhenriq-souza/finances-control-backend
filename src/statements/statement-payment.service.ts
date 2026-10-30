@@ -93,7 +93,7 @@ export class StatementPaymentService {
      */
     async pay(id: string, data: CreateStatementPayment): Promise<StatementView> {
         const workspaceId = this.requestContext.requireWorkspaceId();
-        const creditCardId = await this.cardOfStatement(id);
+        const creditCardId = await this.cardOfStatement(workspaceId, id);
 
         await this.statements.closeDue(noon(businessToday()), { workspaceId, creditCardId });
 
@@ -102,7 +102,7 @@ export class StatementPaymentService {
 
             await lockCreditCard(manager, creditCardId);
 
-            const statement = await this.lockedStatement(manager, id);
+            const statement = await this.lockedStatement(manager, workspaceId, id);
             const today = businessToday();
             const paidOn = data.paidOn ?? today;
 
@@ -148,7 +148,7 @@ export class StatementPaymentService {
             if (remaining - data.amountCents === 0) {
                 await manager
                     .getRepository(CreditCardStatement)
-                    .update({ id: statement.id }, { status: 'PAID' });
+                    .update({ id: statement.id, workspaceId }, { status: 'PAID' });
                 await this.expenses.markPaidByStatement(
                     manager,
                     workspaceId,
@@ -245,16 +245,21 @@ export class StatementPaymentService {
 
     /** `PATCH /statements/:id`: the informed minimum, with no rule on its value. */
     async update(id: string, changes: UpdateStatement): Promise<StatementView> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         await this.runner.run(async ({ manager }) => {
             const repository = manager.getRepository(CreditCardStatement);
             const found = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
             if (!found) throw statementNotFound();
 
-            await repository.update({ id }, { minimumPaymentCents: changes.minimumPaymentCents });
+            await repository.update(
+                { id, workspaceId },
+                { minimumPaymentCents: changes.minimumPaymentCents },
+            );
         });
 
         return this.statements.findById(id);
@@ -266,14 +271,14 @@ export class StatementPaymentService {
      */
     async undo(id: string, paymentId: string): Promise<void> {
         const workspaceId = this.requestContext.requireWorkspaceId();
-        const creditCardId = await this.cardOfStatement(id);
+        const creditCardId = await this.cardOfStatement(workspaceId, id);
 
         await this.statements.closeDue(noon(businessToday()), { workspaceId, creditCardId });
 
         await this.runner.run(async ({ manager }) => {
             await lockCreditCard(manager, creditCardId);
 
-            const statement = await this.lockedStatement(manager, id);
+            const statement = await this.lockedStatement(manager, workspaceId, id);
             const payments = await manager
                 .getRepository(CreditCardStatementPayment)
                 .find({ where: { statementId: id } });
@@ -303,7 +308,9 @@ export class StatementPaymentService {
 
             if (remaining <= 0) return;
 
-            await manager.getRepository(CreditCardStatement).update({ id }, { status: 'CLOSED' });
+            await manager
+                .getRepository(CreditCardStatement)
+                .update({ id, workspaceId }, { status: 'CLOSED' });
             await this.expenses.markUnpaidByStatement(manager, workspaceId, creditCardId, {
                 from: noon(await this.chainStart(manager, statement)),
                 to: noon(statement.closesOn),
@@ -446,10 +453,11 @@ export class StatementPaymentService {
     /** The statement row read under write lock; ERR-0013-01 when missing. */
     private async lockedStatement(
         manager: EntityManager,
+        workspaceId: string,
         id: string,
     ): Promise<CreditCardStatement> {
         const statement = await manager.getRepository(CreditCardStatement).findOne({
-            where: { id },
+            where: { id, workspaceId },
             lock: { mode: 'for_no_key_update' },
         });
 
@@ -458,9 +466,9 @@ export class StatementPaymentService {
         return statement;
     }
 
-    private async cardOfStatement(id: string): Promise<string> {
+    private async cardOfStatement(workspaceId: string, id: string): Promise<string> {
         const found = await this.runner.run(({ manager }) =>
-            manager.getRepository(CreditCardStatement).findOne({ where: { id } }),
+            manager.getRepository(CreditCardStatement).findOne({ where: { id, workspaceId } }),
         );
 
         if (!found) throw statementNotFound();
