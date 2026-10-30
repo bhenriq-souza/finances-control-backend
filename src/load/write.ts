@@ -62,13 +62,17 @@ export function writePlan(
     services: LoadServices,
     options: { dryRun: boolean; today?: string },
 ): Promise<WriteResult> {
-    return services.inWorkspace(() => writeInWorkspace(plan, services, options), options);
+    return services.inWorkspace(
+        (workspaceId) => writeInWorkspace(plan, services, options, workspaceId),
+        options,
+    );
 }
 
 async function writeInWorkspace(
     plan: LoadPlan,
     services: LoadServices,
     options: { dryRun: boolean; today?: string },
+    workspaceId: string | null,
 ): Promise<WriteResult> {
     const sections = emptySections();
     const today = options.today ?? businessToday();
@@ -166,7 +170,10 @@ async function writeInWorkspace(
 
         /* 3. cartoes, by bank + name */
         const cardIds = new Map<string, string>();
-        const cards = await services.cards.list({ archived: 'true' });
+        const cards =
+            workspaceId === null
+                ? []
+                : await services.cards.list(workspaceId, { archived: 'true' });
         for (const card of plan.cards) {
             const bankId = bankIds.get(card.febrabanCode)!;
             const existing = cards.find(

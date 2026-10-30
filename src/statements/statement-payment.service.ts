@@ -66,6 +66,7 @@ const byRecency = (a: CreditCardStatementPayment, b: CreditCardStatementPayment)
     a.id.localeCompare(b.id);
 
 type PaymentRecord = {
+    workspaceId: string;
     creditCardId: string;
     statementId: string | null;
     bankAccountId: string;
@@ -91,9 +92,10 @@ export class StatementPaymentService {
      * lock (INV-0013-06; ERR-0013-03 to ERR-0013-07, ERR-0013-11).
      */
     async pay(id: string, data: CreateStatementPayment): Promise<StatementView> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const creditCardId = await this.cardOfStatement(id);
 
-        await this.statements.closeDue(noon(businessToday()), creditCardId);
+        await this.statements.closeDue(noon(businessToday()), { workspaceId, creditCardId });
 
         await this.runner.run(async (scope) => {
             const { manager } = scope;
@@ -127,9 +129,14 @@ export class StatementPaymentService {
 
             if (data.amountCents > remaining) throw exceedsRemaining(remaining);
 
-            const bankAccountId = await this.resolveAccount(data.bankAccountId, creditCardId);
+            const bankAccountId = await this.resolveAccount(
+                workspaceId,
+                data.bankAccountId,
+                creditCardId,
+            );
 
             const payment = await this.record(scope, {
+                workspaceId,
                 creditCardId,
                 statementId: statement.id,
                 bankAccountId,
@@ -144,6 +151,7 @@ export class StatementPaymentService {
                     .update({ id: statement.id }, { status: 'PAID' });
                 await this.expenses.markPaidByStatement(
                     manager,
+                    workspaceId,
                     creditCardId,
                     {
                         from: noon(await this.chainStart(manager, statement)),
@@ -169,16 +177,17 @@ export class StatementPaymentService {
      */
     async payEarly(data: CreateEarlyPayment): Promise<StatementView> {
         const { creditCardId } = data;
+        const workspaceId = this.requestContext.requireWorkspaceId();
 
-        await this.creditCards.findById(creditCardId);
-        await this.statements.closeDue(noon(businessToday()), creditCardId);
+        await this.creditCards.findById(workspaceId, creditCardId);
+        await this.statements.closeDue(noon(businessToday()), { workspaceId, creditCardId });
 
         await this.runner.run(async (scope) => {
             const { manager } = scope;
 
             await lockCreditCard(manager, creditCardId);
 
-            const card = await this.creditCards.findById(creditCardId);
+            const card = await this.creditCards.findById(workspaceId, creditCardId);
             const { persisted, current } = await this.statements.chainOf(manager, card);
             const pending = persisted.find((statement) => statement.status === 'CLOSED');
 
@@ -205,6 +214,7 @@ export class StatementPaymentService {
                 .find({ where: { creditCardId, statementId: IsNull() } });
             const total = await this.statements.totalOf(
                 manager,
+                workspaceId,
                 creditCardId,
                 startsOn,
                 isoOf(current.closesOn),
@@ -213,9 +223,14 @@ export class StatementPaymentService {
 
             if (data.amountCents > remaining) throw exceedsRemaining(remaining);
 
-            const bankAccountId = await this.resolveAccount(data.bankAccountId, creditCardId);
+            const bankAccountId = await this.resolveAccount(
+                workspaceId,
+                data.bankAccountId,
+                creditCardId,
+            );
 
             await this.record(scope, {
+                workspaceId,
                 creditCardId,
                 statementId: null,
                 bankAccountId,
@@ -250,9 +265,10 @@ export class StatementPaymentService {
      * reverse order: status and chain, account, limit, payment (ERR-0013-12). No event.
      */
     async undo(id: string, paymentId: string): Promise<void> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const creditCardId = await this.cardOfStatement(id);
 
-        await this.statements.closeDue(noon(businessToday()), creditCardId);
+        await this.statements.closeDue(noon(businessToday()), { workspaceId, creditCardId });
 
         await this.runner.run(async ({ manager }) => {
             await lockCreditCard(manager, creditCardId);
@@ -288,7 +304,7 @@ export class StatementPaymentService {
             if (remaining <= 0) return;
 
             await manager.getRepository(CreditCardStatement).update({ id }, { status: 'CLOSED' });
-            await this.expenses.markUnpaidByStatement(manager, creditCardId, {
+            await this.expenses.markUnpaidByStatement(manager, workspaceId, creditCardId, {
                 from: noon(await this.chainStart(manager, statement)),
                 to: noon(statement.closesOn),
             });
@@ -297,8 +313,10 @@ export class StatementPaymentService {
 
     /** Undoes the last early payment of a card before its statement is registered. */
     async undoEarly(creditCardId: string, paymentId: string): Promise<void> {
-        await this.creditCards.findById(creditCardId);
-        await this.statements.closeDue(noon(businessToday()), creditCardId);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
+        await this.creditCards.findById(workspaceId, creditCardId);
+        await this.statements.closeDue(noon(businessToday()), { workspaceId, creditCardId });
 
         await this.runner.run(async ({ manager }) => {
             await lockCreditCard(manager, creditCardId);
@@ -326,11 +344,13 @@ export class StatementPaymentService {
         await manager.getRepository(CreditCardStatementPayment).delete({ id: payment.id });
         await this.bankAccounts.applyBalanceDelta(
             manager,
+            payment.workspaceId,
             payment.bankAccountId,
             payment.amountCents,
         );
         await this.creditCards.applyAvailableLimitDelta(
             manager,
+            payment.workspaceId,
             payment.creditCardId,
             -payment.amountCents,
         );
@@ -345,8 +365,7 @@ export class StatementPaymentService {
         const repository = manager.getRepository(CreditCardStatementPayment);
         const saved = await repository.save(
             repository.create({
-                // Pagamento só nasce de requisição: o espaço é o do contexto.
-                workspaceId: this.requestContext.requireWorkspaceId(),
+                workspaceId: data.workspaceId,
                 creditCardId: data.creditCardId,
                 statementId: data.statementId,
                 bankAccountId: data.bankAccountId,
@@ -355,9 +374,15 @@ export class StatementPaymentService {
             }),
         );
 
-        await this.bankAccounts.applyBalanceDelta(manager, data.bankAccountId, -data.amountCents);
+        await this.bankAccounts.applyBalanceDelta(
+            manager,
+            data.workspaceId,
+            data.bankAccountId,
+            -data.amountCents,
+        );
         await this.creditCards.applyAvailableLimitDelta(
             manager,
+            data.workspaceId,
             data.creditCardId,
             data.amountCents,
         );
@@ -383,11 +408,13 @@ export class StatementPaymentService {
      * a validation error naming `bankAccountId`. Then ERR-0013-05 and ERR-0013-06.
      */
     private async resolveAccount(
+        workspaceId: string,
         informed: string | undefined,
         creditCardId: string,
     ): Promise<string> {
         const bankAccountId =
-            informed ?? (await this.creditCards.findById(creditCardId)).paymentBankAccountId;
+            informed ??
+            (await this.creditCards.findById(workspaceId, creditCardId)).paymentBankAccountId;
 
         if (!bankAccountId) {
             throw new ZodError([
@@ -400,14 +427,14 @@ export class StatementPaymentService {
             ]);
         }
 
-        await this.assertAccountIsUsable(bankAccountId);
+        await this.assertAccountIsUsable(workspaceId, bankAccountId);
 
         return bankAccountId;
     }
 
     /** ERR-0013-05 and ERR-0013-06. */
-    private async assertAccountIsUsable(bankAccountId: string): Promise<void> {
-        const account = await this.bankAccounts.findById(bankAccountId);
+    private async assertAccountIsUsable(workspaceId: string, bankAccountId: string): Promise<void> {
+        const account = await this.bankAccounts.findById(workspaceId, bankAccountId);
 
         if (account.archivedAt) {
             throw new CustomError(409, 'BANK_ACCOUNT_ARCHIVED', 'This account is archived', {

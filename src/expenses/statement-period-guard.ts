@@ -6,7 +6,7 @@ import type { EntityManager } from 'typeorm';
  */
 export interface StatementPeriodGuard {
     /** Last closed day of the card; a `postedOn` up to it, inclusive, is in a closed statement. */
-    closedThrough(manager: EntityManager, creditCardId: string): Promise<Date>;
+    closedThrough(manager: EntityManager, workspaceId: string, creditCardId: string): Promise<Date>;
 }
 
 export const StatementPeriodGuardSymbol = Symbol.for('StatementPeriodGuard');

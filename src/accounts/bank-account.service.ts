@@ -55,8 +55,11 @@ export class BankAccountService {
         }) as Promise<BankAccountWithBank[]>;
     }
 
-    async findById(id: string): Promise<BankAccountWithBank> {
-        const account = await this.accounts.findOne({ where: { id }, relations: { bank: true } });
+    async findById(workspaceId: string, id: string): Promise<BankAccountWithBank> {
+        const account = await this.accounts.findOne({
+            where: { id, workspaceId },
+            relations: { bank: true },
+        });
 
         if (!account) throw accountNotFound();
 
@@ -66,11 +69,12 @@ export class BankAccountService {
     async create(data: CreateBankAccount): Promise<BankAccountWithBank> {
         await this.assertBankIsUsable(data.bankId);
 
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const created = await asConflict(
             this.accounts.save(
                 this.accounts.create({
                     ...data,
-                    workspaceId: this.requestContext.requireWorkspaceId(),
+                    workspaceId,
                     overdraftLimitCents: data.overdraftLimitCents ?? 0,
                     // Nasce igual ao de abertura, e daqui em diante só lançamento
                     // o move (INV-0011-04).
@@ -81,27 +85,29 @@ export class BankAccountService {
             CONFLICTS,
         );
 
-        return this.findById(created.id);
+        return this.findById(workspaceId, created.id);
     }
 
     async setArchived(id: string, archived: boolean): Promise<BankAccountWithBank> {
-        const account = await this.findById(id);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+        const account = await this.findById(workspaceId, id);
 
         if (!needsArchiveChange(account.archivedAt, archived)) return account;
 
         await this.accounts.update({ id }, { archivedAt: archived ? new Date() : null });
 
-        return this.findById(id);
+        return this.findById(workspaceId, id);
     }
 
     async update(id: string, changes: UpdateBankAccount): Promise<BankAccountWithBank> {
-        await this.findById(id);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+        await this.findById(workspaceId, id);
 
         if (Object.keys(changes).length > 0) {
             await asConflict(this.accounts.update({ id }, changes), CONFLICTS);
         }
 
-        return this.findById(id);
+        return this.findById(workspaceId, id);
     }
 
     /**
@@ -115,14 +121,19 @@ export class BankAccountService {
      * transação (INV-0004-03). Conta arquivada aceita delta, e o saldo pode ficar
      * negativo: nem ele barra o lançamento (INV-0012-09).
      */
-    async applyBalanceDelta(manager: EntityManager, id: string, deltaCents: number): Promise<void> {
+    async applyBalanceDelta(
+        manager: EntityManager,
+        workspaceId: string,
+        id: string,
+        deltaCents: number,
+    ): Promise<void> {
         if (!Number.isSafeInteger(deltaCents) || deltaCents === 0) {
             throw new RangeError('deltaCents must be a non-zero integer');
         }
 
         const repository = manager.getRepository(BankAccount);
         const account = await repository.findOne({
-            where: { id },
+            where: { id, workspaceId },
             lock: { mode: 'for_no_key_update' },
         });
 

@@ -92,8 +92,12 @@ export class ExpenseService {
     ) {}
 
     /** Last closed day of the card as `YYYY-MM-DD` (spec 0013, A janela fechada). */
-    private async closedThrough(manager: EntityManager, creditCardId: string): Promise<string> {
-        return businessToday(await this.guard.closedThrough(manager, creditCardId));
+    private async closedThrough(
+        manager: EntityManager,
+        workspaceId: string,
+        creditCardId: string,
+    ): Promise<string> {
+        return businessToday(await this.guard.closedThrough(manager, workspaceId, creditCardId));
     }
 
     /**
@@ -109,12 +113,16 @@ export class ExpenseService {
             const { manager } = scope;
 
             await this.assertTypeIsUsable(manager, data.expenseTypeId);
-            await this.assertPaymentMethodIsUsable(data);
+            await this.assertPaymentMethodIsUsable(workspaceId, data);
 
             let postedOn: string | null = null;
 
             if (data.creditCardId) {
-                const closedThrough = await this.closedThrough(manager, data.creditCardId);
+                const closedThrough = await this.closedThrough(
+                    manager,
+                    workspaceId,
+                    data.creditCardId,
+                );
 
                 if (data.postedOn !== undefined && data.postedOn <= closedThrough) {
                     throw statementClosed(closedThrough);
@@ -151,7 +159,13 @@ export class ExpenseService {
             const earliestOpen =
                 postedOn === null
                     ? null
-                    : nextDay(await this.closedThrough(manager, data.creditCardId as string));
+                    : nextDay(
+                          await this.closedThrough(
+                              manager,
+                              workspaceId,
+                              data.creditCardId as string,
+                          ),
+                      );
             const postedDates =
                 postedOn === null
                     ? null
@@ -231,6 +245,7 @@ export class ExpenseService {
             if (data.creditCardId && data.status !== 'FORECAST') {
                 await this.creditCards.applyAvailableLimitDelta(
                     manager,
+                    workspaceId,
                     data.creditCardId,
                     -data.amountCents,
                 );
@@ -282,7 +297,11 @@ export class ExpenseService {
             }
 
             if (from === 'FORECAST' && to === 'OPEN' && expense.creditCardId) {
-                const closedThrough = await this.closedThrough(manager, expense.creditCardId);
+                const closedThrough = await this.closedThrough(
+                    manager,
+                    expense.workspaceId,
+                    expense.creditCardId,
+                );
 
                 if (expense.postedOn !== null && expense.postedOn <= closedThrough) {
                     throw statementClosed(closedThrough);
@@ -305,6 +324,7 @@ export class ExpenseService {
 
                 await this.bankAccounts.applyBalanceDelta(
                     manager,
+                    expense.workspaceId,
                     expense.bankAccountId as string,
                     -expense.amountCents,
                 );
@@ -322,6 +342,7 @@ export class ExpenseService {
             } else if (from === 'PAID') {
                 await this.bankAccounts.applyBalanceDelta(
                     manager,
+                    expense.workspaceId,
                     expense.bankAccountId as string,
                     expense.amountCents,
                 );
@@ -330,6 +351,7 @@ export class ExpenseService {
                 if (from === 'FORECAST' && expense.creditCardId) {
                     await this.creditCards.applyAvailableLimitDelta(
                         manager,
+                        expense.workspaceId,
                         expense.creditCardId,
                         -expense.amountCents,
                     );
@@ -375,7 +397,11 @@ export class ExpenseService {
                     await repository.update({ id }, { reconciledAt: null });
                 }
             } else if (expense.status === 'FORECAST') {
-                const closedThrough = await this.closedThrough(manager, expense.creditCardId);
+                const closedThrough = await this.closedThrough(
+                    manager,
+                    expense.workspaceId,
+                    expense.creditCardId,
+                );
 
                 if (expense.postedOn !== null && expense.postedOn <= closedThrough) {
                     throw statementClosed(closedThrough);
@@ -383,6 +409,7 @@ export class ExpenseService {
 
                 await this.creditCards.applyAvailableLimitDelta(
                     manager,
+                    expense.workspaceId,
                     expense.creditCardId,
                     -expense.amountCents,
                 );
@@ -399,10 +426,10 @@ export class ExpenseService {
     }
 
     /** ERR-0012-02 para `:id` inexistente. */
-    async findById(id: string): Promise<ExpenseWithType> {
+    async findById(workspaceId: string, id: string): Promise<ExpenseWithType> {
         const expense = await this.runner.run((scope) =>
             scope.manager.getRepository(Expense).findOne({
-                where: { id },
+                where: { id, workspaceId },
                 relations: { expenseType: true },
             }),
         );
@@ -450,6 +477,7 @@ export class ExpenseService {
      * transação do chamador; sem ele, abre a própria.
      */
     async listByCreditCard(
+        workspaceId: string,
         creditCardId: string,
         window: PostingWindow,
         manager?: EntityManager,
@@ -462,6 +490,7 @@ export class ExpenseService {
                 .createQueryBuilder('e')
                 .innerJoinAndSelect('e.expenseType', 't')
                 .where('e.creditCardId = :creditCardId', { creditCardId })
+                .andWhere('e.workspaceId = :workspaceId', { workspaceId })
                 .andWhere('e.postedOn >= :from', { from })
                 .andWhere('e.postedOn <= :to', { to })
                 .orderBy('e.postedOn', 'ASC')
@@ -534,7 +563,7 @@ export class ExpenseService {
 
             const closedThrough =
                 expense.creditCardId !== null
-                    ? await this.closedThrough(manager, expense.creditCardId)
+                    ? await this.closedThrough(manager, expense.workspaceId, expense.creditCardId)
                     : null;
             const inClosedWindow =
                 closedThrough !== null &&
@@ -595,6 +624,7 @@ export class ExpenseService {
             ) {
                 await this.creditCards.applyAvailableLimitDelta(
                     manager,
+                    expense.workspaceId,
                     expense.creditCardId,
                     -(changes.amountCents - expense.amountCents),
                 );
@@ -683,19 +713,24 @@ export class ExpenseService {
             if (sameDestination(target) && !following) return reload([id]);
 
             if (destCardId !== null) {
-                if ((await this.creditCards.findById(destCardId)).archivedAt) {
+                if ((await this.creditCards.findById(target.workspaceId, destCardId)).archivedAt) {
                     throw new CustomError(409, 'CREDIT_CARD_ARCHIVED', 'This card is archived', {
                         exposeMessage: true,
                     });
                 }
-            } else if ((await this.bankAccounts.findById(destAccountId as string)).archivedAt) {
+            } else if (
+                (await this.bankAccounts.findById(target.workspaceId, destAccountId as string))
+                    .archivedAt
+            ) {
                 throw new CustomError(409, 'BANK_ACCOUNT_ARCHIVED', 'This account is archived', {
                     exposeMessage: true,
                 });
             }
 
             const destClosedThrough =
-                destCardId !== null ? await this.closedThrough(manager, destCardId) : null;
+                destCardId !== null
+                    ? await this.closedThrough(manager, target.workspaceId, destCardId)
+                    : null;
 
             if (
                 change.postedOn !== undefined &&
@@ -716,7 +751,7 @@ export class ExpenseService {
                 if (row.creditCardId !== null && !sourceClosedThrough.has(row.creditCardId)) {
                     sourceClosedThrough.set(
                         row.creditCardId,
-                        await this.closedThrough(manager, row.creditCardId),
+                        await this.closedThrough(manager, row.workspaceId, row.creditCardId),
                     );
                 }
             }
@@ -792,7 +827,12 @@ export class ExpenseService {
                 const delta = limitDeltas.get(cardId) as number;
 
                 if (delta !== 0)
-                    await this.creditCards.applyAvailableLimitDelta(manager, cardId, delta);
+                    await this.creditCards.applyAvailableLimitDelta(
+                        manager,
+                        target.workspaceId,
+                        cardId,
+                        delta,
+                    );
             }
 
             if (following) {
@@ -856,7 +896,7 @@ export class ExpenseService {
                 if (row.creditCardId !== null && !closedThrough.has(row.creditCardId)) {
                     closedThrough.set(
                         row.creditCardId,
-                        await this.closedThrough(manager, row.creditCardId),
+                        await this.closedThrough(manager, row.workspaceId, row.creditCardId),
                     );
                 }
             }
@@ -886,7 +926,12 @@ export class ExpenseService {
             for (const [cardId, cents] of [...releasedByCard].sort(([a], [b]) =>
                 a < b ? -1 : 1,
             )) {
-                await this.creditCards.applyAvailableLimitDelta(manager, cardId, cents);
+                await this.creditCards.applyAvailableLimitDelta(
+                    manager,
+                    target.workspaceId,
+                    cardId,
+                    cents,
+                );
             }
 
             await repository.delete({ id: In(doomed.map((row) => row.id)) });
@@ -1036,9 +1081,12 @@ export class ExpenseService {
     }
 
     /** Conta ou cartão: inexistente é 404 (ERR-0012-04), arquivado é 409 (ERR-0012-05). */
-    private async assertPaymentMethodIsUsable(data: CreateExpense): Promise<void> {
+    private async assertPaymentMethodIsUsable(
+        workspaceId: string,
+        data: CreateExpense,
+    ): Promise<void> {
         if (data.bankAccountId) {
-            const account = await this.bankAccounts.findById(data.bankAccountId);
+            const account = await this.bankAccounts.findById(workspaceId, data.bankAccountId);
 
             if (account.archivedAt) {
                 throw new CustomError(409, 'BANK_ACCOUNT_ARCHIVED', 'This account is archived', {
@@ -1046,7 +1094,7 @@ export class ExpenseService {
                 });
             }
         } else if (data.creditCardId) {
-            const card = await this.creditCards.findById(data.creditCardId);
+            const card = await this.creditCards.findById(workspaceId, data.creditCardId);
 
             if (card.archivedAt) {
                 throw new CustomError(409, 'CREDIT_CARD_ARCHIVED', 'This card is archived', {
@@ -1064,6 +1112,7 @@ export class ExpenseService {
      */
     async markPaidByStatement(
         manager: EntityManager,
+        workspaceId: string,
         creditCardId: string,
         window: PostingWindow,
         paidOn: Date,
@@ -1072,7 +1121,8 @@ export class ExpenseService {
             .createQueryBuilder()
             .update(Expense)
             .set({ status: 'PAID', paidOn: businessToday(paidOn) })
-            .where('credit_card_id = :creditCardId', { creditCardId })
+            .where('workspace_id = :workspaceId', { workspaceId })
+            .andWhere('credit_card_id = :creditCardId', { creditCardId })
             .andWhere('posted_on >= :from', { from: businessToday(window.from) })
             .andWhere('posted_on <= :to', { to: businessToday(window.to) })
             .andWhere('status IN (:...statuses)', { statuses: ['OPEN', 'VERIFYING'] })
@@ -1089,6 +1139,7 @@ export class ExpenseService {
      */
     async markUnpaidByStatement(
         manager: EntityManager,
+        workspaceId: string,
         creditCardId: string,
         window: PostingWindow,
     ): Promise<{ count: number }> {
@@ -1096,7 +1147,8 @@ export class ExpenseService {
             .createQueryBuilder()
             .update(Expense)
             .set({ status: 'OPEN', paidOn: null })
-            .where('credit_card_id = :creditCardId', { creditCardId })
+            .where('workspace_id = :workspaceId', { workspaceId })
+            .andWhere('credit_card_id = :creditCardId', { creditCardId })
             .andWhere('posted_on >= :from', { from: businessToday(window.from) })
             .andWhere('posted_on <= :to', { to: businessToday(window.to) })
             .andWhere('status = :status', { status: 'PAID' })
@@ -1111,9 +1163,12 @@ export class ExpenseService {
      */
     async findCardExpense(
         manager: EntityManager,
+        workspaceId: string,
         id: string,
     ): Promise<{ id: string; creditCardId: string; amountCents: number } | null> {
-        const expense = await manager.getRepository(Expense).findOne({ where: { id } });
+        const expense = await manager
+            .getRepository(Expense)
+            .findOne({ where: { id, workspaceId } });
 
         if (!expense || expense.creditCardId === null) return null;
 

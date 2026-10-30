@@ -261,7 +261,7 @@ export class BankTransferService {
         ].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
         for (const { id, deltaCents } of movements) {
-            await this.accounts.applyBalanceDelta(manager, id, deltaCents);
+            await this.accounts.applyBalanceDelta(manager, transfer.workspaceId, id, deltaCents);
         }
     }
 

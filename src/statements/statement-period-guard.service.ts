@@ -30,8 +30,12 @@ export class StatementPeriodGuardService implements StatementPeriodGuard {
      * passed, the day before the first cycle. The chain continues from the last recorded
      * statement when there is one, so a `closing_day` change never reopens a closed window.
      */
-    async closedThrough(manager: EntityManager, creditCardId: string): Promise<Date> {
-        const card = await this.creditCards.findById(creditCardId);
+    async closedThrough(
+        manager: EntityManager,
+        workspaceId: string,
+        creditCardId: string,
+    ): Promise<Date> {
+        const card = await this.creditCards.findById(workspaceId, creditCardId);
         const today = businessToday();
         const last = await manager.getRepository(CreditCardStatement).findOne({
             where: { creditCardId },

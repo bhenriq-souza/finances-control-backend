@@ -400,7 +400,7 @@ describe('consulta e resumo de faturas (spec 0013, T-0013-05)', () => {
 
         await addExpense({ typeId: alphaId, cents: 100, postedOn: '2026-05-11' });
 
-        const rows = await service.listByCreditCard(fx.cardId, {
+        const rows = await service.listByCreditCard(ctx.workspaceId, fx.cardId, {
             from: new Date('2026-04-11T12:00:00Z'),
             to: new Date('2026-05-10T12:00:00Z'),
         });

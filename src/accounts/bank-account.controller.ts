@@ -1,7 +1,12 @@
 import type { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 
-import { HttpResponses, listQuerySchema } from '../platform';
+import {
+    HttpResponses,
+    RequestContextSymbol,
+    type RequestContext,
+    listQuerySchema,
+} from '../platform';
 import { BankAccountServiceSymbol } from './accounts.symbols';
 import { toBankAccountResponse } from './bank-account.response';
 import {
@@ -13,7 +18,10 @@ import type { BankAccountService } from './bank-account.service';
 
 @injectable()
 export class BankAccountController {
-    constructor(@inject(BankAccountServiceSymbol) private readonly service: BankAccountService) {}
+    constructor(
+        @inject(BankAccountServiceSymbol) private readonly service: BankAccountService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
+    ) {}
 
     async handleListBankAccounts(req: Request, res: Response): Promise<Response> {
         const query = listQuerySchema.parse(req.query);
@@ -26,7 +34,12 @@ export class BankAccountController {
     async handleGetBankAccount(req: Request, res: Response): Promise<Response> {
         const { id } = bankAccountIdParamsSchema.parse(req.params);
 
-        return HttpResponses.ok(res, toBankAccountResponse(await this.service.findById(id)));
+        return HttpResponses.ok(
+            res,
+            toBankAccountResponse(
+                await this.service.findById(this.requestContext.requireWorkspaceId(), id),
+            ),
+        );
     }
 
     async handleCreateBankAccount(req: Request, res: Response): Promise<Response> {

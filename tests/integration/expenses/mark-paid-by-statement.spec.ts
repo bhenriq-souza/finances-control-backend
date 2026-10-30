@@ -74,6 +74,7 @@ describe('ExpenseService.markPaidByStatement (spec 0013, interface pública do e
         const result = await ctx.dataSource.transaction((manager) =>
             service.markPaidByStatement(
                 manager,
+                ctx.workspaceId,
                 fx.cardId,
                 { from: at('2026-03-01'), to: at('2026-03-31') },
                 at('2026-04-05'),
@@ -99,6 +100,7 @@ describe('ExpenseService.markPaidByStatement (spec 0013, interface pública do e
             ctx.dataSource.transaction(async (manager) => {
                 const { count } = await service.markPaidByStatement(
                     manager,
+                    ctx.workspaceId,
                     fx.cardId,
                     { from: at('2026-03-01'), to: at('2026-03-31') },
                     at('2026-04-05'),
@@ -116,6 +118,7 @@ describe('ExpenseService.markPaidByStatement (spec 0013, interface pública do e
         const result = await ctx.dataSource.transaction((manager) =>
             service.markPaidByStatement(
                 manager,
+                ctx.workspaceId,
                 fx.cardId,
                 { from: at('2026-03-01'), to: at('2026-03-31') },
                 at('2026-04-05'),

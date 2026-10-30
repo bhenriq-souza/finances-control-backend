@@ -25,6 +25,9 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
     let dataSource: DataSource;
     let services: LoadServices;
 
+    const workspaceOf = async (): Promise<string> =>
+        ((await dataSource.query('SELECT id FROM workspaces')) as { id: string }[])[0]!.id;
+
     const count = async (table: string): Promise<number> => {
         const rows = (await dataSource.query(`SELECT count(*) AS n FROM ${table}`)) as [
             { n: string },
@@ -108,7 +111,7 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         it('AC-0019-01: contas e cartões com os campos do contrato', async () => {
             const accounts = await services.accounts.list();
             const alfa = accounts.find((account) => account.description === 'Alfa CC')!;
-            const cards = await services.cards.list();
+            const cards = await services.cards.list(await workspaceOf());
             const black = cards.find((card) => card.name === 'Alfa Black')!;
 
             expect(alfa).toMatchObject({
@@ -189,7 +192,9 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         });
 
         it('AC-0019-07: a fatura em aberto consome o limite, e o pagamento antecipado o devolve', async () => {
-            const card = (await services.cards.list()).find((row) => row.name === 'Alfa Black')!;
+            const card = (await services.cards.list(await workspaceOf())).find(
+                (row) => row.name === 'Alfa Black',
+            )!;
             const entry = (await services.expenses.list({ creditCardId: card.id })).find((row) =>
                 row.description.startsWith('Fatura anterior'),
             )!;
@@ -202,8 +207,11 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
                 occurredOn: businessToday(),
             });
 
-            const before = await services.cards.findById(card.id);
-            const account = await services.accounts.findById(card.paymentBankAccountId!);
+            const before = await services.cards.findById(await workspaceOf(), card.id);
+            const account = await services.accounts.findById(
+                await workspaceOf(),
+                card.paymentBankAccountId!,
+            );
             // Como numa requisição: o pagamento grava o espaço do contexto (spec 0021).
             await services.inWorkspace(
                 () =>
@@ -214,12 +222,13 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
                 { dryRun: false },
             );
 
-            expect((await services.cards.findById(card.id)).availableLimitCents).toBe(
-                before.availableLimitCents + 234567,
-            );
-            expect((await services.accounts.findById(account.id)).currentBalanceCents).toBe(
-                account.currentBalanceCents - 234567,
-            );
+            expect(
+                (await services.cards.findById(await workspaceOf(), card.id)).availableLimitCents,
+            ).toBe(before.availableLimitCents + 234567);
+            expect(
+                (await services.accounts.findById(await workspaceOf(), account.id))
+                    .currentBalanceCents,
+            ).toBe(account.currentBalanceCents - 234567);
         });
 
         it('AC-0019-04, INV-0019-03: a segunda execução não cria nada', async () => {

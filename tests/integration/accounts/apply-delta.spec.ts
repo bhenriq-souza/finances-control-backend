@@ -93,10 +93,14 @@ describe('movimentos de saldo e limite (spec 0012, AC-0012-10)', () => {
             .currentBalanceCents;
 
     const onCard = (delta: number, id = cardId) =>
-        dataSource.transaction((manager) => cards.applyAvailableLimitDelta(manager, id, delta));
+        dataSource.transaction((manager) =>
+            cards.applyAvailableLimitDelta(manager, ctx.workspaceId, id, delta),
+        );
 
     const onAccount = (delta: number, id = accountId) =>
-        dataSource.transaction((manager) => accounts.applyBalanceDelta(manager, id, delta));
+        dataSource.transaction((manager) =>
+            accounts.applyBalanceDelta(manager, ctx.workspaceId, id, delta),
+        );
 
     it('duas criações concorrentes no mesmo cartão abatem a soma, sem perda de atualização', async () => {
         await Promise.all([onCard(-10000), onCard(-25000), onCard(-3333), onCard(-1)]);
@@ -126,11 +130,13 @@ describe('movimentos de saldo e limite (spec 0012, AC-0012-10)', () => {
     it.each([
         [
             'bank_account_id',
-            (manager: EntityManager) => accounts.applyBalanceDelta(manager, accountId, -100),
+            (manager: EntityManager) =>
+                accounts.applyBalanceDelta(manager, ctx.workspaceId, accountId, -100),
         ],
         [
             'credit_card_id',
-            (manager: EntityManager) => cards.applyAvailableLimitDelta(manager, cardId, -100),
+            (manager: EntityManager) =>
+                cards.applyAvailableLimitDelta(manager, ctx.workspaceId, cardId, -100),
         ],
     ] as const)(
         'inserir linha filha (%s) e depois mover, em paralelo, não entra em deadlock',
@@ -181,8 +187,8 @@ describe('movimentos de saldo e limite (spec 0012, AC-0012-10)', () => {
     it('não abre transação própria: a reversão de quem chamou desfaz o movimento (INV-0004-03)', async () => {
         await expect(
             dataSource.transaction(async (manager) => {
-                await cards.applyAvailableLimitDelta(manager, cardId, -100);
-                await accounts.applyBalanceDelta(manager, accountId, -100);
+                await cards.applyAvailableLimitDelta(manager, ctx.workspaceId, cardId, -100);
+                await accounts.applyBalanceDelta(manager, ctx.workspaceId, accountId, -100);
                 throw new Error('rollback');
             }),
         ).rejects.toThrow('rollback');
