@@ -22,6 +22,10 @@ describe('rotas de /banks (spec 0011)', () => {
     beforeEach(async () => {
         await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
         await ctx.setProfile('uid-admin', 'ADMIN');
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
     });
 
     afterEach(async () => {
@@ -164,21 +168,24 @@ describe('rotas de /banks (spec 0011)', () => {
             await request(ctx.app).get('/users/me').set('Authorization', 'Bearer uid-comum');
         });
 
-        it.each(['BILLER', 'VIEWER'] as const)('%s lê, mas não escreve', async (profile) => {
-            await ctx.setProfile('uid-comum', profile);
+        it.each(['ADMIN', 'BILLER', 'VIEWER'] as const)(
+            '%s lê, mas não escreve (AC-0021-18, INV-0021-08)',
+            async (profile) => {
+                await ctx.setProfile('uid-comum', profile);
 
-            const leitura = await request(ctx.app)
-                .get('/banks')
-                .set('Authorization', 'Bearer uid-comum');
-            expect(leitura.status).toBe(200);
+                const leitura = await request(ctx.app)
+                    .get('/banks')
+                    .set('Authorization', 'Bearer uid-comum');
+                expect(leitura.status).toBe(200);
 
-            const escrita = await createBank(
-                { febrabanCode: '341', name: 'Itaú' },
-                'Bearer uid-comum',
-            );
-            expect(escrita.status).toBe(403);
-            expect(escrita.body.error.code).toBe('FORBIDDEN');
-        });
+                const escrita = await createBank(
+                    { febrabanCode: '341', name: 'Itaú' },
+                    'Bearer uid-comum',
+                );
+                expect(escrita.status).toBe(403);
+                expect(escrita.body.error.code).toBe('FORBIDDEN');
+            },
+        );
 
         it('sem perfil, nem lê', async () => {
             await ctx.setProfile('uid-comum', null);

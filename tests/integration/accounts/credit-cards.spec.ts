@@ -42,6 +42,10 @@ describe('rotas de /credit-cards (spec 0011)', () => {
     beforeEach(async () => {
         await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
         await ctx.setProfile('uid-admin', 'ADMIN');
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
         bankId = await createBank('260', 'Nu Pagamentos');
     });
 

@@ -48,8 +48,10 @@ export class BankAccountService {
     }
 
     list(query: { archived?: 'true' | 'false' } = {}): Promise<BankAccountWithBank[]> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.accounts.find({
-            where: archivedFilter(query),
+            where: { ...archivedFilter(query), workspaceId },
             relations: { bank: true },
             order: { description: 'ASC' },
         }) as Promise<BankAccountWithBank[]>;
@@ -94,7 +96,10 @@ export class BankAccountService {
 
         if (!needsArchiveChange(account.archivedAt, archived)) return account;
 
-        await this.accounts.update({ id }, { archivedAt: archived ? new Date() : null });
+        await this.accounts.update(
+            { id, workspaceId },
+            { archivedAt: archived ? new Date() : null },
+        );
 
         return this.findById(workspaceId, id);
     }
@@ -104,7 +109,7 @@ export class BankAccountService {
         await this.findById(workspaceId, id);
 
         if (Object.keys(changes).length > 0) {
-            await asConflict(this.accounts.update({ id }, changes), CONFLICTS);
+            await asConflict(this.accounts.update({ id, workspaceId }, changes), CONFLICTS);
         }
 
         return this.findById(workspaceId, id);
@@ -140,7 +145,7 @@ export class BankAccountService {
         if (!account) throw accountNotFound();
 
         await repository.update(
-            { id },
+            { id, workspaceId },
             { currentBalanceCents: account.currentBalanceCents + deltaCents },
         );
     }
