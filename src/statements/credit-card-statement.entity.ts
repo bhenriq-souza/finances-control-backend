@@ -1,4 +1,4 @@
-import { Check, Column, Entity, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Check, Column, Entity, Index, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
 import { moneyTransformer } from '../platform';
 import type { StatementStatus } from './statement-status';
@@ -9,6 +9,7 @@ import type { StatementStatus } from './statement-status';
  * `accounts` (ADR-0003). Não há coluna de total nem de valor pago.
  */
 @Entity('credit_card_statements')
+@Index('idx_credit_card_statements_workspace_id', ['workspaceId'])
 @Unique('uq_credit_card_statements_credit_card_id_closes_on', ['creditCardId', 'closesOn'])
 @Unique('uq_credit_card_statements_credit_card_id_starts_on', ['creditCardId', 'startsOn'])
 @Check('ck_credit_card_statements_status', "status IN ('CLOSED', 'PAID', 'ROLLED_OVER')")
@@ -17,6 +18,14 @@ import type { StatementStatus } from './statement-status';
 export class CreditCardStatement {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'uuid' })
     creditCardId!: string;

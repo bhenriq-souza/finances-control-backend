@@ -26,6 +26,7 @@ describe('travas de segurança do perfil (spec 0010)', () => {
     });
 
     afterEach(async () => {
+        await ctx.dataSource.query('DELETE FROM workspace_members');
         await ctx.dataSource.query('DELETE FROM users');
     });
 
@@ -52,7 +53,9 @@ describe('travas de segurança do perfil (spec 0010)', () => {
         it('e o banco não muda', async () => {
             await request(ctx.app).delete(`/users/${adminId}/profile`).set('Authorization', ADMIN);
 
-            await expect(ctx.findByUid('uid-admin')).resolves.toMatchObject({ profile: 'ADMIN' });
+            await expect(ctx.findByUid('uid-admin')).resolves.toMatchObject({
+                membership: { profile: 'ADMIN' },
+            });
         });
 
         it('um Admin altera outro Admin normalmente', async () => {
@@ -82,9 +85,6 @@ describe('travas de segurança do perfil (spec 0010)', () => {
                 firebaseUid: 'uid-sem-perfil',
                 email: 'sem-perfil@exemplo.com',
                 name: 'Sem Perfil',
-                profile: null,
-                profileGrantedAt: null,
-                profileGrantedById: null,
             });
 
             const error = await serviceOf(ctx)
@@ -100,16 +100,15 @@ describe('travas de segurança do perfil (spec 0010)', () => {
                 firebaseUid: 'uid-sem-perfil',
                 email: 'sem-perfil@exemplo.com',
                 name: 'Sem Perfil',
-                profile: null,
-                profileGrantedAt: null,
-                profileGrantedById: null,
             });
 
             await serviceOf(ctx)
                 .revokeProfile({ targetId: adminId, actorId: other.id })
                 .catch(() => undefined);
 
-            await expect(ctx.findByUid('uid-admin')).resolves.toMatchObject({ profile: 'ADMIN' });
+            await expect(ctx.findByUid('uid-admin')).resolves.toMatchObject({
+                membership: { profile: 'ADMIN' },
+            });
         });
 
         it('rebaixar o último Admin também é recusado', async () => {
@@ -117,13 +116,15 @@ describe('travas de segurança do perfil (spec 0010)', () => {
                 firebaseUid: 'uid-sem-perfil',
                 email: 'sem-perfil@exemplo.com',
                 name: 'Sem Perfil',
-                profile: null,
-                profileGrantedAt: null,
-                profileGrantedById: null,
             });
 
             const error = await serviceOf(ctx)
-                .grantProfile({ targetId: adminId, profile: 'VIEWER', actorId: other.id })
+                .grantProfile({
+                    targetId: adminId,
+                    profile: 'VIEWER',
+                    actorId: other.id,
+                    actorWorkspaceId: ctx.workspaceId,
+                })
                 .catch((caught: unknown) => caught);
 
             expect(error).toMatchObject({ status: 409, code: 'LAST_ADMIN' });
@@ -138,7 +139,7 @@ describe('travas de segurança do perfil (spec 0010)', () => {
                 actorId: second.id,
             });
 
-            expect(revoked.profile).toBeNull();
+            expect(revoked.membership).toBeNull();
         });
 
         it('promover alguém a ADMIN nunca esbarra na trava', async () => {
@@ -149,9 +150,10 @@ describe('travas de segurança do perfil (spec 0010)', () => {
                 targetId: target.id,
                 profile: 'ADMIN',
                 actorId: adminId,
+                actorWorkspaceId: ctx.workspaceId,
             });
 
-            expect(granted.profile).toBe('ADMIN');
+            expect(granted.membership?.profile).toBe('ADMIN');
         });
     });
 });

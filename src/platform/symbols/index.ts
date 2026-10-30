@@ -22,6 +22,8 @@ export {
  */
 export const RequireAuthenticationSymbol = Symbol.for('RequireAuthentication');
 export const RequireProfileSymbol = Symbol.for('RequireProfile');
+export const RequirePlatformAdminSymbol = Symbol.for('RequirePlatformAdmin');
+export const RequireMemberOrPlatformAdminSymbol = Symbol.for('RequireMemberOrPlatformAdmin');
 
 export const DatabaseConnectionSymbol = Symbol.for('DatabaseConnection');
 export const HealthServiceSymbol = Symbol.for('HealthService');

@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import { stopApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, stopApp } from '../app.helper';
 import { ADMIN, seedReporting, type ReportingFixture } from './reporting-fixtures.helper';
 
 const SCHEMA = 'test_reporting_cash_flow';
@@ -32,9 +32,9 @@ describe('GET /reports/cash-flow (spec 0015, AC-0015-09, emenda da spec 0018)', 
 
     const insertExpense = (status: string, cents: number, occurredOn: string, paidOn?: string) =>
         fx.ctx.dataSource.query(
-            `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents,
+            `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents,
                                    occurred_on, paid_on, bank_account_id)
-             VALUES ('Despesa', $1, 'VARIABLE', $2, $3::numeric / 100, $4, $5, $6)`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Despesa', $1, 'VARIABLE', $2, $3::numeric / 100, $4, $5, $6)`,
             [fx.expenseTypeId, status, cents, occurredOn, paidOn ?? null, fx.accountId],
         );
 
@@ -45,9 +45,9 @@ describe('GET /reports/cash-flow (spec 0015, AC-0015-09, emenda da spec 0018)', 
         receivedOn?: string,
     ) =>
         fx.ctx.dataSource.query(
-            `INSERT INTO earnings (description, earning_type_id, kind, status, amount_cents,
+            `INSERT INTO earnings (workspace_id, description, earning_type_id, kind, status, amount_cents,
                                    occurred_on, received_on, bank_account_id)
-             VALUES ('Receita', $1, 'VARIABLE', $2, $3::numeric / 100, $4, $5, $6)`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Receita', $1, 'VARIABLE', $2, $3::numeric / 100, $4, $5, $6)`,
             [fx.earningTypeId, status, cents, occurredOn, receivedOn ?? null, fx.accountId],
         );
 
@@ -60,9 +60,9 @@ describe('GET /reports/cash-flow (spec 0015, AC-0015-09, emenda da spec 0018)', 
         completedOn: string | null,
     ) =>
         fx.ctx.dataSource.query(
-            `INSERT INTO bank_transfers (from_bank_account_id, to_bank_account_id, amount_cents,
+            `INSERT INTO bank_transfers (workspace_id, from_bank_account_id, to_bank_account_id, amount_cents,
                                          occurred_on, status, completed_on, description)
-             VALUES ($1, $2, $3::numeric / 100, $4, $5, $6, 'Transferência')`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, $3::numeric / 100, $4, $5, $6, 'Transferência')`,
             [from, to, cents, occurredOn, status, completedOn],
         );
 
@@ -107,16 +107,16 @@ describe('GET /reports/cash-flow (spec 0015, AC-0015-09, emenda da spec 0018)', 
 
         // Despesa de cartão paga (via fatura) não é despesa de conta: sem bank_account_id.
         await fx.ctx.dataSource.query(
-            `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents, occurred_on,
+            `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents, occurred_on,
                                    credit_card_id, posted_on)
-             VALUES ('Cartão', $1, 'VARIABLE', 'OPEN', 9999::numeric / 100, '2026-03-08', $2, '2026-03-08')`,
+             VALUES (${DEFAULT_WORKSPACE_SQL}, 'Cartão', $1, 'VARIABLE', 'OPEN', 9999::numeric / 100, '2026-03-08', $2, '2026-03-08')`,
             [fx.expenseTypeId, fx.cardId],
         );
 
         // Pagamento de fatura de 200 em 20/03, debitando a conta 1.
         await fx.ctx.dataSource.query(
-            `INSERT INTO credit_card_statement_payments (credit_card_id, bank_account_id, amount_cents, paid_on)
-             VALUES ($1, $2, 20000::numeric / 100, '2026-03-20')`,
+            `INSERT INTO credit_card_statement_payments (workspace_id, credit_card_id, bank_account_id, amount_cents, paid_on)
+             VALUES (${DEFAULT_WORKSPACE_SQL}, $1, $2, 20000::numeric / 100, '2026-03-20')`,
             [fx.cardId, fx.accountId],
         );
 

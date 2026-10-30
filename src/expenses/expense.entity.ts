@@ -15,6 +15,7 @@ import type { ExpenseStatus } from './expense-status';
 import { ExpenseType } from './expense-type.entity';
 
 @Entity('expenses')
+@Index('idx_expenses_workspace_id', ['workspaceId'])
 @Unique('uq_expenses_installment_group_id_installment_number', [
     'installmentGroupId',
     'installmentNumber',
@@ -46,6 +47,14 @@ import { ExpenseType } from './expense-type.entity';
 export class Expense {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'text' })
     description!: string;

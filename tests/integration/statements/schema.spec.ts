@@ -7,7 +7,11 @@ import {
     CreditCardStatement,
     CreditCardStatementPayment,
 } from '../../../src/statements';
-import { createIsolatedDataSource, dropIsolatedDataSource } from '../database.helper';
+import {
+    createIsolatedDataSource,
+    dropIsolatedDataSource,
+    ensureDefaultWorkspace,
+} from '../database.helper';
 
 const SCHEMA = 'test_statements_schema';
 
@@ -19,9 +23,11 @@ describe('schema de statements (spec 0013, Modelo)', () => {
     let creditCardId: string;
     let bankAccountId: string;
     let expenseId: string;
+    let workspaceId: string;
 
     const newStatement = (overrides: Partial<CreditCardStatement> = {}) =>
         statements.create({
+            workspaceId,
             creditCardId,
             startsOn: '2026-02-11',
             closesOn: '2026-03-10',
@@ -35,6 +41,7 @@ describe('schema de statements (spec 0013, Modelo)', () => {
 
     const newPayment = (overrides: Partial<CreditCardStatementPayment> = {}) =>
         payments.create({
+            workspaceId,
             creditCardId,
             statementId: null,
             bankAccountId,
@@ -45,6 +52,7 @@ describe('schema de statements (spec 0013, Modelo)', () => {
 
     const newRefund = (overrides: Partial<CreditCardRefund> = {}) =>
         refunds.create({
+            workspaceId,
             creditCardId,
             expenseId: null,
             description: 'Estorno de teste',
@@ -58,6 +66,7 @@ describe('schema de statements (spec 0013, Modelo)', () => {
     beforeAll(async () => {
         dataSource = await createIsolatedDataSource(SCHEMA);
         await dataSource.runMigrations();
+        workspaceId = await ensureDefaultWorkspace(dataSource);
         statements = dataSource.getRepository(CreditCardStatement);
         payments = dataSource.getRepository(CreditCardStatementPayment);
         refunds = dataSource.getRepository(CreditCardRefund);
@@ -67,6 +76,7 @@ describe('schema de statements (spec 0013, Modelo)', () => {
             .save({ febrabanCode: '260', name: 'Banco de Teste', archivedAt: null });
         bankAccountId = (
             await dataSource.getRepository(BankAccount).save({
+                workspaceId,
                 bankId: bank.id,
                 type: 'CHECKING',
                 accountNumber: '1-1',
@@ -79,6 +89,7 @@ describe('schema de statements (spec 0013, Modelo)', () => {
         ).id;
         creditCardId = (
             await dataSource.getRepository(CreditCard).save({
+                workspaceId,
                 bankId: bank.id,
                 name: 'Cartão de teste',
                 creditLimitCents: 500000,
@@ -93,6 +104,7 @@ describe('schema de statements (spec 0013, Modelo)', () => {
         ).id;
         expenseId = (
             await dataSource.getRepository(Expense).save({
+                workspaceId,
                 description: 'Compra de teste',
                 expenseTypeId,
                 kind: 'VARIABLE',
@@ -219,6 +231,7 @@ describe('schema de statements (spec 0013, Modelo)', () => {
             // Cartão próprio: o do resto da suíte também tem despesa, e o Postgres
             // reportaria a primeira FK que encontrar.
             const other = await dataSource.getRepository(CreditCard).save({
+                workspaceId,
                 bankId: (await dataSource.getRepository(Bank).findOneByOrFail({})).id,
                 name: 'Outro cartão',
                 creditLimitCents: 100000,

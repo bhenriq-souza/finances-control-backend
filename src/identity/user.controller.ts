@@ -41,6 +41,7 @@ export class UserController {
             targetId: id,
             profile,
             actorId: this.actorId(),
+            actorWorkspaceId: this.requestContext.requireWorkspaceId(),
         });
 
         return HttpResponses.ok(res, await this.respond(user));

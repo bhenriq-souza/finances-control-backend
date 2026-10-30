@@ -1,4 +1,4 @@
-import { stopApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, stopApp } from '../app.helper';
 import {
     realizedBalanceService,
     seedReporting,
@@ -28,17 +28,17 @@ describe('precisão do saldo realizado (spec 0015, AC-0015-12, INV-0015-04)', ()
         const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
 
         await fx.ctx.dataSource.query(
-            `INSERT INTO earnings (description, earning_type_id, kind, status, amount_cents,
+            `INSERT INTO earnings (workspace_id, description, earning_type_id, kind, status, amount_cents,
                                    occurred_on, received_on, bank_account_id)
-             SELECT 'Receita', $1, 'VARIABLE', 'RECEIVED', v::numeric / 100,
+             SELECT ${DEFAULT_WORKSPACE_SQL}, 'Receita', $1, 'VARIABLE', 'RECEIVED', v::numeric / 100,
                     '2026-03-10', '2026-03-10', $2
              FROM unnest($3::int[]) AS v`,
             [fx.earningTypeId, fx.accountId, earnings],
         );
         await fx.ctx.dataSource.query(
-            `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents,
+            `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents,
                                    occurred_on, paid_on, bank_account_id)
-             SELECT 'Despesa', $1, 'VARIABLE', 'PAID', v::numeric / 100,
+             SELECT ${DEFAULT_WORKSPACE_SQL}, 'Despesa', $1, 'VARIABLE', 'PAID', v::numeric / 100,
                     '2026-03-10', '2026-03-10', $2
              FROM unnest($3::int[]) AS v`,
             [fx.expenseTypeId, fx.accountId, expenses],

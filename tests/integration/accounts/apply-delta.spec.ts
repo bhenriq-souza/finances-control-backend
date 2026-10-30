@@ -6,6 +6,7 @@ import {
     CreditCard,
     CreditCardService,
 } from '../../../src/accounts';
+import { RequestContext } from '../../../src/platform';
 import { startApp, stopApp, type TestApp } from '../app.helper';
 
 const SCHEMA = 'test_accounts_apply_delta';
@@ -22,8 +23,8 @@ describe('movimentos de saldo e limite (spec 0012, AC-0012-10)', () => {
     beforeAll(async () => {
         ctx = await startApp(SCHEMA);
         dataSource = ctx.dataSource;
-        accounts = new BankAccountService(dataSource);
-        cards = new CreditCardService(dataSource);
+        accounts = new BankAccountService(dataSource, new RequestContext());
+        cards = new CreditCardService(dataSource, new RequestContext());
         // Linha filha com FK para conta e cartão, como as despesas e as transferências:
         // o INSERT toma `FOR KEY SHARE` na linha referenciada.
         await dataSource.query(`
@@ -48,6 +49,7 @@ describe('movimentos de saldo e limite (spec 0012, AC-0012-10)', () => {
         const accountRepository = dataSource.getRepository(BankAccount);
         const account = await accountRepository.save(
             accountRepository.create({
+                workspaceId: ctx.workspaceId,
                 bankId: bank.id,
                 type: 'CHECKING',
                 accountNumber: '1-1',
@@ -63,6 +65,7 @@ describe('movimentos de saldo e limite (spec 0012, AC-0012-10)', () => {
         const cardRepository = dataSource.getRepository(CreditCard);
         const card = await cardRepository.save(
             cardRepository.create({
+                workspaceId: ctx.workspaceId,
                 bankId: bank.id,
                 name: 'Platinum',
                 creditLimitCents: 500000,

@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import type { TestApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, type TestApp } from '../app.helper';
 
 export const ADMIN = 'Bearer uid-admin';
 
@@ -62,10 +62,10 @@ export async function insertExpense(ctx: TestApp, raw: RawExpense): Promise<stri
     const status = raw.status ?? 'OPEN';
     const occurredOn = raw.occurredOn ?? '2026-03-10';
     const rows = (await ctx.dataSource.query(
-        `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents, occurred_on,
+        `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents, occurred_on,
             paid_on, bank_account_id, credit_card_id, posted_on, installment_group_id,
             installment_number, installment_total)
-         VALUES ('Linha', $1, $2, $3, $4, $5::date, $6::date, $7, $8, $9::date, $10, $11, $12)
+         VALUES (${DEFAULT_WORKSPACE_SQL}, 'Linha', $1, $2, $3, $4, $5::date, $6::date, $7, $8, $9::date, $10, $11, $12)
          RETURNING id`,
         [
             raw.typeId,

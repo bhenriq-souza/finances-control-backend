@@ -34,6 +34,7 @@ describe('criação e status de /bank-transfers (spec 0018)', () => {
         const make = (accountNumber: string, balance: number) =>
             repository.save(
                 repository.create({
+                    workspaceId: ctx.workspaceId,
                     bankId: bank!.id,
                     type: 'CHECKING',
                     accountNumber,
@@ -268,6 +269,7 @@ describe('criação e status de /bank-transfers (spec 0018)', () => {
             const { bankId } = await repository.findOneByOrFail({ id: accountA });
             const third = await repository.save(
                 repository.create({
+                    workspaceId: ctx.workspaceId,
                     bankId,
                     type: 'CHECKING',
                     accountNumber: 'C',

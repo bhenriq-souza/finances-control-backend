@@ -1,9 +1,17 @@
 import type { DataSource, Repository } from 'typeorm';
 
 import { Bank, BankAccount, CreditCard } from '../../../src/accounts';
-import { createIsolatedDataSource, dropIsolatedDataSource } from '../database.helper';
+import {
+    DEFAULT_WORKSPACE_SQL,
+    createIsolatedDataSource,
+    dropIsolatedDataSource,
+    ensureDefaultWorkspace,
+} from '../database.helper';
 
 const SCHEMA = 'test_accounts_schema';
+
+/** Espaço das linhas de domínio da suíte (spec 0021), criado no `beforeAll`. */
+let workspaceId = '';
 
 const newBank = (overrides: Partial<Bank> = {}): Partial<Bank> => ({
     febrabanCode: String(Math.floor(Math.random() * 900) + 100),
@@ -16,6 +24,7 @@ const newAccount = (
     bankId: string,
     overrides: Partial<BankAccount> = {},
 ): Partial<BankAccount> => ({
+    workspaceId,
     bankId,
     type: 'CHECKING',
     accountNumber: `${Math.floor(Math.random() * 100000)}-1`,
@@ -28,6 +37,7 @@ const newAccount = (
 });
 
 const newCard = (bankId: string, overrides: Partial<CreditCard> = {}): Partial<CreditCard> => ({
+    workspaceId,
     bankId,
     name: `Cartão ${Math.random().toString(36).slice(2, 7)}`,
     creditLimitCents: 500000,
@@ -48,6 +58,7 @@ describe('schema de accounts (spec 0011)', () => {
     beforeAll(async () => {
         dataSource = await createIsolatedDataSource(SCHEMA);
         await dataSource.runMigrations();
+        workspaceId = await ensureDefaultWorkspace(dataSource);
         banks = dataSource.getRepository(Bank);
         accounts = dataSource.getRepository(BankAccount);
         cards = dataSource.getRepository(CreditCard);
@@ -76,8 +87,10 @@ describe('schema de accounts (spec 0011)', () => {
                     'ck_bank_accounts_overdraft_limit',
                     'ck_bank_accounts_type',
                     'fk_bank_accounts_bank_id',
+                    'fk_bank_accounts_workspace_id',
                     'pk_bank_accounts',
                     'uq_bank_accounts_bank_id_account_number',
+                    'uq_bank_accounts_workspace_id_id',
                 ],
             ],
             [
@@ -88,8 +101,10 @@ describe('schema de accounts (spec 0011)', () => {
                     'ck_credit_cards_due_day',
                     'fk_credit_cards_bank_id',
                     'fk_credit_cards_payment_bank_account_id',
+                    'fk_credit_cards_workspace_id',
                     'pk_credit_cards',
                     'uq_credit_cards_bank_id_name',
+                    'uq_credit_cards_workspace_id_id',
                 ],
             ],
         ])('%s', async (table, expected) => {
@@ -181,8 +196,8 @@ describe('schema de accounts (spec 0011)', () => {
             await expect(
                 dataSource.query(
                     `INSERT INTO bank_accounts
-                     (bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
-                     VALUES ($1, 'POUPANCA', '1', 'x', 0, 0)`,
+                     (workspace_id, bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
+                     VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'POUPANCA', '1', 'x', 0, 0)`,
                     [bankId],
                 ),
             ).rejects.toThrow(/ck_bank_accounts_type/);
@@ -210,8 +225,8 @@ describe('schema de accounts (spec 0011)', () => {
         it('aplica o default zero no cheque especial', async () => {
             await dataSource.query(
                 `INSERT INTO bank_accounts
-                 (bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
-                 VALUES ($1, 'CHECKING', '9-9', 'sem cheque especial', 0, 0)`,
+                 (workspace_id, bank_id, type, account_number, description, opening_balance_cents, current_balance_cents)
+                 VALUES (${DEFAULT_WORKSPACE_SQL}, $1, 'CHECKING', '9-9', 'sem cheque especial', 0, 0)`,
                 [bankId],
             );
 

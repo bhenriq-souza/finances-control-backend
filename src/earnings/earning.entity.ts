@@ -15,6 +15,7 @@ import { EARNING_STATUSES, type EarningStatus } from './earning-status';
 import { EarningType } from './earning-type.entity';
 
 @Entity('earnings')
+@Index('idx_earnings_workspace_id', ['workspaceId'])
 @Unique('uq_earnings_installment_group_id_installment_number', [
     'installmentGroupId',
     'installmentNumber',
@@ -45,6 +46,14 @@ import { EarningType } from './earning-type.entity';
 export class Earning {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
+
+    /**
+     * Espaço do registro (spec 0021). Gravado na criação, a partir do contexto da
+     * requisição ou da linha de origem num job, e nunca muda. As referências a
+     * outras tabelas do espaço são FKs compostas com ele (INV-0021-04).
+     */
+    @Column({ type: 'uuid' })
+    workspaceId!: string;
 
     @Column({ type: 'text' })
     description!: string;

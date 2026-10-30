@@ -22,12 +22,13 @@ import {
 } from '../events';
 import {
     DatabaseConnectionSymbol,
+    RequestContextSymbol,
     TransactionRunnerSymbol,
     businessToday,
     monthlyInstallmentDates,
     splitCents,
 } from '../platform';
-import type { TransactionRunner } from '../platform';
+import type { RequestContext, TransactionRunner } from '../platform';
 import { recurrenceHorizon, seriesDates } from './earning-recurrence.dates';
 import { EarningRecurrence } from './earning-recurrence.entity';
 import { Earning } from './earning.entity';
@@ -74,6 +75,7 @@ export class EarningService {
         @inject(TransactionRunnerSymbol) private readonly transactions: TransactionRunner,
         @inject(BankAccountServiceSymbol) private readonly accounts: BankAccountService,
         @inject(EarningTypeServiceSymbol) private readonly types: EarningTypeService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     /**
@@ -120,6 +122,7 @@ export class EarningService {
             ? dates.map(() => input.amountCents)
             : splitCents(input.amountCents, total);
 
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const ids = await this.transactions.run(async (scope) => {
             const repository = scope.manager.getRepository(Earning);
             const created: string[] = [];
@@ -127,6 +130,7 @@ export class EarningService {
                 ? (
                       await scope.manager.getRepository(EarningRecurrence).save(
                           scope.manager.getRepository(EarningRecurrence).create({
+                              workspaceId,
                               description: input.description,
                               earningTypeId: input.earningTypeId,
                               amountCents: input.amountCents,
@@ -146,6 +150,7 @@ export class EarningService {
                 const rowStatus = isFixed && index > 0 ? 'FORECAST' : status;
                 const saved = await repository.save(
                     repository.create({
+                        workspaceId,
                         description: input.description,
                         earningTypeId: input.earningTypeId,
                         kind: input.kind,
@@ -164,6 +169,7 @@ export class EarningService {
 
                 const event: Omit<EarningCreated, 'occurredAt' | 'correlationId'> = {
                     name: EARNING_CREATED,
+                    workspaceId: saved.workspaceId,
                     payload: {
                         earningId: saved.id,
                         kind: input.kind,
@@ -522,6 +528,7 @@ export class EarningService {
 
                 const event: Omit<EarningReceived, 'occurredAt' | 'correlationId'> = {
                     name: EARNING_RECEIVED,
+                    workspaceId: earning.workspaceId,
                     payload: {
                         earningId: id,
                         amountCents: earning.amountCents,

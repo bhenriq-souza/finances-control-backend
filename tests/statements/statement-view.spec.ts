@@ -37,6 +37,7 @@ const expense = (
 const paying = (...amounts: number[]): StatementBase['payments'] =>
     amounts.map((amountCents, index) => ({
         id: `p${index}`,
+        workspaceId: 'w1',
         creditCardId: 'c1',
         statementId: 's1',
         bankAccountId: 'a1',

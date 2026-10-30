@@ -4,6 +4,8 @@ import type { DataSource, EntityManager, Repository } from 'typeorm';
 
 import {
     DatabaseConnectionSymbol,
+    RequestContextSymbol,
+    type RequestContext,
     archivedFilter,
     asConflict,
     needsArchiveChange,
@@ -36,7 +38,10 @@ export type UpdateBankAccount = Partial<
 
 @injectable()
 export class BankAccountService {
-    constructor(@inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource) {}
+    constructor(
+        @inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
+    ) {}
 
     private get accounts(): Repository<BankAccount> {
         return this.dataSource.getRepository(BankAccount);
@@ -65,6 +70,7 @@ export class BankAccountService {
             this.accounts.save(
                 this.accounts.create({
                     ...data,
+                    workspaceId: this.requestContext.requireWorkspaceId(),
                     overdraftLimitCents: data.overdraftLimitCents ?? 0,
                     // Nasce igual ao de abertura, e daqui em diante só lançamento
                     // o move (INV-0011-04).

@@ -55,6 +55,7 @@ describe('evento EarningCreated (spec 0014, AC-0014-11)', () => {
         const accounts = ctx.dataSource.getRepository(BankAccount);
         const account = await accounts.save(
             accounts.create({
+                workspaceId: ctx.workspaceId,
                 bankId: bank.id,
                 type: 'CHECKING',
                 accountNumber: '1-1',
@@ -180,6 +181,7 @@ async function seedEarning(ctx: TestApp, accountId: string, status: string): Pro
     const earnings = ctx.dataSource.getRepository(Earning);
     const saved = await earnings.save(
         earnings.create({
+            workspaceId: ctx.workspaceId,
             description: 'Salário',
             earningTypeId: type.id,
             kind: 'VARIABLE',

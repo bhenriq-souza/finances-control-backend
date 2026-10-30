@@ -5,7 +5,9 @@ import type { EntityManager } from 'typeorm';
 
 import { TRANSFER_COMPLETED } from '../events';
 import {
+    RequestContextSymbol,
     TransactionRunnerSymbol,
+    type RequestContext,
     businessToday,
     type TransactionRunner,
     type TransactionScope,
@@ -33,7 +35,10 @@ export type ChangeBankTransferStatus = {
     completedOn?: string;
 };
 
-type Movement = Pick<BankTransfer, 'fromBankAccountId' | 'toBankAccountId' | 'amountCents'>;
+type Movement = Pick<
+    BankTransfer,
+    'workspaceId' | 'fromBankAccountId' | 'toBankAccountId' | 'amountCents'
+>;
 
 const transferNotFound = (): CustomError =>
     CustomError.notFound('Bank transfer not found', 'BANK_TRANSFER_NOT_FOUND', {
@@ -53,6 +58,7 @@ export class BankTransferService {
     constructor(
         @inject(TransactionRunnerSymbol) private readonly runner: TransactionRunner,
         @inject(BankAccountServiceSymbol) private readonly accounts: BankAccountService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     /**
@@ -68,6 +74,7 @@ export class BankTransferService {
             const repository = scope.manager.getRepository(BankTransfer);
             const transfer = await repository.save(
                 repository.create({
+                    workspaceId: this.requestContext.requireWorkspaceId(),
                     fromBankAccountId: data.fromBankAccountId,
                     toBankAccountId: data.toBankAccountId,
                     amountCents: data.amountCents,
@@ -265,6 +272,7 @@ export class BankTransferService {
     ): void {
         scope.publish({
             name: TRANSFER_COMPLETED,
+            workspaceId: transfer.workspaceId,
             payload: {
                 transferId: transfer.id,
                 fromBankAccountId: transfer.fromBankAccountId,

@@ -2,7 +2,7 @@ import request from 'supertest';
 
 import { container } from '../../../src/container';
 import { RealizedBalanceService, RealizedBalanceServiceSymbol } from '../../../src/reporting';
-import { startApp, type TestApp } from '../app.helper';
+import { DEFAULT_WORKSPACE_SQL, startApp, type TestApp } from '../app.helper';
 
 export const ADMIN = 'Bearer uid-admin';
 
@@ -129,9 +129,9 @@ export async function payStatement(
         "UPDATE credit_cards SET closing_day = 10, due_day = 20, created_at = '2026-01-15T12:00:00Z'",
     );
     await fx.ctx.dataSource.query(
-        `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents, occurred_on,
+        `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents, occurred_on,
                                credit_card_id, posted_on)
-         VALUES ('Compra', $1, 'VARIABLE', 'OPEN', $2::numeric / 100, '2026-03-03', $3, '2026-03-03')`,
+         VALUES (${DEFAULT_WORKSPACE_SQL}, 'Compra', $1, 'VARIABLE', 'OPEN', $2::numeric / 100, '2026-03-03', $3, '2026-03-03')`,
         [fx.expenseTypeId, amountCents, fx.cardId],
     );
 
@@ -190,9 +190,9 @@ export async function addAccount(
 ): Promise<string> {
     return firstId(
         fx,
-        `INSERT INTO bank_accounts (bank_id, type, account_number, description,
+        `INSERT INTO bank_accounts (workspace_id, bank_id, type, account_number, description,
                                     opening_balance_cents, current_balance_cents)
-         VALUES ((SELECT id FROM banks LIMIT 1), 'CHECKING', $1, 'Conta', $2::numeric / 100,
+         VALUES (${DEFAULT_WORKSPACE_SQL}, (SELECT id FROM banks LIMIT 1), 'CHECKING', $1, 'Conta', $2::numeric / 100,
                  $2::numeric / 100)
          RETURNING id`,
         [accountNumber, openingBalanceCents],
@@ -207,9 +207,9 @@ export async function addCard(
 ): Promise<string> {
     return firstId(
         fx,
-        `INSERT INTO credit_cards (bank_id, name, credit_limit_cents, available_limit_cents,
+        `INSERT INTO credit_cards (workspace_id, bank_id, name, credit_limit_cents, available_limit_cents,
                                    closing_day, due_day, created_at, payment_bank_account_id)
-         VALUES ((SELECT id FROM banks LIMIT 1), $1, 500, 500, 10, 20,
+         VALUES (${DEFAULT_WORKSPACE_SQL}, (SELECT id FROM banks LIMIT 1), $1, 500, 500, 10, 20,
                  '2026-01-15T12:00:00Z', $2)
          RETURNING id`,
         [name, paymentBankAccountId],
@@ -225,9 +225,9 @@ export async function insertEarning(
     accountId: string = fx.accountId,
 ): Promise<void> {
     await fx.ctx.dataSource.query(
-        `INSERT INTO earnings (description, earning_type_id, kind, status, amount_cents,
+        `INSERT INTO earnings (workspace_id, description, earning_type_id, kind, status, amount_cents,
                                occurred_on, received_on, bank_account_id)
-         VALUES ('Receita', $1, 'VARIABLE', $2, $3::numeric / 100, $4::date,
+         VALUES (${DEFAULT_WORKSPACE_SQL}, 'Receita', $1, 'VARIABLE', $2, $3::numeric / 100, $4::date,
                  CASE WHEN $2 = 'RECEIVED' THEN $4::date END, $5)`,
         [fx.earningTypeId, status, amountCents, occurredOn, accountId],
     );
@@ -245,9 +245,9 @@ export async function insertExpense(
     const accountId = 'accountId' in owner ? owner.accountId : null;
 
     await fx.ctx.dataSource.query(
-        `INSERT INTO expenses (description, expense_type_id, kind, status, amount_cents,
+        `INSERT INTO expenses (workspace_id, description, expense_type_id, kind, status, amount_cents,
                                occurred_on, paid_on, bank_account_id, credit_card_id, posted_on)
-         VALUES ('Despesa', $1, 'VARIABLE', $2, $3::numeric / 100, $4::date,
+         VALUES (${DEFAULT_WORKSPACE_SQL}, 'Despesa', $1, 'VARIABLE', $2, $3::numeric / 100, $4::date,
                  CASE WHEN $2 = 'PAID' THEN $4::date END, $5, $6,
                  CASE WHEN $6::uuid IS NOT NULL THEN $4::date END)`,
         [fx.expenseTypeId, status, amountCents, occurredOn, accountId, cardId],

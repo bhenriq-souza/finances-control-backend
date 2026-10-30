@@ -1,6 +1,8 @@
 import type { DataSource, Repository } from 'typeorm';
 
 import { User } from '../../../src/identity/user.entity';
+import { withMembership } from '../../../src/identity/membership';
+import { WorkspaceMember } from '../../../src/identity/workspace-member.entity';
 import { normalizeEmail } from '../../../src/identity/email';
 import { createIsolatedDataSource, dropIsolatedDataSource } from '../database.helper';
 
@@ -28,8 +30,27 @@ describe('tabela users (spec 0010)', () => {
     });
 
     afterEach(async () => {
+        await dataSource.query('DELETE FROM workspace_members');
         await dataSource.query('DELETE FROM users');
+        await dataSource.query('DELETE FROM workspaces');
     });
+
+    /** O perfil mora no membro do espaço (spec 0021). */
+    const grant = async (
+        userId: string,
+        profile: string,
+        grantedById: string | null = null,
+    ): Promise<void> => {
+        const [workspace] = (await dataSource.query(
+            "INSERT INTO workspaces (name) VALUES ('Casa') RETURNING id",
+        )) as [{ id: string }];
+
+        await dataSource.query(
+            `INSERT INTO workspace_members (workspace_id, user_id, profile, granted_at, granted_by)
+             VALUES ($1, $2, $3, now(), $4)`,
+            [workspace.id, userId, profile, grantedById],
+        );
+    };
 
     describe('migration', () => {
         it('cria a tabela com o trigger de updated_at', async () => {
@@ -54,9 +75,8 @@ describe('tabela users (spec 0010)', () => {
                 ORDER BY con.conname
             `);
 
+            // O perfil e quem o concedeu saíram para `workspace_members` (spec 0021).
             expect(rows.map((row) => row.conname)).toEqual([
-                'ck_users_profile',
-                'fk_users_profile_granted_by',
                 'pk_users',
                 'uq_users_email',
                 'uq_users_firebase_uid',
@@ -70,9 +90,10 @@ describe('tabela users (spec 0010)', () => {
             const stored = await users.findOneByOrFail({ id: saved.id });
 
             expect(stored.id).toMatch(/^[0-9a-f-]{36}$/);
-            expect(stored.profile).toBeNull();
-            expect(stored.profileGrantedAt).toBeNull();
-            expect(stored.profileGrantedById).toBeNull();
+            expect(stored.isPlatformAdmin).toBe(false);
+            await expect(
+                dataSource.getRepository(WorkspaceMember).exists({ where: { userId: saved.id } }),
+            ).resolves.toBe(false);
             expect(stored.createdAt).toBeInstanceOf(Date);
             expect(stored.updatedAt).toBeInstanceOf(Date);
         });
@@ -96,18 +117,20 @@ describe('tabela users (spec 0010)', () => {
         });
 
         it.each(['ADMIN', 'BILLER', 'VIEWER'] as const)('aceita o perfil %s', async (profile) => {
-            const saved = await users.save(users.create(newUser({ profile })));
+            const saved = await users.save(users.create(newUser()));
+            await grant(saved.id, profile);
 
-            expect((await users.findOneByOrFail({ id: saved.id })).profile).toBe(profile);
+            const stored = await withMembership(
+                dataSource.manager,
+                await users.findOneByOrFail({ id: saved.id }),
+            );
+            expect(stored.membership?.profile).toBe(profile);
         });
 
         it('recusa perfil fora do enum', async () => {
-            await expect(
-                dataSource.query(
-                    `INSERT INTO users (firebase_uid, email, name, profile)
-                     VALUES ('uid-x', 'x@exemplo.com', 'X', 'OWNER')`,
-                ),
-            ).rejects.toThrow(/ck_users_profile/);
+            const saved = await users.save(users.create(newUser()));
+
+            await expect(grant(saved.id, 'OWNER')).rejects.toThrow(/ck_workspace_members_profile/);
         });
     });
 
@@ -128,28 +151,24 @@ describe('tabela users (spec 0010)', () => {
 
     describe('quem concedeu o perfil', () => {
         it('aponta para outro usuário', async () => {
-            const admin = await users.save(users.create(newUser({ profile: 'ADMIN' })));
-            const granted = await users.save(
-                users.create(
-                    newUser({
-                        profile: 'VIEWER',
-                        profileGrantedAt: new Date(),
-                        profileGrantedById: admin.id,
-                    }),
-                ),
-            );
+            const admin = await users.save(users.create(newUser()));
+            const granted = await users.save(users.create(newUser()));
+            await grant(granted.id, 'VIEWER', admin.id);
 
-            expect((await users.findOneByOrFail({ id: granted.id })).profileGrantedById).toBe(
-                admin.id,
+            const stored = await withMembership(
+                dataSource.manager,
+                await users.findOneByOrFail({ id: granted.id }),
             );
+            expect(stored.membership?.grantedById).toBe(admin.id);
         });
 
         it('impede apagar quem concedeu, por on delete restrict', async () => {
-            const admin = await users.save(users.create(newUser({ profile: 'ADMIN' })));
-            await users.save(users.create(newUser({ profileGrantedById: admin.id })));
+            const admin = await users.save(users.create(newUser()));
+            const granted = await users.save(users.create(newUser()));
+            await grant(granted.id, 'VIEWER', admin.id);
 
             await expect(users.delete({ id: admin.id })).rejects.toThrow(
-                /fk_users_profile_granted_by/,
+                /fk_workspace_members_granted_by/,
             );
         });
     });

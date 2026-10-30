@@ -48,8 +48,8 @@ describe('DataSourceTransactionRunner', () => {
 
         const result = await runner.run((scope) => {
             expect(scope.manager).toBe(manager);
-            scope.publish({ name: 'A', payload: { id: '1' } });
-            scope.publish({ name: 'B', payload: { id: '2' } });
+            scope.publish({ name: 'A', workspaceId: null, payload: { id: '1' } });
+            scope.publish({ name: 'B', workspaceId: null, payload: { id: '2' } });
             return Promise.resolve('ok');
         });
 
@@ -70,7 +70,7 @@ describe('DataSourceTransactionRunner', () => {
         const started = Date.now();
 
         await runner.run((scope) => {
-            scope.publish({ name: 'A', payload: {} });
+            scope.publish({ name: 'A', workspaceId: null, payload: {} });
             return Promise.resolve();
         });
 
@@ -82,7 +82,7 @@ describe('DataSourceTransactionRunner', () => {
 
         await expect(
             runner.run((scope) => {
-                scope.publish({ name: 'A', payload: {} });
+                scope.publish({ name: 'A', workspaceId: null, payload: {} });
                 return Promise.reject(failure);
             }),
         ).rejects.toBe(failure);
@@ -98,7 +98,7 @@ describe('DataSourceTransactionRunner', () => {
             return Promise.resolve();
         });
 
-        expect(() => kept.publish({ name: 'Late', payload: {} })).toThrow(
+        expect(() => kept.publish({ name: 'Late', workspaceId: null, payload: {} })).toThrow(
             new Error('transaction scope is closed'),
         );
         expect(dispatcher.dispatch).toHaveBeenCalledTimes(1);
@@ -115,7 +115,7 @@ describe('DataSourceTransactionRunner', () => {
             })
             .catch(() => undefined);
 
-        expect(() => kept.publish({ name: 'Late', payload: {} })).toThrow(
+        expect(() => kept.publish({ name: 'Late', workspaceId: null, payload: {} })).toThrow(
             'transaction scope is closed',
         );
     });

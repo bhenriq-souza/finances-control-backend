@@ -22,3 +22,16 @@ export const isUserProfile = (value: unknown): value is UserProfile =>
 
 /** Contrato da guarda de perfil. A implementação é do `identity`. */
 export type RequireProfile = (...profiles: UserProfile[]) => RequestHandler;
+
+/**
+ * Guarda do admin da plataforma (spec 0021): quem aprova usuários, gere espaços e
+ * escreve os catálogos globais. Não é perfil, é uma marca no usuário. A
+ * implementação é do `identity`.
+ */
+export type RequirePlatformAdmin = () => RequestHandler;
+
+/**
+ * Guarda da leitura de catálogo (spec 0021): passa quem tem perfil num espaço ou é
+ * admin da plataforma. A implementação é do `identity`.
+ */
+export type RequireMemberOrPlatformAdmin = () => RequestHandler;

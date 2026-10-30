@@ -12,8 +12,10 @@ import {
 import { STATEMENT_PAID, STATEMENT_PAYMENT_REGISTERED } from '../events';
 import { ExpenseServiceSymbol, type ExpenseService } from '../expenses';
 import {
+    RequestContextSymbol,
     TransactionRunnerSymbol,
     businessToday,
+    type RequestContext,
     type TransactionRunner,
     type TransactionScope,
 } from '../platform';
@@ -80,6 +82,7 @@ export class StatementPaymentService {
         @inject(BankAccountServiceSymbol) private readonly bankAccounts: BankAccountService,
         @inject(ExpenseServiceSymbol) private readonly expenses: ExpenseService,
         @inject(StatementService) private readonly statements: StatementService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     /**
@@ -150,6 +153,7 @@ export class StatementPaymentService {
                 );
                 scope.publish({
                     name: STATEMENT_PAID,
+                    workspaceId: statement.workspaceId,
                     payload: { statementId: statement.id, creditCardId, paidOn: payment.paidOn },
                 });
             }
@@ -341,6 +345,8 @@ export class StatementPaymentService {
         const repository = manager.getRepository(CreditCardStatementPayment);
         const saved = await repository.save(
             repository.create({
+                // Pagamento só nasce de requisição: o espaço é o do contexto.
+                workspaceId: this.requestContext.requireWorkspaceId(),
                 creditCardId: data.creditCardId,
                 statementId: data.statementId,
                 bankAccountId: data.bankAccountId,
@@ -357,6 +363,7 @@ export class StatementPaymentService {
         );
         scope.publish({
             name: STATEMENT_PAYMENT_REGISTERED,
+            workspaceId: saved.workspaceId,
             payload: {
                 statementId: data.statementId,
                 paymentId: saved.id,

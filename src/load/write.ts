@@ -57,7 +57,15 @@ const entryKey = (description: string, target: string, occurredOn: string): stri
  * (INV-0019-03). With `dryRun`, the same lookups run and nothing is written (AC-0019-03): the
  * counts are the ones a real run would produce. `today` dates the open statements' entries.
  */
-export async function writePlan(
+export function writePlan(
+    plan: LoadPlan,
+    services: LoadServices,
+    options: { dryRun: boolean; today?: string },
+): Promise<WriteResult> {
+    return services.inWorkspace(() => writeInWorkspace(plan, services, options), options);
+}
+
+async function writeInWorkspace(
     plan: LoadPlan,
     services: LoadServices,
     options: { dryRun: boolean; today?: string },

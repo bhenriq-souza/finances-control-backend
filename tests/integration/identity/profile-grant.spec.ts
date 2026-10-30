@@ -27,6 +27,7 @@ describe('concessão e revogação de perfil (spec 0010)', () => {
     });
 
     afterEach(async () => {
+        await ctx.dataSource.query('DELETE FROM workspace_members');
         await ctx.dataSource.query('DELETE FROM users');
     });
 
@@ -42,7 +43,10 @@ describe('concessão e revogação de perfil (spec 0010)', () => {
             expect(response.body.data.profileGrantedAt).not.toBeNull();
 
             const stored = await ctx.findByUid('uid-alvo');
-            expect(stored?.profileGrantedById).toBe(adminId);
+            expect(stored?.membership?.grantedById).toBe(adminId);
+            // Pendente aprovado vira membro do espaço de quem concedeu (provisório até a
+            // aprovação com espaço, T-0021-02).
+            expect(stored?.membership?.workspaceId).toBe(ctx.workspaceId);
         });
 
         it('vale já na requisição seguinte do alvo, sem trocar de token', async () => {
@@ -119,7 +123,7 @@ describe('concessão e revogação de perfil (spec 0010)', () => {
             expect(response.body.data).toMatchObject({ profile: null, profileGrantedAt: null });
 
             const stored = await ctx.findByUid('uid-alvo');
-            expect(stored?.profileGrantedById).toBeNull();
+            expect(stored?.membership).toBeNull();
         });
 
         it('e o alvo volta a receber PROFILE_PENDING', async () => {

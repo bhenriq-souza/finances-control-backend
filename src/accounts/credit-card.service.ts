@@ -4,6 +4,8 @@ import type { DataSource, EntityManager, Repository } from 'typeorm';
 
 import {
     DatabaseConnectionSymbol,
+    RequestContextSymbol,
+    type RequestContext,
     archivedFilter,
     asConflict,
     needsArchiveChange,
@@ -36,7 +38,10 @@ export type UpdateCreditCard = Partial<
 
 @injectable()
 export class CreditCardService {
-    constructor(@inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource) {}
+    constructor(
+        @inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
+    ) {}
 
     private get cards(): Repository<CreditCard> {
         return this.dataSource.getRepository(CreditCard);
@@ -66,6 +71,7 @@ export class CreditCardService {
             this.cards.save(
                 this.cards.create({
                     ...data,
+                    workspaceId: this.requestContext.requireWorkspaceId(),
                     paymentBankAccountId: data.paymentBankAccountId ?? null,
                     // Nasce igual ao limite total: o cartão não tem gasto nenhum.
                     availableLimitCents: data.creditLimitCents,
