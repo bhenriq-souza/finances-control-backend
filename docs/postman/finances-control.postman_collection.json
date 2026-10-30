@@ -92,7 +92,7 @@
         },
         {
             "name": "Identity",
-            "description": "Usuários, autenticação e concessão de perfil",
+            "description": "Usuários, espaços, autenticação e aprovação de membros",
             "item": [
                 {
                     "name": "O próprio usuário",
@@ -164,11 +164,11 @@
                             "host": ["{{baseUrl}}"],
                             "path": ["users"]
                         },
-                        "description": "Exige perfil `ADMIN`. Ordenados por data de criação."
+                        "description": "Exige a marca de admin da plataforma (`403 FORBIDDEN` para quem não a tem,\ninclusive um `ADMIN` de espaço). Ordenados por data de criação, com o espaço\ne o perfil de cada um."
                     }
                 },
                 {
-                    "name": "Concede ou troca o perfil de um usuário",
+                    "name": "Aprova um usuário ou troca o perfil dele no espaço",
                     "request": {
                         "method": "PATCH",
                         "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -178,7 +178,7 @@
                             "path": ["users", ":id", "profile"],
                             "variable": [{ "key": "id", "value": "{{userId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN`. O perfil passa a valer na requisição seguinte do\nalvo, sem troca de token — ele é lido do banco a cada chamada.\nNinguém altera o próprio perfil, e a operação que deixaria a plataforma\nsem nenhum `ADMIN` é recusada.",
+                        "description": "Exige a marca de admin da plataforma. O corpo tem exatamente uma de três\nformas:\n\n- `{ profile, workspaceId }`: aprova um usuário pendente num espaço\n  existente (`404 WORKSPACE_NOT_FOUND` se não existir);\n- `{ profile: 'ADMIN', newWorkspace: { name } }`: cria o espaço e o usuário\n  vira o `ADMIN` dele, numa transação;\n- `{ profile }`: troca o perfil de quem já é membro, no espaço em que está.\n\n`workspaceId` ou `newWorkspace` para quem já é membro responde\n`409 USER_ALREADY_IN_WORKSPACE`; mudar de espaço é remover (`DELETE`) e\naprovar de novo. Pendente sem nenhum dos dois, ou com os dois, responde\n`400`. `newWorkspace` exige `profile: 'ADMIN'`. O perfil passa a valer na\nrequisição seguinte do alvo, sem troca de token. Ninguém altera o próprio\nmembro, e trocar o perfil do último `ADMIN` de um espaço é recusado\n(`LAST_WORKSPACE_ADMIN`).\n\nCampos opcionais do corpo: `workspaceId`, `newWorkspace`.",
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"profile\": \"ADMIN\"\n}",
@@ -187,7 +187,7 @@
                     }
                 },
                 {
-                    "name": "Revoga o perfil de um usuário",
+                    "name": "Remove o membro do espaço",
                     "request": {
                         "method": "DELETE",
                         "header": [],
@@ -197,7 +197,39 @@
                             "path": ["users", ":id", "profile"],
                             "variable": [{ "key": "id", "value": "{{userId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN`. Devolve o usuário ao estado pendente, sem acesso a\nrecurso de domínio algum. Mesmas travas do `PATCH`."
+                        "description": "Exige a marca de admin da plataforma. Remove o vínculo com o espaço: o\nusuário volta a pendente, sem acesso a recurso de domínio algum, e os\nregistros do espaço ficam. Mesmas travas do `PATCH`; remover o último\n`ADMIN` de um espaço que ainda tem outros membros responde\n`409 LAST_WORKSPACE_ADMIN`."
+                    }
+                },
+                {
+                    "name": "Lista os espaços",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/workspaces",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["workspaces"]
+                        },
+                        "description": "Exige a marca de admin da plataforma. Ordenados por nome, para a escolha\nna aprovação de um usuário."
+                    }
+                },
+                {
+                    "name": "Renomeia um espaço",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/workspaces/:id",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["workspaces", ":id"],
+                            "variable": [{ "key": "id", "value": "{{workspaceId}}" }]
+                        },
+                        "description": "Exige a marca de admin da plataforma.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Exemplo name\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        }
                     }
                 }
             ]

@@ -58,6 +58,11 @@ describe('foto do usuário (spec 0010)', () => {
         await ctx.setProfile('uid-dono', 'VIEWER');
         await ctx.setProfile('uid-outro', 'BILLER');
         await ctx.setProfile('uid-admin', 'ADMIN');
+        // `GET /users` é do admin da plataforma (spec 0021, INV-0021-08).
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
     });
 
     afterEach(async () => {
