@@ -23,6 +23,11 @@ describe('travas de segurança do perfil (spec 0010)', () => {
     beforeEach(async () => {
         await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
         adminId = (await ctx.setProfile('uid-admin', 'ADMIN')).id;
+        // Gerir usuários é do admin da plataforma (spec 0021, INV-0021-08).
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
     });
 
     afterEach(async () => {
@@ -72,15 +77,22 @@ describe('travas de segurança do perfil (spec 0010)', () => {
         });
     });
 
-    describe('a plataforma nunca fica sem Admin (AC-0010-10, INV-0010-06)', () => {
+    describe('o espaço nunca fica sem Admin (INV-0021-07, ERR-0021-09)', () => {
         const serviceOf = (ctx: TestApp) => new UserService(ctx.dataSource);
 
+        // Remover o único membro não deixa espaço sem administrador: a trava só
+        // vale quando sobra alguém (AC-0021-08).
+        beforeEach(async () => {
+            await request(ctx.app).get('/users/me').set('Authorization', 'Bearer uid-viewer');
+            await ctx.setProfile('uid-viewer', 'VIEWER', adminId);
+        });
+
         /**
-         * Pelo HTTP este caso é inalcançável: só um ADMIN chama, e ele não pode
-         * mirar em si mesmo — então sempre sobra pelo menos ele. A trava existe
-         * como defesa em profundidade, e é no serviço que dá para exercitá-la.
+         * Pelo HTTP o caso é alcançável com outro espaço-membro; aqui o serviço o
+         * exercita direto, com um ator que não é o alvo. O espaço precisa ter outro
+         * membro para a remoção ser recusada (AC-0021-08).
          */
-        it('revogar o último Admin é recusado com LAST_ADMIN', async () => {
+        it('revogar o último Admin é recusado com LAST_WORKSPACE_ADMIN', async () => {
             const other = await ctx.dataSource.getRepository(User).save({
                 firebaseUid: 'uid-sem-perfil',
                 email: 'sem-perfil@exemplo.com',
@@ -92,7 +104,7 @@ describe('travas de segurança do perfil (spec 0010)', () => {
                 .catch((caught: unknown) => caught);
 
             expect(error).toBeInstanceOf(CustomError);
-            expect(error).toMatchObject({ status: 409, code: 'LAST_ADMIN' });
+            expect(error).toMatchObject({ status: 409, code: 'LAST_WORKSPACE_ADMIN' });
         });
 
         it('e o banco não muda', async () => {
@@ -121,13 +133,12 @@ describe('travas de segurança do perfil (spec 0010)', () => {
             const error = await serviceOf(ctx)
                 .grantProfile({
                     targetId: adminId,
-                    profile: 'VIEWER',
+                    body: { profile: 'VIEWER' },
                     actorId: other.id,
-                    actorWorkspaceId: ctx.workspaceId,
                 })
                 .catch((caught: unknown) => caught);
 
-            expect(error).toMatchObject({ status: 409, code: 'LAST_ADMIN' });
+            expect(error).toMatchObject({ status: 409, code: 'LAST_WORKSPACE_ADMIN' });
         });
 
         it('havendo outro Admin, a revogação passa', async () => {
@@ -148,9 +159,8 @@ describe('travas de segurança do perfil (spec 0010)', () => {
 
             const granted = await serviceOf(ctx).grantProfile({
                 targetId: target.id,
-                profile: 'ADMIN',
+                body: { profile: 'ADMIN', workspaceId: ctx.workspaceId },
                 actorId: adminId,
-                actorWorkspaceId: ctx.workspaceId,
             });
 
             expect(granted.membership?.profile).toBe('ADMIN');

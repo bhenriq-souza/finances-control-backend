@@ -17,7 +17,7 @@ tags:
     - name: Platform
       description: Endpoints de infraestrutura
     - name: Identity
-      description: Usuários, autenticação e concessão de perfil
+      description: Usuários, espaços, autenticação e aprovação de membros
     - name: Accounts
       description: Bancos, contas bancárias e cartões de crédito
     - name: Earnings
@@ -232,7 +232,10 @@ paths:
         get:
             tags: [Identity]
             summary: Lista os usuários
-            description: Exige perfil `ADMIN`. Ordenados por data de criação.
+            description: |
+                Exige a marca de admin da plataforma (`403 FORBIDDEN` para quem não a tem,
+                inclusive um `ADMIN` de espaço). Ordenados por data de criação, com o espaço
+                e o perfil de cada um.
             operationId: listUsers
             security: [{ bearerAuth: [] }]
             responses:
@@ -262,12 +265,24 @@ paths:
                   format: uuid
         patch:
             tags: [Identity]
-            summary: Concede ou troca o perfil de um usuário
+            summary: Aprova um usuário ou troca o perfil dele no espaço
             description: |
-                Exige perfil `ADMIN`. O perfil passa a valer na requisição seguinte do
-                alvo, sem troca de token — ele é lido do banco a cada chamada.
-                Ninguém altera o próprio perfil, e a operação que deixaria a plataforma
-                sem nenhum `ADMIN` é recusada.
+                Exige a marca de admin da plataforma. O corpo tem exatamente uma de três
+                formas:
+
+                - `{ profile, workspaceId }`: aprova um usuário pendente num espaço
+                  existente (`404 WORKSPACE_NOT_FOUND` se não existir);
+                - `{ profile: 'ADMIN', newWorkspace: { name } }`: cria o espaço e o usuário
+                  vira o `ADMIN` dele, numa transação;
+                - `{ profile }`: troca o perfil de quem já é membro, no espaço em que está.
+
+                `workspaceId` ou `newWorkspace` para quem já é membro responde
+                `409 USER_ALREADY_IN_WORKSPACE`; mudar de espaço é remover (`DELETE`) e
+                aprovar de novo. Pendente sem nenhum dos dois, ou com os dois, responde
+                `400`. `newWorkspace` exige `profile: 'ADMIN'`. O perfil passa a valer na
+                requisição seguinte do alvo, sem troca de token. Ninguém altera o próprio
+                membro, e trocar o perfil do último `ADMIN` de um espaço é recusado
+                (`LAST_WORKSPACE_ADMIN`).
             operationId: grantUserProfile
             security: [{ bearerAuth: [] }]
             requestBody:
@@ -275,12 +290,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            type: object
-                            required: [profile]
-                            properties:
-                                profile:
-                                    type: string
-                                    enum: [ADMIN, BILLER, VIEWER]
+                            $ref: '#/components/schemas/GrantUserProfile'
             responses:
                 '200':
                     $ref: '#/components/responses/User'
@@ -291,15 +301,22 @@ paths:
                 '403':
                     $ref: '#/components/responses/Forbidden'
                 '404':
-                    $ref: '#/components/responses/UserNotFound'
+                    description: '`USER_NOT_FOUND`, ou `WORKSPACE_NOT_FOUND` para `workspaceId` inexistente'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
                 '409':
                     $ref: '#/components/responses/ProfileConflict'
         delete:
             tags: [Identity]
-            summary: Revoga o perfil de um usuário
+            summary: Remove o membro do espaço
             description: |
-                Exige perfil `ADMIN`. Devolve o usuário ao estado pendente, sem acesso a
-                recurso de domínio algum. Mesmas travas do `PATCH`.
+                Exige a marca de admin da plataforma. Remove o vínculo com o espaço: o
+                usuário volta a pendente, sem acesso a recurso de domínio algum, e os
+                registros do espaço ficam. Mesmas travas do `PATCH`; remover o último
+                `ADMIN` de um espaço que ainda tem outros membros responde
+                `409 LAST_WORKSPACE_ADMIN`.
             operationId: revokeUserProfile
             security: [{ bearerAuth: [] }]
             responses:
@@ -315,6 +332,82 @@ paths:
                     $ref: '#/components/responses/UserNotFound'
                 '409':
                     $ref: '#/components/responses/ProfileConflict'
+
+    /workspaces:
+        get:
+            tags: [Identity]
+            summary: Lista os espaços
+            description: |
+                Exige a marca de admin da plataforma. Ordenados por nome, para a escolha
+                na aprovação de um usuário.
+            operationId: listWorkspaces
+            security: [{ bearerAuth: [] }]
+            responses:
+                '200':
+                    description: Espaços da plataforma
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/WorkspaceResponse'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+
+    /workspaces/{id}:
+        parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                  type: string
+                  format: uuid
+        patch:
+            tags: [Identity]
+            summary: Renomeia um espaço
+            description: Exige a marca de admin da plataforma.
+            operationId: renameWorkspace
+            security: [{ bearerAuth: [] }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required: [name]
+                            properties:
+                                name:
+                                    type: string
+                                    minLength: 1
+                                    maxLength: 80
+                                    description: Sem espaço nas pontas; 1 a 80 caracteres.
+            responses:
+                '200':
+                    description: O espaço renomeado
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/WorkspaceResponse'
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+                '401':
+                    $ref: '#/components/responses/Unauthenticated'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    description: '`WORKSPACE_NOT_FOUND`'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
 
     /banks:
         get:
@@ -2623,8 +2716,9 @@ components:
                         $ref: '#/components/schemas/Error'
         Forbidden:
             description: |
-                `PROFILE_PENDING` quando a conta ainda não tem perfil, e `FORBIDDEN`
-                quando o perfil não alcança a operação.
+                `PROFILE_PENDING` quando a conta não tem espaço (rotas de domínio), e
+                `FORBIDDEN` quando o perfil, ou a falta da marca de admin da plataforma,
+                não alcança a operação.
             content:
                 application/json:
                     schema:
@@ -2657,8 +2751,10 @@ components:
                         $ref: '#/components/schemas/Error'
         ProfileConflict:
             description: |
-                `CANNOT_CHANGE_OWN_PROFILE` ao mirar o próprio usuário, e `LAST_ADMIN`
-                quando a operação deixaria a plataforma sem administrador.
+                `CANNOT_CHANGE_OWN_PROFILE` ao mirar o próprio usuário,
+                `LAST_WORKSPACE_ADMIN` quando a operação deixaria um espaço com membros e
+                sem `ADMIN`, e `USER_ALREADY_IN_WORKSPACE` quando `workspaceId` ou
+                `newWorkspace` vão para quem já é membro.
             content:
                 application/json:
                     schema:
@@ -2988,6 +3084,8 @@ components:
                     name,
                     profile,
                     profileGrantedAt,
+                    workspace,
+                    isPlatformAdmin,
                     avatarUpdatedAt,
                     createdAt,
                 ]
@@ -3007,11 +3105,24 @@ components:
                     type: string
                     nullable: true
                     enum: [ADMIN, BILLER, VIEWER]
-                    description: Nulo enquanto um Admin não conceder perfil.
+                    description: O perfil no espaço; nulo enquanto o admin da plataforma não aprovar.
                 profileGrantedAt:
                     type: string
                     format: date-time
                     nullable: true
+                workspace:
+                    type: object
+                    nullable: true
+                    required: [id, name]
+                    properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                    description: O espaço do membro; nulo para o usuário pendente.
+                isPlatformAdmin:
+                    type: boolean
+                    description: |
+                        Quem aprova usuários, gere espaços e escreve os catálogos globais. Não é
+                        um perfil: vale com ou sem espaço.
                 avatarUpdatedAt:
                     type: string
                     format: date-time
@@ -3022,6 +3133,37 @@ components:
                 createdAt:
                     type: string
                     format: date-time
+
+        GrantUserProfile:
+            type: object
+            required: [profile]
+            properties:
+                profile:
+                    type: string
+                    enum: [ADMIN, BILLER, VIEWER]
+                workspaceId:
+                    type: string
+                    format: uuid
+                    description: Espaço existente, para um usuário pendente.
+                newWorkspace:
+                    type: object
+                    required: [name]
+                    description: 'Cria o espaço; exige `profile: ADMIN`. Não combina com `workspaceId`.'
+                    properties:
+                        name:
+                            type: string
+                            minLength: 1
+                            maxLength: 80
+            additionalProperties: false
+
+        WorkspaceResponse:
+            type: object
+            required: [id, name, memberCount, createdAt]
+            properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                memberCount: { type: integer, minimum: 0 }
+                createdAt: { type: string, format: date-time }
 
         BankAccountType:
             type: string
@@ -4155,7 +4297,7 @@ components:
                 - FORBIDDEN
                 - INTERNAL_ERROR
                 - INVALID_JSON
-                - LAST_ADMIN
+                - LAST_WORKSPACE_ADMIN
                 - NOT_READY
                 - PAYLOAD_TOO_LARGE
                 - PROFILE_GUARD_WITHOUT_AUTHENTICATION
@@ -4174,9 +4316,11 @@ components:
                 - STATEMENT_ROLLED_OVER
                 - TOKEN_EXPIRED
                 - UNAUTHENTICATED
+                - USER_ALREADY_IN_WORKSPACE
                 - USER_NOT_FOUND
                 - VALIDATION_ERROR
                 - WORKSPACE_CONTEXT_MISSING
+                - WORKSPACE_NOT_FOUND
 
         Error:
             type: object

@@ -10,3 +10,6 @@ export const UserProvisioningServiceSymbol = Symbol.for('UserProvisioningService
 export const UserServiceSymbol = Symbol.for('UserService');
 export const UserControllerSymbol = Symbol.for('UserController');
 export const UserRoutesSymbol = Symbol.for('UserRoutes');
+export const WorkspaceServiceSymbol = Symbol.for('WorkspaceService');
+export const WorkspaceControllerSymbol = Symbol.for('WorkspaceController');
+export const WorkspaceRoutesSymbol = Symbol.for('WorkspaceRoutes');

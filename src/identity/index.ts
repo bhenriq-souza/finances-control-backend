@@ -28,3 +28,6 @@ export { UserController } from './user.controller';
 export { UserRoutes } from './user.routes';
 export { toUserResponse, type UserResponse } from './user.response';
 export * from './identity.symbols';
+export { WorkspaceService, type WorkspaceView } from './workspace.service';
+export { WorkspaceController, type WorkspaceResponse } from './workspace.controller';
+export { WorkspaceRoutes } from './workspace.routes';
