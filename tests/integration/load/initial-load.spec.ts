@@ -164,9 +164,9 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
         });
 
         it('AC-0019-06: parcelada vira um grupo cuja soma é o total, com a numeração original', async () => {
-            const rows = (await services.expenses.list()).filter((expense) =>
-                expense.description.startsWith('Geladeira'),
-            );
+            const rows = (
+                await services.inWorkspace(workspaceId, () => services.expenses.list())
+            ).filter((expense) => expense.description.startsWith('Geladeira'));
 
             expect(rows).toHaveLength(8);
             expect(rows.reduce((sum, row) => sum + row.amountCents, 0)).toBe(25000 * 8);
@@ -175,19 +175,21 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
             );
             expect(new Set(rows.map((row) => row.installmentGroupId)).size).toBe(1);
 
-            const single = (await services.expenses.list()).filter(
-                (expense) => expense.description === 'Consulta (4/4)',
-            );
+            const single = (
+                await services.inWorkspace(workspaceId, () => services.expenses.list())
+            ).filter((expense) => expense.description === 'Consulta (4/4)');
             expect(single).toEqual([
                 expect.objectContaining({ kind: 'VARIABLE', amountCents: 12000 }),
             ]);
         });
 
         it('AC-0019-01: despesa fixa vira série com fim e notas; receitas com pagante nas notas', async () => {
-            const rent = (await services.expenses.list()).filter(
-                (expense) => expense.description === 'Aluguel',
+            const rent = (
+                await services.inWorkspace(workspaceId, () => services.expenses.list())
+            ).filter((expense) => expense.description === 'Aluguel');
+            const earnings = await services.inWorkspace(workspaceId, () =>
+                services.earnings.list(),
             );
-            const earnings = await services.earnings.list();
 
             expect(rent[0]).toMatchObject({
                 kind: 'FIXED',
@@ -208,9 +210,11 @@ describe('carga inicial: gravação pelos serviços (spec 0019)', () => {
             const card = (await services.cards.list(await workspaceOf())).find(
                 (row) => row.name === 'Alfa Black',
             )!;
-            const entry = (await services.expenses.list({ creditCardId: card.id })).find((row) =>
-                row.description.startsWith('Fatura anterior'),
-            )!;
+            const entry = (
+                await services.inWorkspace(workspaceId, () =>
+                    services.expenses.list({ creditCardId: card.id }),
+                )
+            ).find((row) => row.description.startsWith('Fatura anterior'))!;
 
             expect(entry).toMatchObject({
                 description: 'Fatura anterior Alfa Black (vence 2026-10-16)',
