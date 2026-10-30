@@ -73,6 +73,7 @@ describe('POST /expenses com INSTALLMENT (spec 0012, parcelamento)', () => {
     beforeEach(async () => {
         await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
         await ctx.setProfile('uid-admin', 'ADMIN');
+        await ctx.setPlatformAdmin('uid-admin');
 
         const bankId = (await send('/banks', { febrabanCode: '260', name: 'Nu Pagamentos' })).body
             .data.id as string;

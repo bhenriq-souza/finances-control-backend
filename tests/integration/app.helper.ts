@@ -81,6 +81,12 @@ export type TestApp = {
         workspaceId?: string,
     ) => Promise<User>;
     findByUid: (uid: string) => Promise<User | null>;
+    /**
+     * Marca (ou desmarca) alguém como administrador da plataforma direto no banco:
+     * é quem escreve nos catálogos globais (bancos e tipos), independente do perfil
+     * no espaço.
+     */
+    setPlatformAdmin: (uid: string, value?: boolean) => Promise<void>;
 };
 
 export async function startApp(schema: string): Promise<TestApp> {
@@ -105,6 +111,12 @@ export async function startApp(schema: string): Promise<TestApp> {
             const user = await users.findOne({ where: { firebaseUid: uid } });
 
             return user && withMembership(dataSource.manager, user);
+        },
+        setPlatformAdmin: async (uid, value = true) => {
+            await dataSource.query(
+                'UPDATE users SET is_platform_admin = $2 WHERE firebase_uid = $1',
+                [uid, value],
+            );
         },
         setProfile: async (uid, profile, grantedById, workspaceId) => {
             const user = await users.findOneByOrFail({ firebaseUid: uid });

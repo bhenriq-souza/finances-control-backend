@@ -40,6 +40,7 @@ export async function seedReporting(
 
     await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
     await ctx.setProfile('uid-admin', 'ADMIN');
+    await ctx.setPlatformAdmin('uid-admin');
 
     const send = (path: string, body: Record<string, unknown>) =>
         request(ctx.app).post(path).set('Authorization', ADMIN).send(body);
