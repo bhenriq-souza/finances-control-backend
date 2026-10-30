@@ -96,16 +96,24 @@ export class CardDebtService {
      * Um `CardLedger` por cartão (arquivados inclusive), com faturas até `lastDay`.
      * `paidByBankAccountId` restringe aos cartões que a conta paga.
      */
-    async ledgers(lastDay: string, paidByBankAccountId?: string): Promise<CardLedger[]> {
+    async ledgers(
+        workspaceId: string,
+        lastDay: string,
+        paidByBankAccountId?: string,
+    ): Promise<CardLedger[]> {
         const cards = (await this.dataSource.query(
             `SELECT c.id, c.payment_bank_account_id AS payer
              FROM credit_cards c
-             WHERE ($1::uuid IS NULL OR c.payment_bank_account_id = $1::uuid)
+             WHERE c.workspace_id = $2
+               AND ($1::uuid IS NULL OR c.payment_bank_account_id = $1::uuid)
              ORDER BY c.created_at, c.id`,
-            [paidByBankAccountId ?? null],
+            [paidByBankAccountId ?? null, workspaceId],
         )) as Array<{ id: string; payer: string | null }>;
 
-        const forecasts = await this.forecastPostings(cards.map((card) => card.id));
+        const forecasts = await this.forecastPostings(
+            workspaceId,
+            cards.map((card) => card.id),
+        );
         const ledgers: CardLedger[] = [];
 
         for (const card of cards) {
@@ -163,15 +171,17 @@ export class CardDebtService {
     }
 
     private async forecastPostings(
+        workspaceId: string,
         cardIds: string[],
     ): Promise<Map<string, Array<{ postedOn: string; cents: number }>>> {
         const rows = (await this.dataSource.query(
             `SELECT x.credit_card_id AS card_id, to_char(x.posted_on, 'YYYY-MM-DD') AS posted_on,
                     SUM(x.amount_cents)::text AS total
              FROM expenses x
-             WHERE x.credit_card_id = ANY($1::uuid[]) AND x.status = ANY($2::text[])
+             WHERE x.workspace_id = $3 AND x.credit_card_id = ANY($1::uuid[])
+               AND x.status = ANY($2::text[])
              GROUP BY 1, 2`,
-            [cardIds, [...COMPOSITION.expenses.forecast]],
+            [cardIds, [...COMPOSITION.expenses.forecast], workspaceId],
         )) as Array<{ card_id: string; posted_on: string; total: string }>;
         const result = new Map<string, Array<{ postedOn: string; cents: number }>>();
 

@@ -40,40 +40,16 @@ export type LoadServices = {
     expenses: ExpenseService;
     earningTypes: EarningTypeService;
     earnings: EarningService;
+    /** Whether the workspace exists (ERR-0021-14); checked before the spreadsheet is read. */
+    workspaceExists: (workspaceId: string) => Promise<boolean>;
     /**
-     * Runs the writes with the load's workspace in the context, as a request would have it
-     * (spec 0021): the services store the workspace they read from there. A dry run never
-     * creates the workspace: it writes nothing, and `work` then receives `null` (an empty
-     * database has no records to look up).
+     * Runs the writes with the given workspace in the context, as a request would have it
+     * (spec 0021): the services store the workspace they read from there.
      */
-    inWorkspace: <T>(
-        work: (workspaceId: string | null) => Promise<T>,
-        options: { dryRun: boolean },
-    ) => Promise<T>;
+    inWorkspace: <T>(workspaceId: string, work: () => Promise<T>) => Promise<T>;
 };
 
-/**
- * The workspace the load writes into. Provisional until `--workspace` (T-0021-07): the only
- * workspace there is, or a new `Principal` one in an empty database, as the workspaces
- * migration does; with more than one, the load refuses instead of guessing.
- */
-async function loadWorkspace(dataSource: DataSource, dryRun: boolean): Promise<string | null> {
-    const rows: { id: string }[] = await dataSource.query(
-        'SELECT id FROM workspaces ORDER BY created_at LIMIT 2',
-    );
-
-    if (rows.length > 1) {
-        throw new Error('the initial load cannot choose among several workspaces');
-    }
-    if (rows[0]) return rows[0].id;
-    if (dryRun) return null;
-
-    const [created]: { id: string }[] = await dataSource.query(
-        "INSERT INTO workspaces (name) VALUES ('Principal') RETURNING id",
-    );
-
-    return created!.id;
-}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The API's environment list with only `DATABASE_URL` required (AC-0019-10): the load checks no
@@ -117,13 +93,19 @@ export async function composeLoad(dataSource?: DataSource): Promise<LoadServices
         expenses: container.resolve(ExpenseServiceSymbol),
         earningTypes: container.resolve(EarningTypeServiceSymbol),
         earnings: container.resolve(EarningServiceSymbol),
-        inWorkspace: async (work, options) => {
-            const workspaceId = await loadWorkspace(connection, options.dryRun);
-
-            return requestContext.run(
-                { correlationId: 'initial-load', startedAt: Date.now(), workspaceId },
-                () => work(workspaceId),
+        workspaceExists: async (workspaceId) => {
+            if (!UUID.test(workspaceId)) return false;
+            const rows: unknown[] = await connection.query(
+                'SELECT 1 FROM workspaces WHERE id = $1',
+                [workspaceId],
             );
+
+            return rows.length > 0;
         },
+        inWorkspace: (workspaceId, work) =>
+            requestContext.run(
+                { correlationId: 'initial-load', startedAt: Date.now(), workspaceId },
+                work,
+            ),
     };
 }
