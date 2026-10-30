@@ -563,7 +563,7 @@ módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rot
     - Where: `src/earnings/`, `docs/openapi.yaml`, `tests/integration/earnings/isolation.spec.ts`
     - Done when: `AC-0021-13`, a parte de receitas de `AC-0021-17` e a de tipos de receita de
       `AC-0021-18` cobertos
-- [ ] **T-0021-06 — Faturas e transferências por espaço** · #211
+- [x] **T-0021-06 — Faturas e transferências por espaço** · #211
     - What: escopo em faturas, pagamentos, estornos, fechamento e transferências
     - Where: `src/statements/`, transferências em `src/accounts/`, `tests/integration/statements/isolation.spec.ts`,
       `tests/integration/accounts/transfers-isolation.spec.ts`
