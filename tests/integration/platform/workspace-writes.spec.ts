@@ -38,7 +38,11 @@ describe('escrita por espaço (spec 0021)', () => {
         ctx = await startApp(SCHEMA);
         spaces = await createTwoWorkspaces(ctx);
 
-        // Bancos e tipos são catálogo global (spec 0021): qualquer ADMIN escreve, por ora.
+        // Bancos e tipos são catálogo global (spec 0021): só o admin da plataforma escreve.
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin-a'],
+        );
         bankId = (await spaces.a.post('/banks', { febrabanCode: '260', name: 'Nu' })).body.data
             .id as string;
         typeId = (await spaces.a.post('/expense-types', { name: 'T-Espaço' })).body.data

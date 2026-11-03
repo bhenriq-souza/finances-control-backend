@@ -5,9 +5,10 @@ import type { RouteDef } from '@bhs-dev/typescript-common-types';
 import {
     BaseRoute,
     RequireAuthenticationSymbol,
-    RequireProfileSymbol,
-    USER_PROFILES,
-    type RequireProfile,
+    RequireMemberOrPlatformAdminSymbol,
+    RequirePlatformAdminSymbol,
+    type RequireMemberOrPlatformAdmin,
+    type RequirePlatformAdmin,
 } from '../platform';
 import { BankControllerSymbol } from './accounts.symbols';
 import type { BankController } from './bank.controller';
@@ -17,16 +18,19 @@ export class BankRoutes extends BaseRoute {
     constructor(
         @inject(BankControllerSymbol) private readonly controller: BankController,
         @inject(RequireAuthenticationSymbol) private readonly requireAuthentication: RequestHandler,
-        @inject(RequireProfileSymbol) private readonly requireProfile: RequireProfile,
+        @inject(RequirePlatformAdminSymbol)
+        private readonly requirePlatformAdmin: RequirePlatformAdmin,
+        @inject(RequireMemberOrPlatformAdminSymbol)
+        private readonly requireMemberOrPlatformAdmin: RequireMemberOrPlatformAdmin,
     ) {
         super();
     }
 
     routes(): RouteDef[] {
-        // "Gerenciar contas" é atribuição do ADMIN; ler, de qualquer perfil —
-        // o BILLER precisa escolher o banco ao lançar uma despesa (spec 0011).
-        const write = [this.requireAuthentication, this.requireProfile('ADMIN')];
-        const read = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
+        // Bancos são catálogo global (spec 0021): qualquer membro lê, só o admin da
+        // plataforma escreve.
+        const write = [this.requireAuthentication, this.requirePlatformAdmin()];
+        const read = [this.requireAuthentication, this.requireMemberOrPlatformAdmin()];
 
         return [
             {

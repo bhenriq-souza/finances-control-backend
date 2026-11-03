@@ -224,7 +224,7 @@
                                 }
                             ]
                         },
-                        "description": "Lista os bancos"
+                        "description": "Catálogo global (spec 0021). Exige ser membro de um espaço ou admin da plataforma."
                     }
                 },
                 {
@@ -237,7 +237,7 @@
                             "host": ["{{baseUrl}}"],
                             "path": ["banks"]
                         },
-                        "description": "Exige perfil `ADMIN`.",
+                        "description": "Exige ser admin da plataforma (catálogo global, spec 0021).",
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"febrabanCode\": \"999\",\n    \"name\": \"Exemplo name\"\n}",
@@ -270,7 +270,7 @@
                             "path": ["banks", ":id"],
                             "variable": [{ "key": "id", "value": "{{bankId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN`. Só o nome é alterável: trocar o código FEBRABAN\nfaria do registro outro banco, e as contas e cartões ligados a ele\ncontinuariam apontando para o antigo.",
+                        "description": "Exige ser admin da plataforma (catálogo global, spec 0021). Só o nome é alterável: trocar o código FEBRABAN\nfaria do registro outro banco, e as contas e cartões ligados a ele\ncontinuariam apontando para o antigo.",
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"name\": \"Exemplo name\"\n}",
@@ -289,7 +289,7 @@
                             "path": ["banks", ":id", "archive"],
                             "variable": [{ "key": "id", "value": "{{bankId}}" }]
                         },
-                        "description": "Exige perfil `ADMIN`. Registro financeiro não se apaga: arquivar o tira\nda listagem padrão e o mantém sustentando o histórico. A operação é\nidempotente. Um banco arquivado não recebe conta nem cartão novo."
+                        "description": "Exige ser admin da plataforma (catálogo global, spec 0021). Registro financeiro não se apaga: arquivar o tira\nda listagem padrão e o mantém sustentando o histórico. A operação é\nidempotente. Um banco arquivado não recebe conta nem cartão novo."
                     }
                 },
                 {

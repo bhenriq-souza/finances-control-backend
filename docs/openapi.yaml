@@ -320,6 +320,7 @@ paths:
         get:
             tags: [Accounts]
             summary: Lista os bancos
+            description: Catálogo global (spec 0021). Exige ser membro de um espaço ou admin da plataforma.
             operationId: listBanks
             security: [{ bearerAuth: [] }]
             parameters:
@@ -345,7 +346,7 @@ paths:
         post:
             tags: [Accounts]
             summary: Cadastra um banco
-            description: Exige perfil `ADMIN`.
+            description: Exige ser admin da plataforma (catálogo global, spec 0021).
             operationId: createBank
             security: [{ bearerAuth: [] }]
             requestBody:
@@ -381,7 +382,7 @@ paths:
             tags: [Accounts]
             summary: Altera um banco
             description: |
-                Exige perfil `ADMIN`. Só o nome é alterável: trocar o código FEBRABAN
+                Exige ser admin da plataforma (catálogo global, spec 0021). Só o nome é alterável: trocar o código FEBRABAN
                 faria do registro outro banco, e as contas e cartões ligados a ele
                 continuariam apontando para o antigo.
             operationId: updateBank
@@ -415,7 +416,7 @@ paths:
             tags: [Accounts]
             summary: Arquiva um banco
             description: |
-                Exige perfil `ADMIN`. Registro financeiro não se apaga: arquivar o tira
+                Exige ser admin da plataforma (catálogo global, spec 0021). Registro financeiro não se apaga: arquivar o tira
                 da listagem padrão e o mantém sustentando o histórico. A operação é
                 idempotente. Um banco arquivado não recebe conta nem cartão novo.
             operationId: archiveBank
