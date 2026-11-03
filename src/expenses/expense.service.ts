@@ -267,22 +267,22 @@ export class ExpenseService {
      * `FORECAST → OPEN` de cartão abate o limite. Despesa de cartão nunca é paga
      * por aqui (ERR-0012-09).
      */
-    changeStatus(id: string, change: ChangeExpenseStatus): Promise<ExpenseWithType> {
+    changeStatus(
+        workspaceId: string,
+        id: string,
+        change: ChangeExpenseStatus,
+    ): Promise<ExpenseWithType> {
         return this.runner.run(async (scope) => {
             const { manager } = scope;
             const repository = manager.getRepository(Expense);
             // FOR NO KEY UPDATE: serializa mudanças da mesma despesa sem conflitar com o
             // KEY SHARE que a FK de uma fatura toma sobre a linha.
             const expense = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
-            if (!expense) {
-                throw CustomError.notFound('Expense not found', 'EXPENSE_NOT_FOUND', {
-                    exposeMessage: true,
-                });
-            }
+            if (!expense) throw expenseNotFound();
 
             const from = expense.status;
             const to = change.status;
@@ -299,7 +299,7 @@ export class ExpenseService {
             if (from === 'FORECAST' && to === 'OPEN' && expense.creditCardId) {
                 const closedThrough = await this.closedThrough(
                     manager,
-                    expense.workspaceId,
+                    workspaceId,
                     expense.creditCardId,
                 );
 
@@ -324,14 +324,14 @@ export class ExpenseService {
 
                 await this.bankAccounts.applyBalanceDelta(
                     manager,
-                    expense.workspaceId,
+                    workspaceId,
                     expense.bankAccountId as string,
                     -expense.amountCents,
                 );
-                await repository.update({ id }, { status: 'PAID', paidOn });
+                await repository.update({ id, workspaceId }, { status: 'PAID', paidOn });
                 scope.publish({
                     name: EXPENSE_PAID,
-                    workspaceId: expense.workspaceId,
+                    workspaceId: workspaceId,
                     payload: {
                         expenseId: id,
                         amountCents: expense.amountCents,
@@ -342,26 +342,26 @@ export class ExpenseService {
             } else if (from === 'PAID') {
                 await this.bankAccounts.applyBalanceDelta(
                     manager,
-                    expense.workspaceId,
+                    workspaceId,
                     expense.bankAccountId as string,
                     expense.amountCents,
                 );
-                await repository.update({ id }, { status: 'OPEN', paidOn: null });
+                await repository.update({ id, workspaceId }, { status: 'OPEN', paidOn: null });
             } else {
                 if (from === 'FORECAST' && expense.creditCardId) {
                     await this.creditCards.applyAvailableLimitDelta(
                         manager,
-                        expense.workspaceId,
+                        workspaceId,
                         expense.creditCardId,
                         -expense.amountCents,
                     );
                 }
 
-                await repository.update({ id }, { status: to });
+                await repository.update({ id, workspaceId }, { status: to });
             }
 
             return (await repository.findOneOrFail({
-                where: { id },
+                where: { id, workspaceId },
                 relations: { expenseType: true },
             })) as ExpenseWithType;
         });
@@ -374,10 +374,12 @@ export class ExpenseService {
      * mantém a data original (AC-0020-02).
      */
     changeReconciliation(id: string, change: ChangeReconciliation): Promise<ExpenseWithType> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async ({ manager }) => {
             const repository = manager.getRepository(Expense);
             const expense = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
@@ -394,12 +396,12 @@ export class ExpenseService {
 
             if (!change.reconciled) {
                 if (expense.reconciledAt !== null) {
-                    await repository.update({ id }, { reconciledAt: null });
+                    await repository.update({ id, workspaceId }, { reconciledAt: null });
                 }
             } else if (expense.status === 'FORECAST') {
                 const closedThrough = await this.closedThrough(
                     manager,
-                    expense.workspaceId,
+                    workspaceId,
                     expense.creditCardId,
                 );
 
@@ -409,17 +411,20 @@ export class ExpenseService {
 
                 await this.creditCards.applyAvailableLimitDelta(
                     manager,
-                    expense.workspaceId,
+                    workspaceId,
                     expense.creditCardId,
                     -expense.amountCents,
                 );
-                await repository.update({ id }, { status: 'OPEN', reconciledAt: new Date() });
+                await repository.update(
+                    { id, workspaceId },
+                    { status: 'OPEN', reconciledAt: new Date() },
+                );
             } else if (expense.reconciledAt === null) {
-                await repository.update({ id }, { reconciledAt: new Date() });
+                await repository.update({ id, workspaceId }, { reconciledAt: new Date() });
             }
 
             return (await repository.findOneOrFail({
-                where: { id },
+                where: { id, workspaceId },
                 relations: { expenseType: true },
             })) as ExpenseWithType;
         });
@@ -441,11 +446,14 @@ export class ExpenseService {
 
     /** AC-0012-16: filtros combinados por E; `from`/`to` inclusivos sobre `occurredOn`. */
     list(query: ListExpensesQuery = {}): Promise<ExpenseWithType[]> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const qb = scope.manager
                 .getRepository(Expense)
                 .createQueryBuilder('e')
                 .innerJoinAndSelect('e.expenseType', 't')
+                .where('e.workspaceId = :workspaceId', { workspaceId })
                 .orderBy('e.occurredOn', 'ASC')
                 .addOrderBy('e.createdAt', 'ASC')
                 .addOrderBy('e.id', 'ASC');
@@ -533,14 +541,16 @@ export class ExpenseService {
         changes: UpdateExpense,
         mutationScope?: MutationScope,
     ): Promise<ExpenseWithType> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const { manager } = scope;
             const repository = manager.getRepository(Expense);
 
-            if (mutationScope === 'following') await this.lockSeriesOf(manager, id);
+            if (mutationScope === 'following') await this.lockSeriesOf(manager, workspaceId, id);
 
             const expense = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
@@ -563,7 +573,7 @@ export class ExpenseService {
 
             const closedThrough =
                 expense.creditCardId !== null
-                    ? await this.closedThrough(manager, expense.workspaceId, expense.creditCardId)
+                    ? await this.closedThrough(manager, workspaceId, expense.creditCardId)
                     : null;
             const inClosedWindow =
                 closedThrough !== null &&
@@ -624,20 +634,20 @@ export class ExpenseService {
             ) {
                 await this.creditCards.applyAvailableLimitDelta(
                     manager,
-                    expense.workspaceId,
+                    workspaceId,
                     expense.creditCardId,
                     -(changes.amountCents - expense.amountCents),
                 );
             }
 
-            if (Object.keys(patch).length > 0) await repository.update({ id }, patch);
+            if (Object.keys(patch).length > 0) await repository.update({ id, workspaceId }, patch);
 
             if (mutationScope === 'following') {
-                await this.applyModelToFollowing(manager, expense, changes);
+                await this.applyModelToFollowing(manager, workspaceId, expense, changes);
             }
 
             return (await repository.findOneOrFail({
-                where: { id },
+                where: { id, workspaceId },
                 relations: { expenseType: true },
             })) as ExpenseWithType;
         });
@@ -655,17 +665,19 @@ export class ExpenseService {
         change: ChangePaymentMethod,
         mutationScope?: MutationScope,
     ): Promise<ExpenseWithType[]> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const { manager } = scope;
             const repository = manager.getRepository(Expense);
             const following = mutationScope === 'following';
 
-            if (following) await this.lockSeriesOf(manager, id);
+            if (following) await this.lockSeriesOf(manager, workspaceId, id);
 
             // Leitura sem trava só para descobrir o grupo; a trava do grupo vem em ordem de
             // `id`, como na exclusão, para que duas trocas concorrentes nunca se travem
             // em ordem cruzada.
-            const probe = await repository.findOne({ where: { id } });
+            const probe = await repository.findOne({ where: { id, workspaceId } });
 
             if (!probe) throw expenseNotFound();
 
@@ -673,16 +685,17 @@ export class ExpenseService {
             const locked = await repository.find({
                 where: following
                     ? [
-                          { id },
+                          { id, workspaceId },
                           {
+                              workspaceId,
                               recurrenceId: probe.recurrenceId as string,
                               status: 'FORECAST',
                               occurredOn: MoreThan(probe.occurredOn),
                           },
                       ]
                     : probe.installmentGroupId !== null
-                      ? { installmentGroupId: probe.installmentGroupId }
-                      : { id },
+                      ? { workspaceId, installmentGroupId: probe.installmentGroupId }
+                      : { id, workspaceId },
                 order: { id: 'ASC' },
                 lock: { mode: 'for_no_key_update' },
             });
@@ -695,7 +708,7 @@ export class ExpenseService {
             const destAccountId = change.bankAccountId ?? null;
             const reload = async (ids: string[]): Promise<ExpenseWithType[]> => {
                 const rows = await repository.find({
-                    where: { id: In(ids) },
+                    where: { id: In(ids), workspaceId },
                     relations: { expenseType: true },
                 });
 
@@ -713,14 +726,13 @@ export class ExpenseService {
             if (sameDestination(target) && !following) return reload([id]);
 
             if (destCardId !== null) {
-                if ((await this.creditCards.findById(target.workspaceId, destCardId)).archivedAt) {
+                if ((await this.creditCards.findById(workspaceId, destCardId)).archivedAt) {
                     throw new CustomError(409, 'CREDIT_CARD_ARCHIVED', 'This card is archived', {
                         exposeMessage: true,
                     });
                 }
             } else if (
-                (await this.bankAccounts.findById(target.workspaceId, destAccountId as string))
-                    .archivedAt
+                (await this.bankAccounts.findById(workspaceId, destAccountId as string)).archivedAt
             ) {
                 throw new CustomError(409, 'BANK_ACCOUNT_ARCHIVED', 'This account is archived', {
                     exposeMessage: true,
@@ -729,7 +741,7 @@ export class ExpenseService {
 
             const destClosedThrough =
                 destCardId !== null
-                    ? await this.closedThrough(manager, target.workspaceId, destCardId)
+                    ? await this.closedThrough(manager, workspaceId, destCardId)
                     : null;
 
             if (
@@ -751,7 +763,7 @@ export class ExpenseService {
                 if (row.creditCardId !== null && !sourceClosedThrough.has(row.creditCardId)) {
                     sourceClosedThrough.set(
                         row.creditCardId,
-                        await this.closedThrough(manager, row.workspaceId, row.creditCardId),
+                        await this.closedThrough(manager, workspaceId, row.creditCardId),
                     );
                 }
             }
@@ -797,7 +809,7 @@ export class ExpenseService {
                     if (status !== 'FORECAST') addDelta(destCardId, -row.amountCents);
 
                     await repository.update(
-                        { id: row.id },
+                        { id: row.id, workspaceId },
                         {
                             bankAccountId: null,
                             creditCardId: destCardId,
@@ -812,7 +824,7 @@ export class ExpenseService {
                     );
                 } else {
                     await repository.update(
-                        { id: row.id },
+                        { id: row.id, workspaceId },
                         {
                             bankAccountId: destAccountId,
                             creditCardId: null,
@@ -829,7 +841,7 @@ export class ExpenseService {
                 if (delta !== 0)
                     await this.creditCards.applyAvailableLimitDelta(
                         manager,
-                        target.workspaceId,
+                        workspaceId,
                         cardId,
                         delta,
                     );
@@ -839,7 +851,7 @@ export class ExpenseService {
                 await manager
                     .getRepository(ExpenseRecurrence)
                     .update(
-                        { id: target.recurrenceId as string },
+                        { id: target.recurrenceId as string, workspaceId },
                         { bankAccountId: destAccountId, creditCardId: destCardId },
                     );
             }
@@ -854,6 +866,8 @@ export class ExpenseService {
      * (INV-0012-13). Excluir a própria paga é ERR-0012-10 (INV-0012-11).
      */
     delete(id: string): Promise<void> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const { manager } = scope;
             const repository = manager.getRepository(Expense);
@@ -861,23 +875,24 @@ export class ExpenseService {
             // Leitura sem trava só para descobrir o grupo; a trava vem a seguir, sobre o
             // grupo inteiro em ordem de `id`, para que duas exclusões de parcelas do mesmo
             // grupo nunca se travem em ordem cruzada.
-            const probe = await repository.findOne({ where: { id } });
+            const probe = await repository.findOne({ where: { id, workspaceId } });
 
             if (!probe) throw expenseNotFound();
 
             const inSeries = probe.recurrenceId !== null;
 
             // Série (spec 0017): a ocorrência e todas as seguintes; a série é travada antes.
-            if (inSeries) await this.lockSeriesOf(manager, id);
+            if (inSeries) await this.lockSeriesOf(manager, workspaceId, id);
 
             const where: FindOptionsWhere<Expense> = inSeries
                 ? {
+                      workspaceId,
                       recurrenceId: probe.recurrenceId as string,
                       occurredOn: MoreThanOrEqual(probe.occurredOn),
                   }
                 : probe.installmentGroupId !== null
-                  ? { installmentGroupId: probe.installmentGroupId }
-                  : { id };
+                  ? { workspaceId, installmentGroupId: probe.installmentGroupId }
+                  : { id, workspaceId };
             const locked = await repository.find({
                 where,
                 order: { id: 'ASC' },
@@ -896,7 +911,7 @@ export class ExpenseService {
                 if (row.creditCardId !== null && !closedThrough.has(row.creditCardId)) {
                     closedThrough.set(
                         row.creditCardId,
-                        await this.closedThrough(manager, row.workspaceId, row.creditCardId),
+                        await this.closedThrough(manager, workspaceId, row.creditCardId),
                     );
                 }
             }
@@ -928,15 +943,15 @@ export class ExpenseService {
             )) {
                 await this.creditCards.applyAvailableLimitDelta(
                     manager,
-                    target.workspaceId,
+                    workspaceId,
                     cardId,
                     cents,
                 );
             }
 
-            await repository.delete({ id: In(doomed.map((row) => row.id)) });
+            await repository.delete({ id: In(doomed.map((row) => row.id)), workspaceId });
 
-            if (inSeries) await this.endSeriesBefore(manager, probe);
+            if (inSeries) await this.endSeriesBefore(manager, workspaceId, probe);
         });
     }
 
@@ -944,8 +959,12 @@ export class ExpenseService {
      * Trava a série da ocorrência `id` (antes de qualquer linha de despesa, como a extensão)
      * e exige que ela exista: sem série, `?scope=following` é ERR-0017-02.
      */
-    private async lockSeriesOf(manager: EntityManager, id: string): Promise<void> {
-        const probe = await manager.getRepository(Expense).findOne({ where: { id } });
+    private async lockSeriesOf(
+        manager: EntityManager,
+        workspaceId: string,
+        id: string,
+    ): Promise<void> {
+        const probe = await manager.getRepository(Expense).findOne({ where: { id, workspaceId } });
 
         if (!probe) throw expenseNotFound();
 
@@ -961,7 +980,7 @@ export class ExpenseService {
         }
 
         await manager.getRepository(ExpenseRecurrence).findOne({
-            where: { id: probe.recurrenceId },
+            where: { id: probe.recurrenceId, workspaceId },
             lock: { mode: 'for_no_key_update' },
         });
     }
@@ -973,6 +992,7 @@ export class ExpenseService {
      */
     private async applyModelToFollowing(
         manager: EntityManager,
+        workspaceId: string,
         origin: Expense,
         changes: UpdateExpense,
     ): Promise<void> {
@@ -989,9 +1009,10 @@ export class ExpenseService {
 
         await manager
             .getRepository(ExpenseRecurrence)
-            .update({ id: origin.recurrenceId as string }, patch);
+            .update({ id: origin.recurrenceId as string, workspaceId }, patch);
         await manager.getRepository(Expense).update(
             {
+                workspaceId,
                 recurrenceId: origin.recurrenceId as string,
                 status: 'FORECAST',
                 occurredOn: MoreThan(origin.occurredOn),
@@ -1006,16 +1027,22 @@ export class ExpenseService {
      * ocorrência excluída com outras que ficam), a série passa a começar e terminar na
      * primeira que ficou, para que a extensão não recrie a excluída.
      */
-    private async endSeriesBefore(manager: EntityManager, deleted: Expense): Promise<void> {
+    private async endSeriesBefore(
+        manager: EntityManager,
+        workspaceId: string,
+        deleted: Expense,
+    ): Promise<void> {
         const recurrences = manager.getRepository(ExpenseRecurrence);
         const recurrenceId = deleted.recurrenceId as string;
-        const series = await recurrences.findOneOrFail({ where: { id: recurrenceId } });
+        const series = await recurrences.findOneOrFail({
+            where: { id: recurrenceId, workspaceId },
+        });
         const endsOn = new Date(new Date(`${deleted.occurredOn}T00:00:00.000Z`).getTime() - DAY_MS)
             .toISOString()
             .slice(0, 10);
 
         if (endsOn >= series.startsOn) {
-            await recurrences.update({ id: recurrenceId }, { endsOn });
+            await recurrences.update({ id: recurrenceId, workspaceId }, { endsOn });
 
             return;
         }
@@ -1025,22 +1052,24 @@ export class ExpenseService {
             .createQueryBuilder('e')
             .select('MIN(e.occurredOn)::text', 'first')
             .where('e.recurrenceId = :recurrenceId', { recurrenceId })
+            .andWhere('e.workspaceId = :workspaceId', { workspaceId })
             .getRawOne<{ first: string | null }>();
 
         if (first?.first) {
             await recurrences.update(
-                { id: recurrenceId },
+                { id: recurrenceId, workspaceId },
                 { startsOn: first.first, endsOn: first.first },
             );
         } else {
-            await recurrences.delete({ id: recurrenceId });
+            await recurrences.delete({ id: recurrenceId, workspaceId });
         }
     }
 
     /**
      * Varredura de vencidas: um único `UPDATE` leva a `OVERDUE` toda despesa de conta
      * `OPEN` com `occurred_on` anterior a `asOf` (data de negócio de `asOf`), e devolve
-     * quantas mudou. Idempotente; despesa de cartão nunca vence (INV-0012-08).
+     * quantas mudou. Roda sem requisição e cobre todos os espaços: a linha mantém o seu
+     * `workspace_id` (INV-0021-06). Idempotente; despesa de cartão nunca vence (INV-0012-08).
      */
     markOverdue(asOf: Date): Promise<number> {
         const cutoff = businessToday(asOf);
