@@ -86,6 +86,8 @@ describe('autorização nas rotas de usuário (spec 0010)', () => {
                 email: 'uid-pendente@exemplo.com',
                 profile: null,
                 profileGrantedAt: null,
+                workspace: null,
+                isPlatformAdmin: false,
             });
         });
 
@@ -93,7 +95,7 @@ describe('autorização nas rotas de usuário (spec 0010)', () => {
             await request(ctx.app).get('/users/me').set('Authorization', 'Bearer uid-pendente');
 
             const response = await request(ctx.app)
-                .get('/users')
+                .get('/users/me/avatar')
                 .set('Authorization', 'Bearer uid-pendente');
 
             expect(response.status).toBe(403);
@@ -123,9 +125,25 @@ describe('autorização nas rotas de usuário (spec 0010)', () => {
             expect(response.body.error.code).toBe('FORBIDDEN');
         });
 
-        it('ADMIN lista, ordenado por criação', async () => {
+        it('ADMIN do espaço que não é admin da plataforma não lista (ERR-0021-04)', async () => {
             await request(ctx.app).get('/users/me').set('Authorization', 'Bearer uid-admin');
             await ctx.setProfile('uid-admin', 'ADMIN');
+
+            const response = await request(ctx.app)
+                .get('/users')
+                .set('Authorization', 'Bearer uid-admin');
+
+            expect(response.status).toBe(403);
+            expect(response.body.error.code).toBe('FORBIDDEN');
+        });
+
+        it('o admin da plataforma lista, ordenado por criação', async () => {
+            await request(ctx.app).get('/users/me').set('Authorization', 'Bearer uid-admin');
+            await ctx.setProfile('uid-admin', 'ADMIN');
+            await ctx.dataSource.query(
+                'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+                ['uid-admin'],
+            );
             await request(ctx.app).get('/users/me').set('Authorization', 'Bearer uid-outro');
 
             const response = await request(ctx.app)
@@ -143,6 +161,8 @@ describe('autorização nas rotas de usuário (spec 0010)', () => {
                 'name',
                 'profile',
                 'profileGrantedAt',
+                'workspace',
+                'isPlatformAdmin',
                 'avatarUpdatedAt',
                 'createdAt',
             ]);

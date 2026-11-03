@@ -541,7 +541,7 @@ módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rot
     - Where: `src/platform/`, `src/identity/`, migration nova, entidades, `tests/integration/platform/`
     - Done when: `AC-0021-01` a `AC-0021-04` cobertos; `INV-0021-01` e `INV-0021-04` verificados;
       `ERR-0021-13` coberto; suíte atual verde
-- [ ] **T-0021-02 — Espaços e membros no identity** · #207
+- [x] **T-0021-02 — Espaços e membros no identity** · #207
     - What: rotas de espaço, aprovação com espaço novo ou existente, troca e remoção do membro,
       `UserResponse` com espaço e marca, bootstrap criando o espaço, gestão de usuários pelo admin
       da plataforma

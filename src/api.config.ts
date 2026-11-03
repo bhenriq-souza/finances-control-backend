@@ -42,6 +42,12 @@ import {
     UserRoutesSymbol,
     UserService,
     UserServiceSymbol,
+    WorkspaceController,
+    WorkspaceControllerSymbol,
+    WorkspaceRoutes,
+    WorkspaceRoutesSymbol,
+    WorkspaceService,
+    WorkspaceServiceSymbol,
 } from './identity';
 import {
     ExpenseController,
@@ -146,6 +152,22 @@ export const apiModules: ApiModule[] = [
         provides: [
             { token: UserServiceSymbol, clazz: UserService, scope: ScopeTypes.SINGLETON },
             { token: UserControllerSymbol, clazz: UserController, scope: ScopeTypes.SINGLETON },
+        ],
+    },
+    {
+        path: '/workspaces',
+        route: { token: WorkspaceRoutesSymbol, clazz: WorkspaceRoutes },
+        provides: [
+            {
+                token: WorkspaceServiceSymbol,
+                clazz: WorkspaceService,
+                scope: ScopeTypes.SINGLETON,
+            },
+            {
+                token: WorkspaceControllerSymbol,
+                clazz: WorkspaceController,
+                scope: ScopeTypes.SINGLETON,
+            },
         ],
     },
     {

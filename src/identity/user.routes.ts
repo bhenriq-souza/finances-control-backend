@@ -5,7 +5,9 @@ import type { RouteDef } from '@bhs-dev/typescript-common-types';
 import {
     BaseRoute,
     RequireAuthenticationSymbol,
+    RequirePlatformAdminSymbol,
     RequireProfileSymbol,
+    type RequirePlatformAdmin,
     type RequireProfile,
 } from '../platform';
 import { parseAvatarBody } from './avatar-body.middleware';
@@ -19,14 +21,16 @@ export class UserRoutes extends BaseRoute {
         @inject(UserControllerSymbol) private readonly controller: UserController,
         @inject(RequireAuthenticationSymbol) private readonly requireAuthentication: RequestHandler,
         @inject(RequireProfileSymbol) private readonly requireProfile: RequireProfile,
+        @inject(RequirePlatformAdminSymbol)
+        private readonly requirePlatformAdmin: RequirePlatformAdmin,
     ) {
         super();
     }
 
     routes(): RouteDef[] {
-        // Toda rota daqui exige autenticação (INV-0010-01). O perfil é exigido
-        // em todas menos `/me`, que é como quem está sem perfil descobre isso.
-        const admin = [this.requireAuthentication, this.requireProfile('ADMIN')];
+        // Toda rota daqui exige autenticação (INV-0010-01). Gerir usuários é do
+        // admin da plataforma (INV-0021-08); a foto pede um perfil qualquer.
+        const admin = [this.requireAuthentication, this.requirePlatformAdmin()];
         // A foto exige um perfil qualquer: `/me` continua sendo a única rota de
         // quem está pendente (INV-0010-03).
         const anyProfile = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
