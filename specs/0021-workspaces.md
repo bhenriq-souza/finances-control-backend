@@ -1,7 +1,7 @@
 ---
 id: '0021'
 title: Espaços — isolamento dos registros por espaço e membros com perfil
-status: approved
+status: implemented
 depends_on: ['0003', '0004', '0010', '0011', '0012', '0013', '0014', '0015', '0017', '0018', '0019']
 ---
 
