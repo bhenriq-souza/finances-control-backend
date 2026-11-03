@@ -137,8 +137,9 @@ export class CreditCardRefundService {
 
     /** ERR-0013-01 para `:id` inexistente. */
     async findById(id: string): Promise<CreditCardRefund> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const refund = await this.runner.run((scope) =>
-            scope.manager.getRepository(CreditCardRefund).findOne({ where: { id } }),
+            scope.manager.getRepository(CreditCardRefund).findOne({ where: { id, workspaceId } }),
         );
 
         if (!refund) throw refundNotFound();
@@ -148,10 +149,13 @@ export class CreditCardRefundService {
 
     /** Filtros combinados por E; `from`/`to` inclusivos sobre `postedOn`. */
     list(query: ListCreditCardRefundsQuery = {}): Promise<CreditCardRefund[]> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run((scope) => {
             const qb = scope.manager
                 .getRepository(CreditCardRefund)
                 .createQueryBuilder('r')
+                .where('r.workspaceId = :workspaceId', { workspaceId })
                 .orderBy('r.postedOn', 'ASC')
                 .addOrderBy('r.createdAt', 'ASC')
                 .addOrderBy('r.id', 'ASC');
@@ -169,10 +173,12 @@ export class CreditCardRefundService {
 
     /** Só `description` e `notes`: não muda o total nem o limite, vale na janela fechada. */
     update(id: string, changes: UpdateCreditCardRefund): Promise<CreditCardRefund> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const repository = scope.manager.getRepository(CreditCardRefund);
             const refund = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
@@ -183,9 +189,9 @@ export class CreditCardRefundService {
             if (changes.description !== undefined) patch.description = changes.description;
             if (changes.notes !== undefined) patch.notes = changes.notes;
 
-            await repository.update({ id }, patch);
+            await repository.update({ id, workspaceId }, patch);
 
-            return repository.findOneByOrFail({ id });
+            return repository.findOneByOrFail({ id, workspaceId });
         });
     }
 
@@ -194,17 +200,19 @@ export class CreditCardRefundService {
      * Recusado quando o `postedOn` está na janela fechada (ERR-0013-08).
      */
     delete(id: string): Promise<void> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const { manager } = scope;
             const repository = manager.getRepository(CreditCardRefund);
-            const found = await repository.findOne({ where: { id } });
+            const found = await repository.findOne({ where: { id, workspaceId } });
 
             if (!found) throw refundNotFound();
 
             await lockCreditCard(manager, found.creditCardId);
 
             const refund = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
@@ -216,7 +224,7 @@ export class CreditCardRefundService {
 
             if (refund.postedOn <= closedThrough) throw statementClosed(closedThrough);
 
-            await repository.delete({ id });
+            await repository.delete({ id, workspaceId });
             await this.creditCards.applyAvailableLimitDelta(
                 manager,
                 refund.workspaceId,
@@ -248,7 +256,7 @@ export class CreditCardRefundService {
 
         const existing = await manager
             .getRepository(CreditCardRefund)
-            .find({ where: { expenseId } });
+            .find({ where: { expenseId, workspaceId } });
         const refunded = existing.reduce((sum, refund) => sum + refund.amountCents, 0);
         const refundable = expense.amountCents - refunded;
 

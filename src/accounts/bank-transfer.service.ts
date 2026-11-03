@@ -67,14 +67,15 @@ export class BankTransferService {
      */
     create(data: CreateBankTransfer): Promise<BankTransfer> {
         const status = data.status ?? 'COMPLETED';
+        const workspaceId = this.requestContext.requireWorkspaceId();
 
         return this.runner.run(async (scope) => {
-            await this.assertAccountsAreUsable(scope.manager, data);
+            await this.assertAccountsAreUsable(scope.manager, workspaceId, data);
 
             const repository = scope.manager.getRepository(BankTransfer);
             const transfer = await repository.save(
                 repository.create({
-                    workspaceId: this.requestContext.requireWorkspaceId(),
+                    workspaceId,
                     fromBankAccountId: data.fromBankAccountId,
                     toBankAccountId: data.toBankAccountId,
                     amountCents: data.amountCents,
@@ -92,7 +93,7 @@ export class BankTransferService {
                 this.publishCompleted(scope, transfer, transfer.completedOn as string);
             }
 
-            return repository.findOneByOrFail({ id: transfer.id });
+            return repository.findOneByOrFail({ id: transfer.id, workspaceId });
         });
     }
 
@@ -102,12 +103,14 @@ export class BankTransferService {
      * aceita aqui, como pagar despesa antiga numa conta encerrada.
      */
     changeStatus(id: string, change: ChangeBankTransferStatus): Promise<BankTransfer> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const repository = scope.manager.getRepository(BankTransfer);
             // Trava a transferência antes das contas: duas mudanças simultâneas de
             // status da mesma transferência não movem o saldo duas vezes.
             const transfer = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'pessimistic_write' },
             });
 
@@ -126,21 +129,25 @@ export class BankTransferService {
                 const completedOn = change.completedOn ?? businessToday();
 
                 await this.moveBalances(scope.manager, transfer, 1);
-                await repository.update({ id }, { status: 'COMPLETED', completedOn });
+                await repository.update({ id, workspaceId }, { status: 'COMPLETED', completedOn });
                 this.publishCompleted(scope, transfer, completedOn);
             } else {
                 await this.moveBalances(scope.manager, transfer, -1);
-                await repository.update({ id }, { status: 'SCHEDULED', completedOn: null });
+                await repository.update(
+                    { id, workspaceId },
+                    { status: 'SCHEDULED', completedOn: null },
+                );
             }
 
-            return repository.findOneByOrFail({ id });
+            return repository.findOneByOrFail({ id, workspaceId });
         });
     }
 
     /** ERR-0018-02 para `:id` inexistente. */
     async findById(id: string): Promise<BankTransfer> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
         const transfer = await this.runner.run((scope) =>
-            scope.manager.getRepository(BankTransfer).findOne({ where: { id } }),
+            scope.manager.getRepository(BankTransfer).findOne({ where: { id, workspaceId } }),
         );
 
         if (!transfer) throw transferNotFound();
@@ -150,10 +157,13 @@ export class BankTransferService {
 
     /** AC-0018-11: `bankAccountId` casa a origem **ou** o destino; `from`/`to` são inclusivos. */
     list(query: ListBankTransfersQuery = {}): Promise<BankTransfer[]> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run((scope) => {
             const qb = scope.manager
                 .getRepository(BankTransfer)
                 .createQueryBuilder('t')
+                .where('t.workspaceId = :workspaceId', { workspaceId })
                 .orderBy('t.occurredOn', 'ASC')
                 .addOrderBy('t.createdAt', 'ASC')
                 .addOrderBy('t.id', 'ASC');
@@ -177,10 +187,12 @@ export class BankTransferService {
      * (ERR-0018-06). Agendada não move saldo, então nenhuma conta é tocada.
      */
     update(id: string, changes: UpdateBankTransfer): Promise<BankTransfer> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const repository = scope.manager.getRepository(BankTransfer);
             const transfer = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'pessimistic_write' },
             });
 
@@ -209,7 +221,7 @@ export class BankTransferService {
                 movement.fromBankAccountId !== undefined ||
                 movement.toBankAccountId !== undefined
             ) {
-                await this.assertAccountsAreUsable(scope.manager, {
+                await this.assertAccountsAreUsable(scope.manager, workspaceId, {
                     fromBankAccountId: from,
                     toBankAccountId: to,
                 });
@@ -223,25 +235,27 @@ export class BankTransferService {
             if (movement.amountCents !== undefined) patch.amountCents = movement.amountCents;
             if (movement.occurredOn !== undefined) patch.occurredOn = movement.occurredOn;
 
-            await repository.update({ id }, patch);
+            await repository.update({ id, workspaceId }, patch);
 
-            return repository.findOneByOrFail({ id });
+            return repository.findOneByOrFail({ id, workspaceId });
         });
     }
 
     /** Só `SCHEDULED` se exclui (ERR-0018-06): a concluída é desfeita antes. */
     delete(id: string): Promise<void> {
+        const workspaceId = this.requestContext.requireWorkspaceId();
+
         return this.runner.run(async (scope) => {
             const repository = scope.manager.getRepository(BankTransfer);
             const transfer = await repository.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'pessimistic_write' },
             });
 
             if (!transfer) throw transferNotFound();
             if (transfer.status === 'COMPLETED') throw alreadyCompleted();
 
-            await repository.delete({ id });
+            await repository.delete({ id, workspaceId });
         });
     }
 
@@ -286,13 +300,14 @@ export class BankTransferService {
     /** ERR-0018-03 (inexistente) e ERR-0018-04 (arquivada em qualquer ponta). */
     private async assertAccountsAreUsable(
         manager: EntityManager,
+        workspaceId: string,
         data: Pick<CreateBankTransfer, 'fromBankAccountId' | 'toBankAccountId'>,
     ): Promise<void> {
         const repository = manager.getRepository(BankAccount);
 
         // `details.field` diz ao cliente qual conta falhou (ERR-0018-03, ERR-0018-04).
         for (const field of ['fromBankAccountId', 'toBankAccountId'] as const) {
-            const account = await repository.findOne({ where: { id: data[field] } });
+            const account = await repository.findOne({ where: { id: data[field], workspaceId } });
 
             if (!account) {
                 throw CustomError.notFound('Bank account not found', 'BANK_ACCOUNT_NOT_FOUND', {
