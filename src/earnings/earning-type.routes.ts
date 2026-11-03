@@ -5,9 +5,10 @@ import type { RouteDef } from '@bhs-dev/typescript-common-types';
 import {
     BaseRoute,
     RequireAuthenticationSymbol,
-    RequireProfileSymbol,
-    USER_PROFILES,
-    type RequireProfile,
+    RequireMemberOrPlatformAdminSymbol,
+    RequirePlatformAdminSymbol,
+    type RequireMemberOrPlatformAdmin,
+    type RequirePlatformAdmin,
 } from '../platform';
 import { EarningTypeControllerSymbol } from './earnings.symbols';
 import type { EarningTypeController } from './earning-type.controller';
@@ -17,15 +18,19 @@ export class EarningTypeRoutes extends BaseRoute {
     constructor(
         @inject(EarningTypeControllerSymbol) private readonly controller: EarningTypeController,
         @inject(RequireAuthenticationSymbol) private readonly requireAuthentication: RequestHandler,
-        @inject(RequireProfileSymbol) private readonly requireProfile: RequireProfile,
+        @inject(RequireMemberOrPlatformAdminSymbol)
+        private readonly requireMemberOrPlatformAdmin: RequireMemberOrPlatformAdmin,
+        @inject(RequirePlatformAdminSymbol)
+        private readonly requirePlatformAdmin: RequirePlatformAdmin,
     ) {
         super();
     }
 
     routes(): RouteDef[] {
-        // Escrita é de ADMIN e BILLER; leitura, de qualquer perfil (spec 0014).
-        const write = [this.requireAuthentication, this.requireProfile('ADMIN', 'BILLER')];
-        const read = [this.requireAuthentication, this.requireProfile(...USER_PROFILES)];
+        // Catálogo global (spec 0021): escrita é do admin da plataforma; leitura, de qualquer
+        // membro ou admin da plataforma.
+        const write = [this.requireAuthentication, this.requirePlatformAdmin()];
+        const read = [this.requireAuthentication, this.requireMemberOrPlatformAdmin()];
 
         return [
             {

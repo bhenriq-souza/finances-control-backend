@@ -558,7 +558,7 @@ módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rot
     - Where: `src/expenses/`, `docs/openapi.yaml`, `tests/integration/expenses/isolation.spec.ts`
     - Done when: `AC-0021-12`, a parte de despesas de `AC-0021-17` e a de tipos de despesa de
       `AC-0021-18` cobertos; `INV-0021-06` verificado nos jobs de despesa
-- [ ] **T-0021-05 — Receitas por espaço e tipos globais** · #210
+- [x] **T-0021-05 — Receitas por espaço e tipos globais** · #210
     - What: escopo em receitas, séries e jobs de receita; tipos de receita só pelo admin da plataforma
     - Where: `src/earnings/`, `docs/openapi.yaml`, `tests/integration/earnings/isolation.spec.ts`
     - Done when: `AC-0021-13`, a parte de receitas de `AC-0021-17` e a de tipos de receita de
