@@ -572,7 +572,7 @@ módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rot
     - What: espaço em todas as consultas do `reporting`; `--workspace` obrigatório na carga
     - Where: `src/reporting/`, `src/load/`, `tests/integration/reporting/isolation.spec.ts`, `tests/load/workspace.spec.ts`
     - Done when: `AC-0021-16` e `AC-0021-19` cobertos; `ERR-0021-14` coberto
-- [ ] **T-0021-08 — Suíte de isolamento por rota** · #213
+- [x] **T-0021-08 — Suíte de isolamento por rota** · #213
     - What: teste que percorre as rotas registradas com dois espaços e falha em rota sem caso
     - Where: `tests/integration/isolation/routes.spec.ts`
     - Done when: `AC-0021-20` e `AC-0021-21` cobertos; `INV-0021-03` e `INV-0021-10` verificados por
