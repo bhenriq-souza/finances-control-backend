@@ -5,6 +5,13 @@ import {
     type ReportingFixture,
 } from './reporting-fixtures.helper';
 
+const workspaceOf = async (fx: ReportingFixture): Promise<string> =>
+    (
+        (await fx.ctx.dataSource.query('SELECT workspace_id FROM bank_accounts WHERE id = $1', [
+            fx.accountId,
+        ])) as Array<{ workspace_id: string }>
+    )[0]!.workspace_id;
+
 const SCHEMA = 'test_reporting_precision';
 const OPENING = 123456789;
 
@@ -44,10 +51,20 @@ describe('precisão do saldo realizado (spec 0015, AC-0015-12, INV-0015-04)', ()
             [fx.expenseTypeId, fx.accountId, expenses],
         );
 
-        const balance = await realizedBalanceService().balanceOn(fx.accountId, '2026-03-31');
+        const balance = await realizedBalanceService().balanceOn(
+            await workspaceOf(fx),
+            fx.accountId,
+            '2026-03-31',
+        );
 
         expect(Number.isInteger(balance)).toBe(true);
         expect(balance).toBe(OPENING + sum(earnings) - sum(expenses));
-        expect(await realizedBalanceService().balanceOn(fx.accountId, '2026-03-09')).toBe(OPENING);
+        expect(
+            await realizedBalanceService().balanceOn(
+                await workspaceOf(fx),
+                fx.accountId,
+                '2026-03-09',
+            ),
+        ).toBe(OPENING);
     });
 });

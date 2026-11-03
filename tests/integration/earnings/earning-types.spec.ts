@@ -34,6 +34,10 @@ describe('rotas de /earning-types (spec 0014)', () => {
             await request(ctx.app).get('/users/me').set('Authorization', `Bearer ${uid}`);
             await ctx.setProfile(uid, profile);
         }
+        // Catálogo global (spec 0021): só o admin da plataforma escreve.
+        await ctx.dataSource.query(
+            "UPDATE users SET is_platform_admin = true WHERE firebase_uid = 'uid-admin'",
+        );
     });
 
     afterEach(async () => {
@@ -66,11 +70,11 @@ describe('rotas de /earning-types (spec 0014)', () => {
 
             const ok = await request(ctx.app)
                 .patch(`/earning-types/${id}`)
-                .set('Authorization', BILLER)
+                .set('Authorization', ADMIN)
                 .send({ name: 'Teste Novo' });
             const missing = await request(ctx.app)
                 .patch('/earning-types/00000000-0000-4000-8000-000000000000')
-                .set('Authorization', BILLER)
+                .set('Authorization', ADMIN)
                 .send({ name: 'Teste X' });
 
             expect(ok.status).toBe(200);
@@ -169,33 +173,39 @@ describe('rotas de /earning-types (spec 0014)', () => {
         });
     });
 
-    describe('perfis (spec 0014, Quem pode o quê)', () => {
-        it('BILLER escreve', async () => {
-            expect((await create('Teste Biller', BILLER)).status).toBe(201);
+    describe('perfis (spec 0021, Catálogos globais)', () => {
+        it('AC-0021-18: o admin da plataforma escreve', async () => {
+            expect((await create('Teste Plataforma', ADMIN)).status).toBe(201);
         });
 
-        it('VIEWER lista e recebe 403 FORBIDDEN em toda escrita', async () => {
-            const { id } = (await create('Teste Viewer')).body.data;
+        it.each([
+            ['BILLER', BILLER],
+            ['VIEWER', VIEWER],
+        ])(
+            'AC-0021-18, ERR-0021-04: %s não admin da plataforma lista e recebe 403 FORBIDDEN em toda escrita',
+            async (_profile, auth) => {
+                const { id } = (await create('Teste Viewer')).body.data;
 
-            expect((await list('', VIEWER)).status).toBe(200);
+                expect((await list('', auth)).status).toBe(200);
 
-            const attempts = [
-                create('Teste V2', VIEWER),
-                request(ctx.app)
-                    .patch(`/earning-types/${id}`)
-                    .set('Authorization', VIEWER)
-                    .send({ name: 'Teste V3' }),
-                archive(id, VIEWER),
-                request(ctx.app)
-                    .delete(`/earning-types/${id}/archive`)
-                    .set('Authorization', VIEWER),
-            ];
+                const attempts = [
+                    create('Teste V2', auth),
+                    request(ctx.app)
+                        .patch(`/earning-types/${id}`)
+                        .set('Authorization', auth)
+                        .send({ name: 'Teste V3' }),
+                    archive(id, auth),
+                    request(ctx.app)
+                        .delete(`/earning-types/${id}/archive`)
+                        .set('Authorization', auth),
+                ];
 
-            for (const response of await Promise.all(attempts)) {
-                expect(response.status).toBe(403);
-                expect(response.body.error.code).toBe('FORBIDDEN');
-            }
-        });
+                for (const response of await Promise.all(attempts)) {
+                    expect(response.status).toBe(403);
+                    expect(response.body.error.code).toBe('FORBIDDEN');
+                }
+            },
+        );
 
         it('sem perfil, 403 PROFILE_PENDING', async () => {
             const response = await list('', 'Bearer uid-pending');

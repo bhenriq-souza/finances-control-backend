@@ -26,22 +26,28 @@ export class UserController {
     async handleListUsers(_req: Request, res: Response): Promise<Response> {
         const users = await this.service.list();
         const avatars = await this.service.avatarUpdatedAt(users.map((user) => user.id));
+        const names = await this.service.workspaceNames(workspaceIdsOf(users));
 
         return HttpResponses.ok(
             res,
-            users.map((user) => toUserResponse(user, avatars.get(user.id) ?? null)),
+            users.map((user) =>
+                toUserResponse(
+                    user,
+                    avatars.get(user.id) ?? null,
+                    names.get(user.membership?.workspaceId ?? '') ?? null,
+                ),
+            ),
         );
     }
 
     async handleGrantProfile(req: Request, res: Response): Promise<Response> {
         const { id } = userIdParamsSchema.parse(req.params);
-        const { profile } = grantProfileBodySchema.parse(req.body);
+        const body = grantProfileBodySchema.parse(req.body);
 
         const user = await this.service.grantProfile({
             targetId: id,
-            profile,
+            body,
             actorId: this.actorId(),
-            actorWorkspaceId: this.requestContext.requireWorkspaceId(),
         });
 
         return HttpResponses.ok(res, await this.respond(user));
@@ -97,8 +103,13 @@ export class UserController {
 
     private async respond(user: User): Promise<UserResponse> {
         const avatars = await this.service.avatarUpdatedAt([user.id]);
+        const names = await this.service.workspaceNames(workspaceIdsOf([user]));
 
-        return toUserResponse(user, avatars.get(user.id) ?? null);
+        return toUserResponse(
+            user,
+            avatars.get(user.id) ?? null,
+            names.get(user.membership?.workspaceId ?? '') ?? null,
+        );
     }
 
     /**
@@ -118,6 +129,9 @@ export class UserController {
         return userId;
     }
 }
+
+const workspaceIdsOf = (users: User[]): string[] =>
+    users.flatMap((user) => (user.membership ? [user.membership.workspaceId] : []));
 
 /**
  * O corpo cru como `Buffer`. As checagens de string e de array vêm antes de

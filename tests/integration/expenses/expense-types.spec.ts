@@ -6,6 +6,7 @@ const SCHEMA = 'test_expenses_types';
 const ADMIN = 'Bearer uid-admin';
 const BILLER = 'Bearer uid-biller';
 const VIEWER = 'Bearer uid-viewer';
+const WORKSPACE_ADMIN = 'Bearer uid-workspace-admin';
 
 describe('tipos de despesa (AC-0012-02)', () => {
     let ctx: TestApp;
@@ -34,10 +35,18 @@ describe('tipos de despesa (AC-0012-02)', () => {
             [ADMIN, 'uid-admin', 'ADMIN'],
             [BILLER, 'uid-biller', 'BILLER'],
             [VIEWER, 'uid-viewer', 'VIEWER'],
+            [WORKSPACE_ADMIN, 'uid-workspace-admin', 'ADMIN'],
         ] as const) {
             await request(ctx.app).get('/users/me').set('Authorization', auth);
             await ctx.setProfile(uid, profile);
         }
+
+        // Catálogo global (spec 0021): só o admin da plataforma escreve. `uid-admin` é o
+        // admin da plataforma desta suíte; `uid-workspace-admin` é só `ADMIN` de espaço.
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
     });
 
     afterEach(async () => {
@@ -85,7 +94,7 @@ describe('tipos de despesa (AC-0012-02)', () => {
         const a = (await post('/expense-types', { name: 'T-A' })).body.data.id;
         await post('/expense-types', { name: 'T-B' });
 
-        const ok = await patch(a, { name: 'T-C' }, BILLER);
+        const ok = await patch(a, { name: 'T-C' });
         expect(ok.status).toBe(200);
         expect(ok.body.data.name).toBe('T-C');
 
@@ -174,9 +183,27 @@ describe('tipos de despesa (AC-0012-02)', () => {
         }
     });
 
-    it('BILLER escreve; sem perfil recebe 403 PROFILE_PENDING', async () => {
-        expect((await post('/expense-types', { name: 'T-Bil' }, BILLER)).status).toBe(201);
+    it('AC-0021-18, INV-0021-08: ADMIN e BILLER que não são admin da plataforma recebem 403 FORBIDDEN em toda escrita', async () => {
+        const id = (await post('/expense-types', { name: 'T-Cat' })).body.data.id;
 
+        for (const auth of [WORKSPACE_ADMIN, BILLER]) {
+            const writes = await Promise.all([
+                post('/expense-types', { name: 'T-Nope' }, auth),
+                patch(id, { name: 'T-Nope' }, auth),
+                archive(id, auth),
+                unarchive(id, auth),
+            ]);
+
+            for (const res of writes) {
+                expect(res.status).toBe(403);
+                expect(res.body.error.code).toBe('FORBIDDEN');
+            }
+
+            expect((await get('/expense-types', auth)).status).toBe(200);
+        }
+    });
+
+    it('sem perfil recebe 403 PROFILE_PENDING', async () => {
         await request(ctx.app).get('/users/me').set('Authorization', 'Bearer uid-new');
         const res = await get('/expense-types', 'Bearer uid-new');
 

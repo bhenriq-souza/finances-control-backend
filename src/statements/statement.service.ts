@@ -368,7 +368,7 @@ export class StatementService {
         const today = businessToday();
         const workspaceId = this.requestContext.requireWorkspaceId();
         const found = await this.runner.run(({ manager }) =>
-            manager.getRepository(CreditCardStatement).findOne({ where: { id } }),
+            manager.getRepository(CreditCardStatement).findOne({ where: { id, workspaceId } }),
         );
 
         if (!found) throw statementNotFound();
@@ -376,7 +376,9 @@ export class StatementService {
         await this.closeDue(noon(today), { workspaceId, creditCardId: found.creditCardId });
 
         return this.runner.run(async ({ manager }) => {
-            const row = await manager.getRepository(CreditCardStatement).findOne({ where: { id } });
+            const row = await manager
+                .getRepository(CreditCardStatement)
+                .findOne({ where: { id, workspaceId } });
 
             if (!row) throw statementNotFound();
 

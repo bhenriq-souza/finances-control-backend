@@ -4,7 +4,13 @@ import { IsNull, MoreThan, MoreThanOrEqual, Or, type EntityManager } from 'typeo
 import { ZodError } from 'zod';
 
 import { EARNING_CREATED, type EarningCreated } from '../events';
-import { TransactionRunnerSymbol, businessToday, type TransactionRunner } from '../platform';
+import {
+    RequestContextSymbol,
+    TransactionRunnerSymbol,
+    businessToday,
+    type RequestContext,
+    type TransactionRunner,
+} from '../platform';
 import { recurrenceHorizon, seriesDates } from './earning-recurrence.dates';
 import { EarningRecurrence } from './earning-recurrence.entity';
 import type { EarningRecurrenceView } from './earning-recurrence.response';
@@ -30,13 +36,15 @@ export class EarningRecurrenceService {
     constructor(
         @inject(TransactionRunnerSymbol) private readonly runner: TransactionRunner,
         @inject(EarningServiceSymbol) private readonly earnings: EarningService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     /**
      * Cria, para toda série sem `ends_on` ou com `ends_on` futuro, as ocorrências que faltam
      * até o horizonte de `asOf`, como `FORECAST`, copiando o modelo atual da série.
      * Idempotente: um mês que já tem ocorrência nunca recebe outra. Cada série é estendida
-     * numa transação própria. Devolve quantas criou.
+     * numa transação própria. Devolve quantas criou. Job: percorre todos os espaços e cada
+     * ocorrência herda o espaço da sua série (INV-0021-06).
      */
     async extend(asOf: Date): Promise<number> {
         const today = businessToday(asOf);
@@ -59,7 +67,8 @@ export class EarningRecurrenceService {
 
     /**
      * Passa a `OPEN` toda ocorrência de série em `FORECAST` com `occurred_on <= asOf`, pela
-     * transição `FORECAST → OPEN` da spec 0014. Devolve quantas promoveu.
+     * transição `FORECAST → OPEN` da spec 0014, no espaço de cada ocorrência (job, sem
+     * contexto; INV-0021-06). Devolve quantas promoveu.
      */
     async promote(asOf: Date): Promise<number> {
         const today = businessToday(asOf);
@@ -68,16 +77,17 @@ export class EarningRecurrenceService {
                 .getRepository(Earning)
                 .createQueryBuilder('e')
                 .select('e.id', 'id')
+                .addSelect('e.workspaceId', 'workspaceId')
                 .where('e.recurrenceId IS NOT NULL')
                 .andWhere("e.status = 'FORECAST'")
                 .andWhere('e.occurredOn <= :today', { today })
                 .orderBy('e.occurredOn', 'ASC')
                 .addOrderBy('e.id', 'ASC')
-                .getRawMany<{ id: string }>(),
+                .getRawMany<{ id: string; workspaceId: string }>(),
         );
 
-        for (const { id } of due) {
-            await this.earnings.changeStatus(id, { status: 'OPEN' });
+        for (const { id, workspaceId } of due) {
+            await this.earnings.changeStatusIn(workspaceId, id, { status: 'OPEN' });
         }
 
         return due.length;
@@ -86,10 +96,13 @@ export class EarningRecurrenceService {
     /** As séries, da mais recente para a mais antiga; `active` tira as de `ends_on` passado. */
     list(query: ListRecurrencesQuery = {}): Promise<EarningRecurrenceView[]> {
         const today = businessToday(new Date());
+        const workspaceId = this.requestContext.requireWorkspaceId();
 
         return this.runner.run(async ({ manager }) => {
             const rows = await manager.getRepository(EarningRecurrence).find({
-                where: query.active ? { endsOn: Or(IsNull(), MoreThanOrEqual(today)) } : undefined,
+                where: query.active
+                    ? { workspaceId, endsOn: Or(IsNull(), MoreThanOrEqual(today)) }
+                    : { workspaceId },
                 order: { createdAt: 'DESC', id: 'ASC' },
             });
 
@@ -99,11 +112,12 @@ export class EarningRecurrenceService {
 
     findById(id: string): Promise<EarningRecurrenceView> {
         const today = businessToday(new Date());
+        const workspaceId = this.requestContext.requireWorkspaceId();
 
         return this.runner.run(async ({ manager }) => {
             const series = await manager
                 .getRepository(EarningRecurrence)
-                .findOne({ where: { id } });
+                .findOne({ where: { id, workspaceId } });
 
             if (!series) throw recurrenceNotFound();
 
@@ -119,11 +133,12 @@ export class EarningRecurrenceService {
      */
     end(id: string, change: EndRecurrence): Promise<EarningRecurrenceView> {
         const today = businessToday(new Date());
+        const workspaceId = this.requestContext.requireWorkspaceId();
 
         return this.runner.run(async ({ manager }) => {
             const recurrences = manager.getRepository(EarningRecurrence);
             const series = await recurrences.findOne({
-                where: { id },
+                where: { id, workspaceId },
                 lock: { mode: 'for_no_key_update' },
             });
 
@@ -141,13 +156,14 @@ export class EarningRecurrenceService {
             }
 
             await manager.getRepository(Earning).delete({
+                workspaceId,
                 recurrenceId: id,
                 status: 'FORECAST',
                 occurredOn: MoreThan(change.endsOn),
             });
-            await recurrences.update({ id }, { endsOn: change.endsOn });
+            await recurrences.update({ id, workspaceId }, { endsOn: change.endsOn });
 
-            const updated = await recurrences.findOneOrFail({ where: { id } });
+            const updated = await recurrences.findOneOrFail({ where: { id, workspaceId } });
 
             return (
                 await this.withNextOccurrence(manager, [updated], today)

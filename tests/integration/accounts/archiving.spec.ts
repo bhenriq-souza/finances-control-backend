@@ -32,6 +32,10 @@ describe('arquivamento (spec 0011)', () => {
     beforeEach(async () => {
         await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
         await ctx.setProfile('uid-admin', 'ADMIN');
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
 
         const bank = await post('/banks', { febrabanCode: '260', name: 'Nu Pagamentos' });
         bankId = bank.body.data.id;

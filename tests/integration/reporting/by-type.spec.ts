@@ -55,6 +55,11 @@ describe('relatórios por tipo (spec 0015, AC-0015-07, AC-0015-08, INV-0015-07)'
 
     beforeAll(async () => {
         fx = await seedReporting(SCHEMA, 0);
+        // Catalog writes belong to the platform admin (spec 0021, Catálogos globais).
+        await fx.ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
 
         const expenseType = await request(fx.ctx.app)
             .post('/expense-types')

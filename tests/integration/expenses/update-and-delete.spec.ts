@@ -85,6 +85,13 @@ describe('despesa: alteração e exclusão (spec 0012)', () => {
     });
 
     beforeEach(async () => {
+        // O `seedFixture` escreve banco e tipo, catálogos globais (spec 0021): `uid-admin` é
+        // admin da plataforma nesta suíte.
+        await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
         fx = await seedFixture(ctx);
     });
 

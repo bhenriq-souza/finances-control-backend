@@ -2,7 +2,12 @@ import { CustomError } from '@bhs-dev/typescript-common-errors';
 import { inject, injectable } from 'tsyringe';
 import type { DataSource } from 'typeorm';
 
-import { DatabaseConnectionSymbol, moneyTransformer } from '../platform';
+import {
+    DatabaseConnectionSymbol,
+    RequestContextSymbol,
+    moneyTransformer,
+    type RequestContext,
+} from '../platform';
 import { EARNING_REALIZED, EXPENSE_REALIZED } from './composition';
 import { monthsInWindow } from './report-window.schemas';
 
@@ -38,10 +43,14 @@ type Row = { month: string; account_id: string; kind: Kind; total: string };
  */
 @injectable()
 export class CashFlowReportService {
-    constructor(@inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource) {}
+    constructor(
+        @inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
+    ) {}
 
     async cashFlow({ from, to, bankAccountId }: Params): Promise<CashFlowReport> {
-        const accountIds = await this.accountIds(bankAccountId);
+        const workspaceId = this.requestContext.requireWorkspaceId();
+        const accountIds = await this.accountIds(workspaceId, bankAccountId);
         const start = `${from}-01`;
         const end = `${to}-01`;
 
@@ -50,24 +59,26 @@ export class CashFlowReportService {
              FROM (
                 SELECT e.bank_account_id AS account_id, 'inflows' AS kind,
                        e.amount_cents AS amount, e.received_on AS day
-                FROM earnings e WHERE e.status = ANY($3::text[])
+                FROM earnings e WHERE e.workspace_id = $6 AND e.status = ANY($3::text[])
               UNION ALL
                 SELECT x.bank_account_id, 'expensesPaid', x.amount_cents, x.paid_on
-                FROM expenses x WHERE x.status = ANY($4::text[]) AND x.bank_account_id IS NOT NULL
+                FROM expenses x
+                WHERE x.workspace_id = $6 AND x.status = ANY($4::text[])
+                  AND x.bank_account_id IS NOT NULL
               UNION ALL
                 SELECT p.bank_account_id, 'statementPayments', p.amount_cents, p.paid_on
-                FROM credit_card_statement_payments p
+                FROM credit_card_statement_payments p WHERE p.workspace_id = $6
               UNION ALL
                 SELECT t.to_bank_account_id, 'transfersIn', t.amount_cents, t.completed_on
-                FROM bank_transfers t WHERE t.status = 'COMPLETED'
+                FROM bank_transfers t WHERE t.workspace_id = $6 AND t.status = 'COMPLETED'
               UNION ALL
                 SELECT t.from_bank_account_id, 'transfersOut', t.amount_cents, t.completed_on
-                FROM bank_transfers t WHERE t.status = 'COMPLETED'
+                FROM bank_transfers t WHERE t.workspace_id = $6 AND t.status = 'COMPLETED'
              ) moves
              WHERE day >= $1::date AND day < ($2::date + interval '1 month')
                AND account_id = ANY($5::uuid[])
              GROUP BY 1, account_id, kind`,
-            [start, end, [...EARNING_REALIZED], [...EXPENSE_REALIZED], accountIds],
+            [start, end, [...EARNING_REALIZED], [...EXPENSE_REALIZED], accountIds, workspaceId],
         )) as Row[];
 
         const totals = new Map<string, number>();
@@ -115,11 +126,12 @@ export class CashFlowReportService {
     }
 
     /** Contas do relatório: todas (arquivadas inclusive) ou a pedida, que deve existir. */
-    private async accountIds(bankAccountId?: string): Promise<string[]> {
+    private async accountIds(workspaceId: string, bankAccountId?: string): Promise<string[]> {
         const rows = (await this.dataSource.query(
-            `SELECT id FROM bank_accounts WHERE ($1::uuid IS NULL OR id = $1::uuid)
+            `SELECT id FROM bank_accounts
+             WHERE workspace_id = $2 AND ($1::uuid IS NULL OR id = $1::uuid)
              ORDER BY created_at, id`,
-            [bankAccountId ?? null],
+            [bankAccountId ?? null, workspaceId],
         )) as Array<{ id: string }>;
 
         if (bankAccountId && rows.length === 0) {

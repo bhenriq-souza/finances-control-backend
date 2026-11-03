@@ -1,7 +1,12 @@
 import { inject, injectable } from 'tsyringe';
 import type { DataSource } from 'typeorm';
 
-import { DatabaseConnectionSymbol, moneyTransformer } from '../platform';
+import {
+    DatabaseConnectionSymbol,
+    RequestContextSymbol,
+    moneyTransformer,
+    type RequestContext,
+} from '../platform';
 import { COMPOSITION } from './composition';
 import { monthsInWindow } from './report-window.schemas';
 
@@ -44,10 +49,13 @@ type Source = {
  */
 @injectable()
 export class ByTypeReportService {
-    constructor(@inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource) {}
+    constructor(
+        @inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
+    ) {}
 
     expensesByType(params: Params): Promise<ByTypeReport> {
-        return this.build(params, {
+        return this.build(this.requestContext.requireWorkspaceId(), params, {
             table: 'expenses',
             typeTable: 'expense_types',
             typeColumn: 'expense_type_id',
@@ -58,7 +66,7 @@ export class ByTypeReportService {
     }
 
     earningsByType(params: Params): Promise<ByTypeReport> {
-        return this.build(params, {
+        return this.build(this.requestContext.requireWorkspaceId(), params, {
             table: 'earnings',
             typeTable: 'earning_types',
             typeColumn: 'earning_type_id',
@@ -69,6 +77,7 @@ export class ByTypeReportService {
     }
 
     private async build(
+        workspaceId: string,
         { from, to, includeForecast }: Params,
         source: Source,
     ): Promise<ByTypeReport> {
@@ -84,14 +93,17 @@ export class ByTypeReportService {
                     SUM(x.amount_cents)::text AS total
              FROM ${source.table} x
              JOIN ${source.typeTable} t ON t.id = x.${source.typeColumn}
-             WHERE x.status = ANY($1::text[])
+             WHERE x.workspace_id = $4
+               AND x.status = ANY($1::text[])
                AND x.occurred_on >= $2::date
                AND x.occurred_on < ($3::date + interval '1 month')
              GROUP BY 1, t.id, t.name`,
-            [statuses, start, end],
+            [statuses, start, end, workspaceId],
         )) as Row[];
 
-        const refunds = source.withRefunds ? await this.refundsByMonth(start, end) : new Map();
+        const refunds = source.withRefunds
+            ? await this.refundsByMonth(workspaceId, start, end)
+            : new Map();
 
         const byMonth = new Map<string, ByTypeEntry[]>();
 
@@ -122,14 +134,19 @@ export class ByTypeReportService {
     }
 
     /** Estornos por mês do `occurred_on` do estorno; não abatem o tipo (spec 0015). */
-    private async refundsByMonth(start: string, end: string): Promise<Map<string, number>> {
+    private async refundsByMonth(
+        workspaceId: string,
+        start: string,
+        end: string,
+    ): Promise<Map<string, number>> {
         const rows = (await this.dataSource.query(
             `SELECT to_char(r.occurred_on, 'YYYY-MM') AS month, SUM(r.amount_cents)::text AS total
              FROM credit_card_refunds r
-             WHERE r.occurred_on >= $1::date
+             WHERE r.workspace_id = $3
+               AND r.occurred_on >= $1::date
                AND r.occurred_on < ($2::date + interval '1 month')
              GROUP BY 1`,
-            [start, end],
+            [start, end, workspaceId],
         )) as Array<{ month: string; total: string }>;
 
         return new Map(rows.map((row) => [row.month, moneyTransformer.from(row.total) as number]));

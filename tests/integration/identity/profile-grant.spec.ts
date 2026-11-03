@@ -21,6 +21,11 @@ describe('concessão e revogação de perfil (spec 0010)', () => {
     beforeEach(async () => {
         await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
         adminId = (await ctx.setProfile('uid-admin', 'ADMIN')).id;
+        // Gerir usuários é do admin da plataforma (spec 0021, INV-0021-08).
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
 
         await request(ctx.app).get('/users/me').set('Authorization', 'Bearer uid-alvo');
         targetId = (await ctx.findByUid('uid-alvo'))!.id;
@@ -36,7 +41,7 @@ describe('concessão e revogação de perfil (spec 0010)', () => {
             const response = await request(ctx.app)
                 .patch(`/users/${targetId}/profile`)
                 .set('Authorization', ADMIN)
-                .send({ profile: 'BILLER' });
+                .send({ profile: 'BILLER', workspaceId: ctx.workspaceId });
 
             expect(response.status).toBe(200);
             expect(response.body.data).toMatchObject({ id: targetId, profile: 'BILLER' });
@@ -44,27 +49,27 @@ describe('concessão e revogação de perfil (spec 0010)', () => {
 
             const stored = await ctx.findByUid('uid-alvo');
             expect(stored?.membership?.grantedById).toBe(adminId);
-            // Pendente aprovado vira membro do espaço de quem concedeu (provisório até a
-            // aprovação com espaço, T-0021-02).
+            // Pendente aprovado vira membro do espaço escolhido na aprovação (spec 0021).
             expect(stored?.membership?.workspaceId).toBe(ctx.workspaceId);
         });
 
         it('vale já na requisição seguinte do alvo, sem trocar de token', async () => {
             const before = await request(ctx.app)
-                .get('/users')
+                .get('/users/me/avatar')
                 .set('Authorization', 'Bearer uid-alvo');
             expect(before.status).toBe(403);
 
             await request(ctx.app)
                 .patch(`/users/${targetId}/profile`)
                 .set('Authorization', ADMIN)
-                .send({ profile: 'ADMIN' });
+                .send({ profile: 'ADMIN', workspaceId: ctx.workspaceId });
 
             const after = await request(ctx.app)
-                .get('/users')
+                .get('/users/me/avatar')
                 .set('Authorization', 'Bearer uid-alvo');
 
-            expect(after.status).toBe(200);
+            // Passou da guarda de perfil: sem foto, o 404 é o de `AVATAR_NOT_FOUND`.
+            expect(after.status).toBe(404);
         });
 
         it('troca um perfil já concedido', async () => {
@@ -132,7 +137,7 @@ describe('concessão e revogação de perfil (spec 0010)', () => {
             await request(ctx.app).delete(`/users/${targetId}/profile`).set('Authorization', ADMIN);
 
             const response = await request(ctx.app)
-                .get('/users')
+                .get('/users/me/avatar')
                 .set('Authorization', 'Bearer uid-alvo');
 
             expect(response.status).toBe(403);

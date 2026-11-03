@@ -9,6 +9,9 @@ export type UserResponse = {
     name: string;
     profile: UserProfile | null;
     profileGrantedAt: string | null;
+    /** O espaço do membro (spec 0021); nulo para o usuário pendente. */
+    workspace: { id: string; name: string } | null;
+    isPlatformAdmin: boolean;
     /**
      * `updated_at` da foto, ou nulo sem foto: o frontend sabe se há foto e quando
      * ela mudou sem pedir os bytes (spec 0010).
@@ -17,7 +20,11 @@ export type UserResponse = {
     createdAt: string;
 };
 
-export const toUserResponse = (user: User, avatarUpdatedAt: Date | null): UserResponse => ({
+export const toUserResponse = (
+    user: User,
+    avatarUpdatedAt: Date | null,
+    workspaceName: string | null = null,
+): UserResponse => ({
     id: user.id,
     email: user.email,
     emailVerified: user.emailVerified,
@@ -25,6 +32,11 @@ export const toUserResponse = (user: User, avatarUpdatedAt: Date | null): UserRe
     // O perfil é o do membro do espaço (spec 0021); pendente não tem nenhum.
     profile: user.membership?.profile ?? null,
     profileGrantedAt: user.membership?.grantedAt.toISOString() ?? null,
+    workspace:
+        user.membership && workspaceName !== null
+            ? { id: user.membership.workspaceId, name: workspaceName }
+            : null,
+    isPlatformAdmin: user.isPlatformAdmin,
     avatarUpdatedAt: avatarUpdatedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
 });

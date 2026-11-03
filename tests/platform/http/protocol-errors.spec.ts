@@ -74,6 +74,10 @@ describe('erros de protocolo em JSON (spec 0005)', () => {
     it('devolve path, code e message em cada item de details (AC-0005-06)', async () => {
         await request(ctx.app).get('/users/me').set('Authorization', ADMIN);
         await ctx.setProfile('uid-admin', 'ADMIN');
+        await ctx.dataSource.query(
+            'UPDATE users SET is_platform_admin = true WHERE firebase_uid = $1',
+            ['uid-admin'],
+        );
 
         const response = await request(ctx.app)
             .post('/banks')
