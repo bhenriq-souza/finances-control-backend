@@ -32,13 +32,13 @@ export class ForecastBalanceService {
     constructor(@inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource) {}
 
     /** Contas (arquivadas inclusive) com o saldo corrente; `bankAccountId` restringe a uma. */
-    async accounts(bankAccountId?: string): Promise<ForecastAccount[]> {
+    async accounts(workspaceId: string, bankAccountId?: string): Promise<ForecastAccount[]> {
         const rows = (await this.dataSource.query(
             `SELECT a.id, a.current_balance_cents::text AS balance
              FROM bank_accounts a
-             WHERE ($1::uuid IS NULL OR a.id = $1::uuid)
+             WHERE a.workspace_id = $2 AND ($1::uuid IS NULL OR a.id = $1::uuid)
              ORDER BY a.created_at, a.id`,
-            [bankAccountId ?? null],
+            [bankAccountId ?? null, workspaceId],
         )) as Array<{ id: string; balance: string }>;
 
         if (bankAccountId !== undefined && rows.length === 0) {
@@ -58,6 +58,7 @@ export class ForecastBalanceService {
      * tem data anterior ao mês corrente entra no corrente.
      */
     async pendingByMonth(
+        workspaceId: string,
         currentMonth: string,
         lastMonth: string,
         bankAccountId?: string,
@@ -91,10 +92,11 @@ export class ForecastBalanceService {
                 `SELECT e.bank_account_id AS id, ${bucket('e.occurred_on')} AS month,
                         SUM(e.amount_cents)::text AS total
                  FROM earnings e
-                 WHERE e.status = ANY($1::text[]) AND ${upTo('e.occurred_on')}
+                 WHERE e.workspace_id = $5 AND e.status = ANY($1::text[])
+                   AND ${upTo('e.occurred_on')}
                    AND ($4::uuid IS NULL OR e.bank_account_id = $4::uuid)
                  GROUP BY 1, 2`,
-                [[...COMPOSITION.earnings.pending], firstDay, lastDay, filter],
+                [[...COMPOSITION.earnings.pending], firstDay, lastDay, filter, workspaceId],
             )) as Row[],
             'earningsCents',
         );
@@ -104,11 +106,12 @@ export class ForecastBalanceService {
                 `SELECT x.bank_account_id AS id, ${bucket('x.occurred_on')} AS month,
                         SUM(x.amount_cents)::text AS total
                  FROM expenses x
-                 WHERE x.status = ANY($1::text[]) AND x.credit_card_id IS NULL
+                 WHERE x.workspace_id = $5 AND x.status = ANY($1::text[])
+                   AND x.credit_card_id IS NULL
                    AND ${upTo('x.occurred_on')}
                    AND ($4::uuid IS NULL OR x.bank_account_id = $4::uuid)
                  GROUP BY 1, 2`,
-                [[...COMPOSITION.expenses.pending], firstDay, lastDay, filter],
+                [[...COMPOSITION.expenses.pending], firstDay, lastDay, filter, workspaceId],
             )) as Row[],
             'expensesCents',
         );
@@ -121,15 +124,15 @@ export class ForecastBalanceService {
                      SELECT to_bank_account_id AS account_id, ${bucket('occurred_on')} AS month,
                             amount_cents AS amount
                      FROM bank_transfers
-                     WHERE status = $1 AND ${upTo('occurred_on')}
+                     WHERE workspace_id = $5 AND status = $1 AND ${upTo('occurred_on')}
                      UNION ALL
                      SELECT from_bank_account_id, ${bucket('occurred_on')}, -amount_cents
                      FROM bank_transfers
-                     WHERE status = $1 AND ${upTo('occurred_on')}
+                     WHERE workspace_id = $5 AND status = $1 AND ${upTo('occurred_on')}
                  ) t
                  WHERE ($4::uuid IS NULL OR t.account_id = $4::uuid)
                  GROUP BY 1, 2`,
-                [TRANSFER_SCHEDULED, firstDay, lastDay, filter],
+                [TRANSFER_SCHEDULED, firstDay, lastDay, filter, workspaceId],
             )) as Row[],
             'transfersCents',
         );

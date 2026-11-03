@@ -1,7 +1,12 @@
 import { inject, injectable } from 'tsyringe';
 import type { DataSource } from 'typeorm';
 
-import { DatabaseConnectionSymbol, moneyTransformer } from '../platform';
+import {
+    DatabaseConnectionSymbol,
+    RequestContextSymbol,
+    moneyTransformer,
+    type RequestContext,
+} from '../platform';
 import { previousDay } from './account-movements.schemas';
 import { EARNING_REALIZED, EXPENSE_REALIZED } from './composition';
 import { RealizedBalanceService } from './realized-balance.service';
@@ -58,11 +63,17 @@ export class AccountMovementsReportService {
     constructor(
         @inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource,
         @inject(RealizedBalanceServiceSymbol) private readonly realized: RealizedBalanceService,
+        @inject(RequestContextSymbol) private readonly requestContext: RequestContext,
     ) {}
 
     async movements({ bankAccountId, from, to }: Params): Promise<AccountMovementsReport> {
-        // Também garante que a conta existe (404 BANK_ACCOUNT_NOT_FOUND).
-        const openingBalanceCents = await this.realized.balanceOn(bankAccountId, previousDay(from));
+        const workspaceId = this.requestContext.requireWorkspaceId();
+        // Também garante que a conta existe no espaço (404 BANK_ACCOUNT_NOT_FOUND).
+        const openingBalanceCents = await this.realized.balanceOn(
+            workspaceId,
+            bankAccountId,
+            previousDay(from),
+        );
 
         const rows = (await this.dataSource.query(
             `SELECT to_char(m.day, 'YYYY-MM-DD') AS date, m.kind, m.source_id, m.description,
@@ -74,31 +85,33 @@ export class AccountMovementsReportService {
                        NULL::uuid AS statement_id, NULL::uuid AS counterpart_id,
                        e.amount_cents AS amount, e.created_at
                 FROM earnings e JOIN earning_types t ON t.id = e.earning_type_id
-                WHERE e.bank_account_id = $1 AND e.status = ANY($4::text[])
+                WHERE e.workspace_id = $6 AND e.bank_account_id = $1
+                  AND e.status = ANY($4::text[])
               UNION ALL
                 SELECT x.paid_on, 'EXPENSE', x.id, x.description, t.name, NULL, NULL, NULL,
                        -x.amount_cents, x.created_at
                 FROM expenses x JOIN expense_types t ON t.id = x.expense_type_id
-                WHERE x.bank_account_id = $1 AND x.status = ANY($5::text[])
+                WHERE x.workspace_id = $6 AND x.bank_account_id = $1
+                  AND x.status = ANY($5::text[])
               UNION ALL
                 SELECT p.paid_on, 'STATEMENT_PAYMENT', p.id, NULL, NULL, p.credit_card_id,
                        p.statement_id, NULL, -p.amount_cents, p.created_at
                 FROM credit_card_statement_payments p
-                WHERE p.bank_account_id = $1
+                WHERE p.workspace_id = $6 AND p.bank_account_id = $1
               UNION ALL
                 SELECT t.completed_on, 'TRANSFER_IN', t.id, t.description, NULL, NULL, NULL,
                        t.from_bank_account_id, t.amount_cents, t.created_at
                 FROM bank_transfers t
-                WHERE t.to_bank_account_id = $1 AND t.status = 'COMPLETED'
+                WHERE t.workspace_id = $6 AND t.to_bank_account_id = $1 AND t.status = 'COMPLETED'
               UNION ALL
                 SELECT t.completed_on, 'TRANSFER_OUT', t.id, t.description, NULL, NULL, NULL,
                        t.to_bank_account_id, -t.amount_cents, t.created_at
                 FROM bank_transfers t
-                WHERE t.from_bank_account_id = $1 AND t.status = 'COMPLETED'
+                WHERE t.workspace_id = $6 AND t.from_bank_account_id = $1 AND t.status = 'COMPLETED'
              ) m
              WHERE m.day >= $2::date AND m.day <= $3::date
              ORDER BY m.day, m.created_at, m.source_id`,
-            [bankAccountId, from, to, [...EARNING_REALIZED], [...EXPENSE_REALIZED]],
+            [bankAccountId, from, to, [...EARNING_REALIZED], [...EXPENSE_REALIZED], workspaceId],
         )) as Row[];
 
         let balance = openingBalanceCents;
@@ -126,7 +139,7 @@ export class AccountMovementsReportService {
             from,
             to,
             openingBalanceCents,
-            closingBalanceCents: await this.realized.balanceOn(bankAccountId, to),
+            closingBalanceCents: await this.realized.balanceOn(workspaceId, bankAccountId, to),
             movements,
         };
     }

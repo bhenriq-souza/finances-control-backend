@@ -18,29 +18,33 @@ import { EARNING_REALIZED, EXPENSE_REALIZED } from './composition';
 export class RealizedBalanceService {
     constructor(@inject(DatabaseConnectionSymbol) private readonly dataSource: DataSource) {}
 
-    /** `date` é um dia civil `YYYY-MM-DD`; o saldo inclui os movimentos desse dia. */
-    async balanceOn(bankAccountId: string, date: string): Promise<number> {
+    /**
+     * `date` é um dia civil `YYYY-MM-DD`; o saldo inclui os movimentos desse dia. A conta de
+     * outro espaço responde como inexistente (INV-0021-03).
+     */
+    async balanceOn(workspaceId: string, bankAccountId: string, date: string): Promise<number> {
         const rows = (await this.dataSource.query(
             `SELECT (
                 a.opening_balance_cents
                 + COALESCE((SELECT SUM(e.amount_cents) FROM earnings e
-                            WHERE e.bank_account_id = a.id
+                            WHERE e.bank_account_id = a.id AND e.workspace_id = a.workspace_id
                               AND e.status = ANY($3::text[]) AND e.received_on <= $2::date), 0)
                 - COALESCE((SELECT SUM(x.amount_cents) FROM expenses x
-                            WHERE x.bank_account_id = a.id
+                            WHERE x.bank_account_id = a.id AND x.workspace_id = a.workspace_id
                               AND x.status = ANY($4::text[]) AND x.paid_on <= $2::date), 0)
                 - COALESCE((SELECT SUM(p.amount_cents) FROM credit_card_statement_payments p
-                            WHERE p.bank_account_id = a.id AND p.paid_on <= $2::date), 0)
+                            WHERE p.bank_account_id = a.id AND p.workspace_id = a.workspace_id
+                              AND p.paid_on <= $2::date), 0)
                 + COALESCE((SELECT SUM(t.amount_cents) FROM bank_transfers t
-                            WHERE t.to_bank_account_id = a.id
+                            WHERE t.to_bank_account_id = a.id AND t.workspace_id = a.workspace_id
                               AND t.status = 'COMPLETED' AND t.completed_on <= $2::date), 0)
                 - COALESCE((SELECT SUM(t.amount_cents) FROM bank_transfers t
-                            WHERE t.from_bank_account_id = a.id
+                            WHERE t.from_bank_account_id = a.id AND t.workspace_id = a.workspace_id
                               AND t.status = 'COMPLETED' AND t.completed_on <= $2::date), 0)
             )::text AS balance
             FROM bank_accounts a
-            WHERE a.id = $1`,
-            [bankAccountId, date, [...EARNING_REALIZED], [...EXPENSE_REALIZED]],
+            WHERE a.id = $1 AND a.workspace_id = $5`,
+            [bankAccountId, date, [...EARNING_REALIZED], [...EXPENSE_REALIZED], workspaceId],
         )) as Array<{ balance: string }>;
 
         const row = rows[0];
