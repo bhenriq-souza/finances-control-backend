@@ -89,6 +89,21 @@
                     }
                 },
                 {
+                    "name": "Rota de laboratório com nome",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/hello/:name",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["hello", ":name"],
+                            "variable": [{ "key": "name", "value": "{{name}}" }]
+                        },
+                        "description": "Rota pública e fake, sem autenticação. Responde `hello {name}`.",
+                        "auth": { "type": "noauth" }
+                    }
+                },
+                {
                     "name": "Readiness da aplicação",
                     "request": {
                         "method": "GET",
