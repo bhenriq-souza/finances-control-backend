@@ -23,6 +23,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0019](0019-initial-load.md)             | Carga inicial — dados reais de prd a partir da planilha            | implemented |
 | [0020](0020-statement-reconciliation.md) | Conferência da fatura — despesas incluídas na fatura do banco      | implemented |
 | [0021](0021-workspaces.md)               | Espaços — isolamento dos registros por espaço e membros com perfil | approved    |
+| [0022](0022-hello-route.md)              | Rota de laboratório GET /hello                                     | draft       |
 
 Specs de domínio planejadas (ainda não escritas): `0016` imports — **adiada** (FCB-013).
 

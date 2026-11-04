@@ -579,6 +579,15 @@ módulo seguintes correm em paralelo, cada uma no seu worktree; a suíte por rot
       rota; `ERR-0021-01` e `ERR-0021-02` cobertos; última tarefa: fecha FCB-025 e muda o `status`
       para `implemented`
 
+## Rota de laboratório
+
+Tarefa da [spec 0022](../specs/0022-hello-route.md), item de laboratório sem valor de produto.
+
+- [ ] **T-0022-01 — Rota `GET /hello`**
+    - What: módulo `hello` com `HelloRoutes` e `HelloController`, montado em `/hello`; operação `getHello` no contrato; entrada `exempt` na suíte de isolamento
+    - Where: `src/platform/hello/`, `src/api.config.ts`, `src/platform/symbols/index.ts`, `docs/openapi.yaml`, `tests/integration/isolation/routes.spec.ts`, `tests/platform/hello/`
+    - Done when: `AC-0022-01` a `AC-0022-04` cobertos; `INV-0022-01` e `INV-0022-02` verificados; última tarefa: muda o `status` da spec para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
