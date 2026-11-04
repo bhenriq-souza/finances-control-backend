@@ -231,7 +231,12 @@ describe('docs/openapi.yaml', () => {
             .filter(({ operation }) => !(operation as { security?: unknown }).security)
             .map(({ route }) => route);
 
-        expect([...new Set(semSeguranca)].sort()).toEqual(['/health', '/health/ready', '/hello']);
+        expect([...new Set(semSeguranca)].sort()).toEqual([
+            '/health',
+            '/health/ready',
+            '/hello',
+            '/hello/{name}',
+        ]);
     });
     describe('contrato de erros (spec 0005)', () => {
         it('toda chamada de CustomError tem código literal visível, salvo as duas conhecidas (INV-0005-02)', () => {

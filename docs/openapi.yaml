@@ -88,6 +88,41 @@ paths:
                                 data:
                                     message: hello world
 
+    /hello/{name}:
+        parameters:
+            - name: name
+              in: path
+              required: true
+              description: Nome com letras (inclusive acentuadas) e hífen, de 1 a 40 caracteres.
+              schema:
+                  type: string
+                  pattern: '^[\p{L}-]{1,40}$'
+        get:
+            tags: [Platform]
+            summary: Rota de laboratório com nome
+            description: |
+                Rota pública e fake, sem autenticação. Responde `hello {name}`.
+            operationId: getHelloName
+            responses:
+                '200':
+                    description: Mensagem com o nome
+                    headers:
+                        x-correlation-id:
+                            $ref: '#/components/headers/CorrelationId'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: object
+                                        properties:
+                                            message:
+                                                type: string
+                                                example: hello Maria
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+
     /health/ready:
         get:
             tags: [Platform]
