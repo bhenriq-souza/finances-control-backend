@@ -75,6 +75,20 @@
                     }
                 },
                 {
+                    "name": "Rota de laboratório",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/hello",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["hello"]
+                        },
+                        "description": "Rota pública e fake, sem autenticação nem dependências. Existe só para\nexercitar o fluxo spec → PR → implementação.",
+                        "auth": { "type": "noauth" }
+                    }
+                },
+                {
                     "name": "Readiness da aplicação",
                     "request": {
                         "method": "GET",
