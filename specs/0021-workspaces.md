@@ -379,7 +379,7 @@ Suíte por rota e contrato:
 | AC-0021-18, INV-0021-08                                                                                | os `isolation.spec.ts` de accounts, expenses e earnings                 |
 | AC-0021-19, ERR-0021-14                                                                                | `tests/load/workspace.spec.ts`                                          |
 | AC-0021-20, INV-0021-03, INV-0021-10, ERR-0021-01, ERR-0021-02                                         | `tests/integration/isolation/routes.spec.ts`                            |
-| ERR-0021-13                                                                                            | `tests/platform/request-context.spec.ts`                                |
+| ERR-0021-13                                                                                            | `tests/platform/context/request-context.spec.ts`                        |
 | AC-0021-21                                                                                             | `tests/openapi.spec.ts`, `tests/postman.spec.ts` e revisão em PR        |
 
 ## Open questions

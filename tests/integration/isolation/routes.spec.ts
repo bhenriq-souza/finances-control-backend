@@ -93,10 +93,7 @@ const cases: Record<string, RouteCase> = {
         code: 'BANK_ACCOUNT_NOT_FOUND',
     },
     'POST /bank-accounts': {
-        foreign: () => {
-            throw new Error('unused');
-        },
-        code: '',
+        exempt: 'o corpo só referencia o banco, que é catálogo global (INV-0021-08); o espaço vem do contexto da requisição, sem id de outro espaço no input',
     },
     'PATCH /bank-accounts/:id': {
         foreign: ({ a, b }) => a.patch(`/bank-accounts/${b.accountId}`, { description: 'x' }),
