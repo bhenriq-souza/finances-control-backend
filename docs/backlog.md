@@ -588,6 +588,17 @@ Tarefa da [spec 0022](../specs/0022-hello-route.md), item de laboratório sem va
     - Where: `src/platform/hello/`, `src/api.config.ts`, `src/platform/symbols/index.ts`, `docs/openapi.yaml`, `tests/integration/isolation/routes.spec.ts`, `tests/platform/hello/`
     - Done when: `AC-0022-01` a `AC-0022-04` cobertos; `INV-0022-01` e `INV-0022-02` verificados; última tarefa: muda o `status` da spec para `implemented`
 
+Tarefas da [spec 0023](../specs/0023-hello-name-route.md), extensão da rota de laboratório (item 2.11 do FT Coders).
+
+- [ ] **T-0023-01 — Rota `GET /hello/:name` com validação**
+    - What: `nameParamsSchema` (zod) e `HelloController.handleGetHelloName`; rota `/:name` em `HelloRoutes`, respondendo `hello {name}`; nome inválido vira `400 VALIDATION_ERROR`
+    - Where: `src/platform/hello/`, `tests/platform/hello/`
+    - Done when: `AC-0023-01` a `AC-0023-07` cobertos; `INV-0023-01` e `INV-0023-02` verificados; `ERR-0023-01` e `ERR-0023-02` cobertos
+- [ ] **T-0023-02 — Contrato OpenAPI, Postman e suíte de isolamento**
+    - What: operação `getHelloName` em `/hello/{name}` com `200` e `ValidationFailed`; collection regenerada por `npm run postman`; entrada `exempt` na suíte de isolamento
+    - Where: `docs/openapi.yaml`, `docs/postman/`, `tests/integration/isolation/routes.spec.ts`, `tests/openapi.spec.ts`
+    - Done when: `AC-0023-08` e `AC-0023-09` cobertos; `INV-0023-03` verificado; última tarefa: muda o `status` da spec para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:

@@ -72,5 +72,5 @@ não tem valor de produto: existe só para exercitar o fluxo spec → PR de spec
 
 ## Open questions
 
-- O "corpo hello world" é o envelope JSON `{ "data": { "message": "hello world" } }` (proposto, igual
-  ao resto da API) ou o texto puro `hello world` com `text/plain`? Quem aprova a spec decide.
+Nenhuma. Decisão tomada na implementação e confirmada na spec 0023: o corpo é o envelope JSON
+`{ "data": { "message": "hello world" } }`, igual ao resto da API; texto puro foi descartado.
