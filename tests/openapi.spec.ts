@@ -226,12 +226,12 @@ describe('docs/openapi.yaml', () => {
         expect(documented.filter((r) => !publishedKeys.includes(r))).toEqual([]);
     });
 
-    it('toda rota de domínio exige autenticação, e só as de saúde não', () => {
+    it('toda rota de domínio exige autenticação, e só as de saúde e /hello não (AC-0022-04)', () => {
         const semSeguranca = operations
             .filter(({ operation }) => !(operation as { security?: unknown }).security)
             .map(({ route }) => route);
 
-        expect([...new Set(semSeguranca)].sort()).toEqual(['/health', '/health/ready']);
+        expect([...new Set(semSeguranca)].sort()).toEqual(['/health', '/health/ready', '/hello']);
     });
     describe('contrato de erros (spec 0005)', () => {
         it('toda chamada de CustomError tem código literal visível, salvo as duas conhecidas (INV-0005-02)', () => {

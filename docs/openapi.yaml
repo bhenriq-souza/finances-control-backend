@@ -59,6 +59,35 @@ paths:
                                     environment: dev
                                     uptimeSeconds: 42
 
+    /hello:
+        get:
+            tags: [Platform]
+            summary: Rota de laboratório
+            description: |
+                Rota pública e fake, sem autenticação nem dependências. Existe só para
+                exercitar o fluxo spec → PR → implementação.
+            operationId: getHello
+            responses:
+                '200':
+                    description: Mensagem fixa
+                    headers:
+                        x-correlation-id:
+                            $ref: '#/components/headers/CorrelationId'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: object
+                                        properties:
+                                            message:
+                                                type: string
+                                                example: hello world
+                            example:
+                                data:
+                                    message: hello world
+
     /health/ready:
         get:
             tags: [Platform]

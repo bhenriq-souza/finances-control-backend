@@ -4,10 +4,14 @@ import type { ApiModule } from './platform/api/register-api-modules';
 import { HealthController } from './platform/health/health.controller';
 import { HealthRoutes } from './platform/health/health.routes';
 import { HealthService } from './platform/health/health.service';
+import { HelloController } from './platform/hello/hello.controller';
+import { HelloRoutes } from './platform/hello/hello.routes';
 import {
     HealthControllerSymbol,
     HealthRoutesSymbol,
     HealthServiceSymbol,
+    HelloControllerSymbol,
+    HelloRoutesSymbol,
 } from './platform/symbols';
 import {
     BankAccountController,
@@ -144,6 +148,13 @@ export const apiModules: ApiModule[] = [
         provides: [
             { token: HealthServiceSymbol, clazz: HealthService, scope: ScopeTypes.SINGLETON },
             { token: HealthControllerSymbol, clazz: HealthController, scope: ScopeTypes.SINGLETON },
+        ],
+    },
+    {
+        path: '/hello',
+        route: { token: HelloRoutesSymbol, clazz: HelloRoutes },
+        provides: [
+            { token: HelloControllerSymbol, clazz: HelloController, scope: ScopeTypes.SINGLETON },
         ],
     },
     {
