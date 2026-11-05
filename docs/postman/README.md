@@ -62,17 +62,19 @@ Um caminho que exercita quase tudo: `POST /banks` → `POST /bank-accounts` → 
 
 ## Rota de laboratório
 
-`GET /hello/{name}` (spec 0023) é pública: não precisa de `Authorization`. Exemplo:
+`GET /hello/{name}` (spec 0023) é pública: não precisa de `Authorization`. O nome vai no caminho já
+codificado (percent-encoding); o Express o decodifica antes de validar. Exemplo:
 
 ```http
-GET /hello/Maria-José
+GET /hello/Maria-Jos%C3%A9
 ```
 
 ```json
 { "data": { "message": "hello Maria-José" } }
 ```
 
-O nome aceita letras (com acento) e hífen; outros caracteres respondem `400 VALIDATION_ERROR`.
+O nome tem de 1 a 40 letras de qualquer alfabeto (com ou sem acento) e hífen `-`, em qualquer posição;
+outros caracteres, ou mais de 40, respondem `400 VALIDATION_ERROR`.
 
-- **Commit de merge:** _a preencher_ (tarefa T-0023-02).
-- **Data de entrada no `develop`:** _a preencher_.
+- **Commit de merge:** `a2d8b99` (backend#230, tarefa T-0023-02).
+- **Data de entrada no `develop`:** 04/11/2026.
