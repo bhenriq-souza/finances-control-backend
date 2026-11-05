@@ -76,5 +76,5 @@ GET /hello/Maria-Jos%C3%A9
 O nome tem de 1 a 40 letras de qualquer alfabeto (com ou sem acento) e hífen `-`, em qualquer posição;
 outros caracteres, ou mais de 40, respondem `400 VALIDATION_ERROR`.
 
-- **Commit de merge:** `a2d8b99` (backend#230, tarefa T-0023-02).
+- **Commit de merge:** `a2d8b99` (backend#230, tarefa T-0023-01).
 - **Data de entrada no `develop`:** 04/11/2026.
