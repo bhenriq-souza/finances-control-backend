@@ -599,6 +599,17 @@ Tarefas da [spec 0023](../specs/0023-hello-name-route.md), extensão da rota de 
     - Where: `docs/openapi.yaml`, `docs/postman/`, `tests/integration/isolation/routes.spec.ts`, `tests/openapi.spec.ts`
     - Done when: `AC-0023-08` e `AC-0023-09` cobertos; `INV-0023-03` verificado; última tarefa: muda o `status` da spec para `implemented`
 
+Tarefas da [spec 0024](../specs/0024-hello-upper-length-routes.md), rotas `upper` e `length` (item 2.13 do FT Coders). São independentes entre si: cada uma traz código, contrato, Postman e isolamento da sua rota e pode ser revisada e entregue em qualquer ordem.
+
+- [ ] **T-0024-01 — Rota `GET /hello/:name/upper`**
+    - What: `HelloController.handleGetHelloUpper` e rota `/:name/upper` em `HelloRoutes`, respondendo `HELLO {NAME}`; operação `getHelloNameUpper` no contrato; collection regenerada por `npm run postman`; entrada `exempt` na suíte de isolamento
+    - Where: `src/platform/hello/`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/hello/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
+    - Done when: `AC-0024-01` a `AC-0024-07` cobertos; `INV-0024-01` a `INV-0024-04` verificados; `ERR-0024-01` a `ERR-0024-04` cobertos
+- [ ] **T-0024-02 — Rota `GET /hello/:name/length`**
+    - What: `HelloController.handleGetHelloLength` e rota `/:name/length` em `HelloRoutes`, respondendo `{ length }`; operação `getHelloNameLength` no contrato; collection regenerada por `npm run postman`; entrada `exempt` na suíte de isolamento
+    - Where: `src/platform/hello/`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/hello/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
+    - Done when: `AC-0024-08` a `AC-0024-14` cobertos; `INV-0024-01` a `INV-0024-04` verificados; `ERR-0024-01` a `ERR-0024-04` cobertos; última tarefa a entrar: muda o `status` da spec para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
