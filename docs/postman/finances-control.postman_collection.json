@@ -104,6 +104,21 @@
                     }
                 },
                 {
+                    "name": "Rota de laboratório com nome em maiúsculas",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/hello/:name/upper",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["hello", ":name", "upper"],
+                            "variable": [{ "key": "name", "value": "{{name}}" }]
+                        },
+                        "description": "Rota pública e fake, sem autenticação. Responde `HELLO {NAME}`.",
+                        "auth": { "type": "noauth" }
+                    }
+                },
+                {
                     "name": "Readiness da aplicação",
                     "request": {
                         "method": "GET",
