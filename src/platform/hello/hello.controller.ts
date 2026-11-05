@@ -14,4 +14,9 @@ export class HelloController {
         const { name } = nameParamsSchema.parse(req.params);
         return HttpResponses.ok(res, { message: `hello ${name}` });
     }
+
+    handleGetHelloUpper(req: Request, res: Response): Response {
+        const { name } = nameParamsSchema.parse(req.params);
+        return HttpResponses.ok(res, { message: `HELLO ${name.toUpperCase()}` });
+    }
 }
