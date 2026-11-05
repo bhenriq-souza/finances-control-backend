@@ -119,6 +119,21 @@
                     }
                 },
                 {
+                    "name": "Rota de laboratório com comprimento do nome",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/hello/:name/length",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["hello", ":name", "length"],
+                            "variable": [{ "key": "name", "value": "{{name}}" }]
+                        },
+                        "description": "Rota pública e fake, sem autenticação. Responde a quantidade de caracteres (pontos de código) do nome.",
+                        "auth": { "type": "noauth" }
+                    }
+                },
+                {
                     "name": "Readiness da aplicação",
                     "request": {
                         "method": "GET",

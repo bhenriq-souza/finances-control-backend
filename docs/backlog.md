@@ -605,7 +605,7 @@ Tarefas da [spec 0024](../specs/0024-hello-upper-length-routes.md), rotas `upper
     - What: `HelloController.handleGetHelloUpper` e rota `/:name/upper` em `HelloRoutes`, respondendo `HELLO {NAME}`; operação `getHelloNameUpper` no contrato; collection regenerada por `npm run postman`; entrada `exempt` na suíte de isolamento
     - Where: `src/platform/hello/`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/hello/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
     - Done when: `AC-0024-01` a `AC-0024-07` cobertos; `INV-0024-01` a `INV-0024-04` verificados; `ERR-0024-01` a `ERR-0024-04` cobertos
-- [ ] **T-0024-02 — Rota `GET /hello/:name/length`**
+- [x] **T-0024-02 — Rota `GET /hello/:name/length`**
     - What: `HelloController.handleGetHelloLength` e rota `/:name/length` em `HelloRoutes`, respondendo `{ length }`; operação `getHelloNameLength` no contrato; collection regenerada por `npm run postman`; entrada `exempt` na suíte de isolamento
     - Where: `src/platform/hello/`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/hello/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
     - Done when: `AC-0024-08` a `AC-0024-14` cobertos; `INV-0024-01` a `INV-0024-04` verificados; `ERR-0024-01` a `ERR-0024-04` cobertos; última tarefa a entrar: muda o `status` da spec para `implemented`

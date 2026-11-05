@@ -51,4 +51,19 @@ describe('HelloController', () => {
         expect(run()).toEqual([{ data: { message: 'HELLO MARIA-JOSÉ' } }]);
         expect(run()).toEqual(run());
     });
+
+    it('handleGetHelloLength depende só do nome (INV-0024-02)', () => {
+        const run = () => {
+            const json = jest.fn();
+            const res = { status: jest.fn().mockReturnValue({ json }) } as unknown as Response;
+            new HelloController().handleGetHelloLength(
+                { params: { name: 'Maria-José' } } as unknown as Request,
+                res,
+            );
+            return json.mock.calls[0];
+        };
+
+        expect(run()).toEqual([{ data: { length: 10 } }]);
+        expect(run()).toEqual(run());
+    });
 });

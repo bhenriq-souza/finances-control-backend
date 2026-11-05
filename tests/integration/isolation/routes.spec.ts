@@ -59,6 +59,7 @@ const cases: Record<string, RouteCase> = {
     'GET /hello': { exempt: 'sem autenticação nem dados de domínio' },
     'GET /hello/:name': { exempt: 'sem autenticação nem dados de domínio' },
     'GET /hello/:name/upper': { exempt: 'sem autenticação nem dados de domínio' },
+    'GET /hello/:name/length': { exempt: 'sem autenticação nem dados de domínio' },
 
     // identity
     'GET /users/me': { exempt: IDENTITY },

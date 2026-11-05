@@ -210,3 +210,85 @@ describe('GET /hello/:name/upper (spec 0024)', () => {
         expect(post.body.error.code).toBe('ROUTE_NOT_FOUND');
     });
 });
+
+describe('GET /hello/:name/length (spec 0024)', () => {
+    let ctx: TestApp;
+
+    beforeAll(async () => {
+        ctx = await startApp(SCHEMA + '_length');
+    });
+
+    afterAll(async () => {
+        await stopApp(ctx, SCHEMA + '_length');
+    });
+
+    it('responde o comprimento sem Authorization (AC-0024-08, INV-0024-01)', async () => {
+        const anon = await request(ctx.app).get('/hello/Maria/length');
+        const authed = await request(ctx.app)
+            .get('/hello/Maria/length')
+            .set('Authorization', 'Bearer x');
+
+        expect(anon.status).toBe(200);
+        expect(anon.body).toEqual({ data: { length: 5 } });
+        expect(anon.headers['content-type']).toMatch(/application\/json/);
+        expect(anon.headers['x-correlation-id']).toBeDefined();
+        expect(authed.body).toEqual(anon.body);
+    });
+
+    it.each([
+        ['/hello/Jos%C3%A9/length', 4],
+        ['/hello/Ana-Clara/length', 9],
+        ['/hello/-/length', 1],
+        ['/hello/Stra%C3%9Fe/length', 6],
+    ])('conta %s (AC-0024-09)', async (path, length) => {
+        const response = await request(ctx.app).get(path);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ data: { length } });
+    });
+
+    it('aceita 40 letras e rejeita 41 (AC-0024-10, ERR-0024-01)', async () => {
+        const ok = await request(ctx.app).get(`/hello/${'a'.repeat(40)}/length`);
+        const bad = await request(ctx.app).get(`/hello/${'a'.repeat(41)}/length`);
+
+        expect(ok.status).toBe(200);
+        expect(ok.body).toEqual({ data: { length: 40 } });
+        expect(bad.status).toBe(400);
+        expect(bad.body.error).toMatchObject({ code: 'VALIDATION_ERROR' });
+        expect(bad.body.error.details[0].path).toEqual(['name']);
+    });
+
+    it.each(['/hello/Ana%20Maria/length', '/hello/Ana2/length', '/hello/Ana_/length'])(
+        'rejeita %s (AC-0024-11, ERR-0024-02)',
+        async (path) => {
+            const response = await request(ctx.app).get(path);
+
+            expect(response.status).toBe(400);
+            expect(response.body.error.code).toBe('VALIDATION_ERROR');
+            for (const d of response.body.error.details) {
+                expect(d).toEqual(
+                    expect.objectContaining({
+                        path: expect.any(Array),
+                        code: expect.any(String),
+                        message: expect.any(String),
+                    }),
+                );
+            }
+        },
+    );
+
+    it('rejeita percent-encoding malformado (AC-0024-11, ERR-0024-03)', async () => {
+        const response = await request(ctx.app).get('/hello/%E0%A4%A/length');
+
+        expect(response.status).toBe(400);
+        expect(response.body.error.code).toBe('VALIDATION_ERROR');
+        expect(JSON.stringify(response.body)).not.toMatch(/decode/i);
+    });
+
+    it('POST dá 404 ROUTE_NOT_FOUND (AC-0024-12, ERR-0024-04)', async () => {
+        const post = await request(ctx.app).post('/hello/Maria/length');
+
+        expect(post.status).toBe(404);
+        expect(post.body.error.code).toBe('ROUTE_NOT_FOUND');
+    });
+});

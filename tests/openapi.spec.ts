@@ -237,6 +237,7 @@ describe('docs/openapi.yaml', () => {
             '/health/ready',
             '/hello',
             '/hello/{name}',
+            '/hello/{name}/length',
             '/hello/{name}/upper',
         ]);
     });
@@ -259,6 +260,50 @@ describe('docs/openapi.yaml', () => {
         expect(operation.responses['400']).toEqual({
             $ref: '#/components/responses/ValidationFailed',
         });
+    });
+
+    it('GET /hello/{name}/length não tem security e documenta 200 e 400 (AC-0024-13)', () => {
+        const operation = (document.paths['/hello/{name}/length'] as Record<string, any>).get;
+        const length =
+            operation.responses['200'].content['application/json'].schema.properties.data.properties
+                .length;
+
+        expect(operation.operationId).toBe('getHelloNameLength');
+        expect(operation.security).toBeUndefined();
+        expect(Object.keys(operation.responses).sort()).toEqual(['200', '400']);
+        expect(operation.responses['400']).toEqual({
+            $ref: '#/components/responses/ValidationFailed',
+        });
+        expect(length).toMatchObject({ type: 'integer', minimum: 1, maximum: 40 });
+    });
+
+    it('o pattern e os limites de /hello/{name}/length aceitam o mesmo que o schema zod (INV-0024-03)', () => {
+        const param = (
+            document.paths['/hello/{name}/length'] as Record<string, any>
+        ).parameters.find((p: { name: string }) => p.name === 'name');
+        const { pattern, minLength, maxLength } = param.schema;
+        const regex = new RegExp(pattern, 'u');
+        const samples = [
+            'Maria',
+            'José',
+            '-',
+            'Åsa',
+            '李雷',
+            'a'.repeat(40),
+            'a'.repeat(41),
+            '',
+            'Ana Maria',
+            'Ana2',
+            'Ana_',
+            'a.b',
+            'a@b',
+        ];
+
+        for (const name of samples) {
+            const n = [...name].length;
+            const accepts = regex.test(name) && n >= minLength && n <= maxLength;
+            expect([name, accepts]).toEqual([name, nameParamsSchema.safeParse({ name }).success]);
+        }
     });
 
     it('o pattern e os limites de /hello/{name}/upper aceitam o mesmo que o schema zod (INV-0024-03)', () => {
