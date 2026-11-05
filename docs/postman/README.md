@@ -59,3 +59,20 @@ listados na descrição de cada requisição. Os parâmetros de query opcionais 
 
 Um caminho que exercita quase tudo: `POST /banks` → `POST /bank-accounts` → `POST /expense-types` e
 `POST /earning-types` → `POST /expenses` e `POST /earnings` → `POST /credit-cards` → relatórios.
+
+## Rota de laboratório
+
+`GET /hello/{name}` (spec 0023) é pública: não precisa de `Authorization`. Exemplo:
+
+```http
+GET /hello/Maria-José
+```
+
+```json
+{ "data": { "message": "hello Maria-José" } }
+```
+
+O nome aceita letras (com acento) e hífen; outros caracteres respondem `400 VALIDATION_ERROR`.
+
+- **Commit de merge:** _a preencher_ (tarefa T-0023-02).
+- **Data de entrada no `develop`:** _a preencher_.
