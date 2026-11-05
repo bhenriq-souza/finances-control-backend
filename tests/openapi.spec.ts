@@ -8,6 +8,7 @@ import type { RouteDef } from '@bhs-dev/typescript-common-types';
 
 import { apiModules } from '../src/api.config';
 import { RequireProfileSymbol } from '../src/platform';
+import { nameParamsSchema } from '../src/platform/hello/hello.schemas';
 
 /**
  * O `openapi.yaml` é servido em `/docs` e vai gerar o cliente do frontend
@@ -238,6 +239,50 @@ describe('docs/openapi.yaml', () => {
             '/hello/{name}',
         ]);
     });
+    it('GET /hello/{name} não tem security e documenta 200 e 400 (AC-0023-08)', () => {
+        const operation = (document.paths['/hello/{name}'] as Record<string, any>).get;
+
+        expect(operation.security).toBeUndefined();
+        expect(Object.keys(operation.responses).sort()).toEqual(['200', '400']);
+        expect(operation.responses['400']).toEqual({
+            $ref: '#/components/responses/ValidationFailed',
+        });
+    });
+
+    it('o pattern e os limites de /hello/{name} aceitam o mesmo que o schema zod (INV-0023-03)', () => {
+        const param = (document.paths['/hello/{name}'] as Record<string, any>).parameters.find(
+            (p: { name: string }) => p.name === 'name',
+        );
+        const { pattern, minLength, maxLength } = param.schema;
+        const regex = new RegExp(pattern, 'u');
+        const lengthOk = (s: string): boolean => {
+            const n = [...s].length;
+            return n >= minLength && n <= maxLength;
+        };
+        const samples = [
+            'Maria',
+            'José',
+            'Ana-Clara',
+            '-',
+            'Åsa',
+            '李雷',
+            'a'.repeat(40),
+            'a'.repeat(41),
+            '',
+            'Ana Maria',
+            'Ana2',
+            'Ana_',
+            'a.b',
+            'a@b',
+            'e\u0301',
+        ];
+
+        for (const name of samples) {
+            const zodAccepts = nameParamsSchema.safeParse({ name }).success;
+            expect([name, regex.test(name) && lengthOk(name)]).toEqual([name, zodAccepts]);
+        }
+    });
+
     describe('contrato de erros (spec 0005)', () => {
         it('toda chamada de CustomError tem código literal visível, salvo as duas conhecidas (INV-0005-02)', () => {
             const literais =
