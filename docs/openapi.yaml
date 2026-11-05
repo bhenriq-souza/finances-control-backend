@@ -168,6 +168,48 @@ paths:
                 '400':
                     $ref: '#/components/responses/ValidationFailed'
 
+    /hello/{name}/length:
+        parameters:
+            - name: name
+              in: path
+              required: true
+              description: Nome com letras (inclusive acentuadas) e hífen, de 1 a 40 caracteres.
+              schema:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                  pattern: '^[\p{L}-]{1,40}$'
+        get:
+            tags: [Platform]
+            summary: Rota de laboratório com comprimento do nome
+            description: |
+                Rota pública e fake, sem autenticação. Responde a quantidade de caracteres (pontos de código) do nome.
+            operationId: getHelloNameLength
+            responses:
+                '200':
+                    description: Comprimento do nome
+                    headers:
+                        x-correlation-id:
+                            $ref: '#/components/headers/CorrelationId'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: object
+                                        properties:
+                                            length:
+                                                type: integer
+                                                minimum: 1
+                                                maximum: 40
+                                                example: 10
+                            example:
+                                data:
+                                    length: 10
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+
     /health/ready:
         get:
             tags: [Platform]

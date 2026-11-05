@@ -30,6 +30,11 @@ export class HelloRoutes extends BaseRoute {
                 path: '/:name/upper',
                 handler: this.bind(this.controller, this.controller.handleGetHelloUpper),
             },
+            {
+                method: 'GET',
+                path: '/:name/length',
+                handler: this.bind(this.controller, this.controller.handleGetHelloLength),
+            },
         ];
     }
 
