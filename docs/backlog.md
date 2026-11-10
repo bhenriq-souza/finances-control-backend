@@ -610,6 +610,13 @@ Tarefas da [spec 0024](../specs/0024-hello-upper-length-routes.md), rotas `upper
     - Where: `src/platform/hello/`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/hello/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
     - Done when: `AC-0024-08` a `AC-0024-14` cobertos; `INV-0024-01` a `INV-0024-04` verificados; `ERR-0024-01` a `ERR-0024-04` cobertos; última tarefa a entrar: muda o `status` da spec para `implemented`
 
+Tarefa da [spec 0025](../specs/0025-hello-example-route.md), rota `GET /hello/example` (item de laboratório do FT Coders, AC-0028-07). Só pode começar depois que o valor literal do título estiver registrado na spec.
+
+- [ ] **T-0025-01 — Rota `GET /hello/example`**
+    - What: constante `EXAMPLE_TITLE`, `HelloController.handleGetHelloExample` e rota `/example` em `HelloRoutes` registrada antes de `/:name`; operação `getHelloExample` no contrato; collection regenerada por `npm run postman`; entrada `exempt` na suíte de isolamento
+    - Where: `src/platform/hello/`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/hello/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
+    - Done when: `AC-0025-01` a `AC-0025-08` cobertos; `INV-0025-01` a `INV-0025-04` verificados; `ERR-0025-01` coberto; última tarefa: muda o `status` da spec para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
