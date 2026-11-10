@@ -292,3 +292,90 @@ describe('GET /hello/:name/length (spec 0024)', () => {
         expect(post.body.error.code).toBe('ROUTE_NOT_FOUND');
     });
 });
+
+describe('GET /hello/:name/slug (spec 0025)', () => {
+    let ctx: TestApp;
+
+    beforeAll(async () => {
+        ctx = await startApp(SCHEMA + '_slug');
+    });
+
+    afterAll(async () => {
+        await stopApp(ctx, SCHEMA + '_slug');
+    });
+
+    it('responde o slug sem Authorization (AC-0025-01, INV-0025-01)', async () => {
+        const path = '/hello/Jo%C3%A3o%20da%20Silva/slug';
+        const anon = await request(ctx.app).get(path);
+        const authed = await request(ctx.app).get(path).set('Authorization', 'Bearer x');
+
+        expect(anon.status).toBe(200);
+        expect(anon.body).toEqual({ data: { slug: 'joao-da-silva' } });
+        expect(anon.headers['content-type']).toMatch(/application\/json/);
+        expect(anon.headers['x-correlation-id']).toBeDefined();
+        expect(authed.body).toEqual(anon.body);
+    });
+
+    it.each([
+        ['/hello/Maria/slug', 'maria'],
+        ['/hello/Ana-Clara/slug', 'ana-clara'],
+        ['/hello/%20Maria%20%20Souza%20/slug', 'maria-souza'],
+    ])('converte %s (AC-0025-02)', async (path, slug) => {
+        const response = await request(ctx.app).get(path);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ data: { slug } });
+    });
+
+    it('aceita 40 letras e rejeita 41 (AC-0025-03, ERR-0025-01)', async () => {
+        const ok = await request(ctx.app).get(`/hello/${'a'.repeat(40)}/slug`);
+        const bad = await request(ctx.app).get(`/hello/${'a'.repeat(41)}/slug`);
+
+        expect(ok.status).toBe(200);
+        expect(bad.status).toBe(400);
+        expect(bad.body.error.code).toBe('VALIDATION_ERROR');
+        expect(bad.body.error.details[0].path).toEqual(['name']);
+    });
+
+    it.each(['/hello/%20/slug', '/hello/%20%20%20/slug', '/hello/-/slug'])(
+        'rejeita %s (AC-0025-04, ERR-0025-01)',
+        async (path) => {
+            const response = await request(ctx.app).get(path);
+
+            expect(response.status).toBe(400);
+            expect(response.body.error.code).toBe('VALIDATION_ERROR');
+            expect(response.body.error.details[0].path).toEqual(['name']);
+            for (const d of response.body.error.details) {
+                expect(d).toEqual(
+                    expect.objectContaining({
+                        path: expect.any(Array),
+                        code: expect.any(String),
+                        message: expect.any(String),
+                    }),
+                );
+            }
+        },
+    );
+
+    it.each([
+        '/hello/Ana2/slug',
+        '/hello/Ana_/slug',
+        '/hello/%E6%97%A5%E6%9C%AC%E8%AA%9E/slug',
+        '/hello/%E0%A4%A/slug',
+    ])('rejeita %s (AC-0025-05, ERR-0025-02 a 04)', async (path) => {
+        const response = await request(ctx.app).get(path);
+
+        expect(response.status).toBe(400);
+        expect(response.body.error.code).toBe('VALIDATION_ERROR');
+        expect(JSON.stringify(response.body)).not.toMatch(/decode/i);
+    });
+
+    it('POST dá 404 e /hello//slug não é o 400 da rota (AC-0025-06, ERR-0025-05, ERR-0025-06)', async () => {
+        const post = await request(ctx.app).post('/hello/Maria/slug');
+        const empty = await request(ctx.app).get('/hello//slug');
+
+        expect(post.status).toBe(404);
+        expect(post.body.error.code).toBe('ROUTE_NOT_FOUND');
+        expect(empty.body.error?.details?.[0]?.path).not.toEqual(['name']);
+    });
+});

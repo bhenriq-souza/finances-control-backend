@@ -1,7 +1,7 @@
 ---
 id: '0025'
 title: Rota de laboratório GET /hello/{name}/slug
-status: draft
+status: implemented
 depends_on: ['0005', '0023']
 ---
 
