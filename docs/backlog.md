@@ -617,6 +617,13 @@ Tarefas da [spec 0025](../specs/0025-hello-slug-route.md), rota `slug` (item 4.2
     - Where: `package.json`, `package-lock.json`, `src/platform/hello/`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/hello/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
     - Done when: `AC-0025-01` a `AC-0025-10` cobertos; `INV-0025-01` a `INV-0025-05` verificados; `ERR-0025-01` a `ERR-0025-06` cobertos; última tarefa: muda o `status` da spec para `implemented`
 
+Tarefas da [spec 0026](../specs/0026-expense-types-name-filter.md), filtro `name` em `GET /expense-types`. Tarefa única: o gate exige código, contrato OpenAPI e Postman juntos.
+
+- [ ] **T-0026-01 — Filtro `name` em `GET /expense-types`**
+    - What: `listExpenseTypesQuerySchema` e `normalizeSearchText`; `ExpenseTypeService.list` filtra por "contém" sem caixa nem acentos, combinado com `archived`; `ExpenseTypeController.handleListExpenseTypes` usa o novo schema; parâmetro `name` em `listExpenseTypes` no contrato; collection regenerada por `npm run postman`
+    - Where: `src/expenses/`, `docs/openapi.yaml`, `docs/postman/`, `tests/expenses/`, `tests/integration/expenses/expense-types.spec.ts`
+    - Done when: `AC-0026-01` a `AC-0026-10` cobertos; `INV-0026-01` a `INV-0026-05` verificados; `ERR-0026-01` a `ERR-0026-03` cobertos; última tarefa: muda o `status` da spec para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
