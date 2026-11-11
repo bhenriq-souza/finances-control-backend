@@ -210,6 +210,46 @@ paths:
                 '400':
                     $ref: '#/components/responses/ValidationFailed'
 
+    /hello/{name}/slug:
+        parameters:
+            - name: name
+              in: path
+              required: true
+              description: Nome com letras (inclusive acentuadas), espaço e hífen, de 1 a 40 caracteres, com ao menos uma letra.
+              schema:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                  pattern: '^(?=.*\p{L})[\p{L} -]{1,40}$'
+        get:
+            tags: [Platform]
+            summary: Rota de laboratório com o nome em slug
+            description: |
+                Rota pública e fake, sem autenticação. Responde o nome em formato slug (minúsculas, sem acentos, palavras separadas por hífen). Nome cujo slug sai vazio responde 400.
+            operationId: getHelloNameSlug
+            responses:
+                '200':
+                    description: Nome em slug
+                    headers:
+                        x-correlation-id:
+                            $ref: '#/components/headers/CorrelationId'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: object
+                                        properties:
+                                            slug:
+                                                type: string
+                                                example: joao-da-silva
+                            example:
+                                data:
+                                    slug: joao-da-silva
+                '400':
+                    $ref: '#/components/responses/ValidationFailed'
+
     /health/ready:
         get:
             tags: [Platform]

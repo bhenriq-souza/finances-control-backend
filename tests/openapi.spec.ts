@@ -8,7 +8,7 @@ import type { RouteDef } from '@bhs-dev/typescript-common-types';
 
 import { apiModules } from '../src/api.config';
 import { RequireProfileSymbol } from '../src/platform';
-import { nameParamsSchema } from '../src/platform/hello/hello.schemas';
+import { nameParamsSchema, slugNameParamsSchema } from '../src/platform/hello/hello.schemas';
 
 /**
  * O `openapi.yaml` é servido em `/docs` e vai gerar o cliente do frontend
@@ -238,6 +238,7 @@ describe('docs/openapi.yaml', () => {
             '/hello',
             '/hello/{name}',
             '/hello/{name}/length',
+            '/hello/{name}/slug',
             '/hello/{name}/upper',
         ]);
     });
@@ -303,6 +304,50 @@ describe('docs/openapi.yaml', () => {
             const n = [...name].length;
             const accepts = regex.test(name) && n >= minLength && n <= maxLength;
             expect([name, accepts]).toEqual([name, nameParamsSchema.safeParse({ name }).success]);
+        }
+    });
+
+    it('GET /hello/{name}/slug não tem security e documenta 200 e 400 (AC-0025-08)', () => {
+        const operation = (document.paths['/hello/{name}/slug'] as Record<string, any>).get;
+
+        expect(operation.operationId).toBe('getHelloNameSlug');
+        expect(operation.security).toBeUndefined();
+        expect(Object.keys(operation.responses).sort()).toEqual(['200', '400']);
+        expect(operation.responses['400']).toEqual({
+            $ref: '#/components/responses/ValidationFailed',
+        });
+    });
+
+    it('o pattern e os limites de /hello/{name}/slug aceitam o mesmo que o schema zod (INV-0025-03)', () => {
+        const param = (document.paths['/hello/{name}/slug'] as Record<string, any>).parameters.find(
+            (p: { name: string }) => p.name === 'name',
+        );
+        const { pattern, minLength, maxLength } = param.schema;
+        const regex = new RegExp(pattern, 'u');
+        const samples = [
+            'Maria',
+            'João da Silva',
+            'Ana-Clara',
+            ' ',
+            '   ',
+            '-',
+            '日本語',
+            'a'.repeat(40),
+            'a'.repeat(41),
+            '',
+            'Ana2',
+            'Ana_',
+            'a.b',
+            'a@b',
+        ];
+
+        for (const name of samples) {
+            const n = [...name].length;
+            const accepts = regex.test(name) && n >= minLength && n <= maxLength;
+            expect([name, accepts]).toEqual([
+                name,
+                slugNameParamsSchema.safeParse({ name }).success,
+            ]);
         }
     });
 
