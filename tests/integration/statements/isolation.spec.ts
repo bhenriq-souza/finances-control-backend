@@ -1,4 +1,5 @@
 import { container } from '../../../src/container';
+import { businessToday } from '../../../src/platform/business-date';
 import { StatementService } from '../../../src/statements';
 import { startApp, stopApp, type TestApp } from '../app.helper';
 import { insertDomainRows, type DomainRows } from '../helpers/domain-rows.helper';
@@ -7,11 +8,15 @@ import { createTwoWorkspaces, type TwoWorkspaces } from '../helpers/workspaces.h
 const SCHEMA = 'test_statements_isolation';
 const MISSING = '00000000-0000-4000-8000-000000000000';
 
-/** The 10th (closing day of the fixture cards) most recently passed, so no later cycle has closed. */
+/**
+ * The 10th (closing day of the fixture cards) most recently passed in the business date, so no later
+ * cycle has closed. On the 10th itself this month's closing has not passed yet (a payment needs
+ * `paidOn` after the closing date); from the 11th on, it has.
+ */
 function lastClosing(): { startsOn: string; closesOn: string; dueOn: string } {
-    const now = new Date();
-    const month = now.getUTCDate() > 12 ? now.getUTCMonth() : now.getUTCMonth() - 1;
-    const closes = new Date(Date.UTC(now.getUTCFullYear(), month, 10));
+    const today = new Date(`${businessToday()}T00:00:00Z`);
+    const month = today.getUTCDate() > 10 ? today.getUTCMonth() : today.getUTCMonth() - 1;
+    const closes = new Date(Date.UTC(today.getUTCFullYear(), month, 10));
     const starts = new Date(Date.UTC(closes.getUTCFullYear(), closes.getUTCMonth() - 1, 11));
     const due = new Date(Date.UTC(closes.getUTCFullYear(), closes.getUTCMonth(), 20));
     const iso = (date: Date) => date.toISOString().slice(0, 10);
