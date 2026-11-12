@@ -624,6 +624,13 @@ Tarefas da [spec 0026](../specs/0026-expense-types-name-filter.md), filtro `name
     - Where: `src/expenses/`, `docs/openapi.yaml`, `docs/postman/`, `tests/expenses/`, `tests/integration/expenses/expense-types.spec.ts`
     - Done when: `AC-0026-01` a `AC-0026-10` cobertos; `INV-0026-01` a `INV-0026-05` verificados; `ERR-0026-01` a `ERR-0026-03` cobertos; última tarefa: muda o `status` da spec para `implemented`
 
+Tarefas da [spec 0027](../specs/0027-hello-example-route.md), rota `example` (item 4.2 do FT Coders). Tarefa única: o gate exige rota, contrato, Postman e isolamento juntos. Só começa depois que o título literal estiver registrado na spec.
+
+- [ ] **T-0027-01 — Rota `GET /hello/example` com o título de example.org**
+    - What: `EXAMPLE_TITLE` em `hello.example.ts`; `HelloController.handleGetHelloExample`; rota `/example` em `HelloRoutes`, registrada antes de `/:name`, respondendo `{ data: { message } }`; operação `getHelloExample` no contrato; collection regenerada por `npm run postman`; entrada `exempt` na suíte de isolamento
+    - Where: `src/platform/hello/`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/hello/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
+    - Done when: `AC-0027-01` a `AC-0027-07` cobertos; `INV-0027-01` a `INV-0027-04` verificados; `ERR-0027-01` e `ERR-0027-02` cobertos; última tarefa: muda o `status` da spec para `implemented`
+
 ## Domínio
 
 As specs de domínio restantes ainda não foram escritas. Cada uma nasce pela skill `/new-spec` a partir da issue de entrega correspondente, e traz suas próprias tarefas para este arquivo:
