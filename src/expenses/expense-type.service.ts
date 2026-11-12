@@ -9,6 +9,7 @@ import {
     needsArchiveChange,
 } from '../platform';
 import { ExpenseType } from './expense-type.entity';
+import { normalizeSearchText } from './expense-type.search';
 
 const CONFLICTS = {
     uq_expense_types_name: {
@@ -25,8 +26,16 @@ export class ExpenseTypeService {
         return this.dataSource.getRepository(ExpenseType);
     }
 
-    list(query: { archived?: 'true' | 'false' } = {}): Promise<ExpenseType[]> {
-        return this.types.find({ where: archivedFilter(query), order: { name: 'ASC' } });
+    async list(query: { archived?: 'true' | 'false'; name?: string } = {}): Promise<ExpenseType[]> {
+        const types = await this.types.find({
+            where: archivedFilter(query),
+            order: { name: 'ASC' },
+        });
+        const term = normalizeSearchText(query.name ?? '');
+
+        return term === ''
+            ? types
+            : types.filter((type) => normalizeSearchText(type.name).includes(term));
     }
 
     async findById(id: string): Promise<ExpenseType> {

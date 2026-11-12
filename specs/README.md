@@ -27,7 +27,7 @@ Faixas: `0000`–`0009` processo e plataforma · `0010`+ domínio, na ordem dos 
 | [0023](0023-hello-name-route.md)          | Rota de laboratório GET /hello/{name}                              | draft       |
 | [0024](0024-hello-upper-length-routes.md) | Rotas de laboratório GET /hello/{name}/upper e /length             | implemented |
 | [0025](0025-hello-slug-route.md)          | Rota de laboratório GET /hello/{name}/slug                         | implemented |
-| [0026](0026-expense-types-name-filter.md) | Filtro por nome em GET /expense-types                              | draft       |
+| [0026](0026-expense-types-name-filter.md) | Filtro por nome em GET /expense-types                              | implemented |
 
 Specs de domínio planejadas (ainda não escritas): `0016` imports — **adiada** (FCB-013).
 

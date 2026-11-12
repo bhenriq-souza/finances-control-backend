@@ -1,7 +1,7 @@
 ---
 id: '0026'
 title: Filtro por nome em GET /expense-types
-status: draft
+status: implemented
 depends_on: ['0005', '0012']
 ---
 

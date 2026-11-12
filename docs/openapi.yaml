@@ -1653,6 +1653,16 @@ paths:
             security: [{ bearerAuth: [] }]
             parameters:
                 - $ref: '#/components/parameters/IncludeArchived'
+                - name: name
+                  in: query
+                  required: false
+                  description: |
+                      Filtra os tipos cujo nome contém o termo, sem diferenciar maiúsculas,
+                      minúsculas nem acentos. Vazio (ou só espaços) equivale a não informar.
+                      Combina com `archived`.
+                  schema:
+                      type: string
+                      maxLength: 120
             responses:
                 '200':
                     description: Tipos de despesa cadastrados, ordenados por nome

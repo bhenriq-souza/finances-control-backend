@@ -126,6 +126,67 @@ describe('tipos de despesa (AC-0012-02)', () => {
         expect(todos.body.data.map((t: { id: string }) => t.id)).toContain(id);
     });
 
+    describe('filtro por nome (spec 0026)', () => {
+        const names = async (path: string) =>
+            (await get(path)).body.data.map((t: { name: string }) => t.name);
+
+        beforeEach(async () => {
+            for (const n of ['T-Alimentação', 'T-Transporte', 'T-Lazer', 'T-100% Lazer']) {
+                await post('/expense-types', { name: n });
+            }
+        });
+
+        it('AC-0026-01/02/06: contém, sem caixa nem acentos', async () => {
+            expect(await names('/expense-types?name=t-alim')).toEqual(['T-Alimentação']);
+            for (const q of ['T-ALIMENTACAO', 'T-alimentação', 'T-ALIMENTAÇÃO', 't-aliment']) {
+                expect(await names(`/expense-types?name=${encodeURIComponent(q)}`)).toEqual([
+                    'T-Alimentação',
+                ]);
+            }
+            const res = await get('/expense-types?name=zzzqqq');
+            expect(res.status).toBe(200);
+            expect(res.body.data).toEqual([]);
+        });
+
+        it('AC-0026-03/INV-0026-01: name vazio equivale a ausente', async () => {
+            const base = await names('/expense-types');
+            expect(await names('/expense-types?name=')).toEqual(base);
+            expect(await names('/expense-types?name=%20%20')).toEqual(base);
+        });
+
+        it('AC-0026-04/INV-0026-04: combina com archived', async () => {
+            const id = (await post('/expense-types', { name: 'T-Lazer Velho' })).body.data.id;
+            await archive(id);
+
+            expect(await names('/expense-types?name=T-lazer')).toEqual(['T-Lazer']);
+            expect(await names('/expense-types?name=T-lazer&archived=true')).toEqual([
+                'T-Lazer',
+                'T-Lazer Velho',
+            ]);
+        });
+
+        it('AC-0026-05/INV-0026-03: %, _ e \\ são literais', async () => {
+            expect(await names('/expense-types?name=%25')).toEqual(['T-100% Lazer']);
+            expect((await get('/expense-types?name=_')).body.data).toEqual([]);
+            expect((await get('/expense-types?name=%5C')).body.data).toEqual([]);
+        });
+
+        it('AC-0026-07/ERR-0026-01/02/03: validação', async () => {
+            expect((await get(`/expense-types?name=${'a'.repeat(120)}`)).status).toBe(200);
+
+            const long = await get(`/expense-types?name=${'a'.repeat(121)}`);
+            expect(long.status).toBe(400);
+            expect(long.body.error.code).toBe('VALIDATION_ERROR');
+            expect(long.body.error.details[0].path).toEqual(['name']);
+
+            const dup = await get('/expense-types?name=a&name=b');
+            expect(dup.status).toBe(400);
+            expect(dup.body.error.details[0].path).toEqual(['name']);
+
+            expect((await get('/expense-types?nome=x')).status).toBe(400);
+        });
+    });
+
     it('arquivar duas vezes responde 200 nas duas e não reescreve (ERR-0012-16)', async () => {
         const id = (await post('/expense-types', { name: 'T-Twice' })).body.data.id;
 
