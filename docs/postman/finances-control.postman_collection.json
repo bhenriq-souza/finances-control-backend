@@ -134,6 +134,21 @@
                     }
                 },
                 {
+                    "name": "Rota de laboratório com o nome em slug",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/hello/:name/slug",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["hello", ":name", "slug"],
+                            "variable": [{ "key": "name", "value": "{{name}}" }]
+                        },
+                        "description": "Rota pública e fake, sem autenticação. Responde o nome em formato slug (minúsculas, sem acentos, palavras separadas por hífen). Nome cujo slug sai vazio responde 400.",
+                        "auth": { "type": "noauth" }
+                    }
+                },
+                {
                     "name": "Readiness da aplicação",
                     "request": {
                         "method": "GET",

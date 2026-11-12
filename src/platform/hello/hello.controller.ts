@@ -1,8 +1,10 @@
 import type { Request, Response } from 'express';
 import { injectable } from 'tsyringe';
+import { ZodError } from 'zod';
 
 import { HttpResponses } from '../http/http-responses';
-import { nameParamsSchema } from './hello.schemas';
+import { nameParamsSchema, slugNameParamsSchema } from './hello.schemas';
+import { toSlug } from './hello.slug';
 
 @injectable()
 export class HelloController {
@@ -23,5 +25,14 @@ export class HelloController {
     handleGetHelloLength(req: Request, res: Response): Response {
         const { name } = nameParamsSchema.parse(req.params);
         return HttpResponses.ok(res, { length: [...name].length });
+    }
+
+    handleGetHelloSlug(req: Request, res: Response): Response {
+        const { name } = slugNameParamsSchema.parse(req.params);
+        const slug = toSlug(name);
+        if (slug === '') {
+            throw new ZodError([{ code: 'custom', path: ['name'], message: 'Invalid name' }]);
+        }
+        return HttpResponses.ok(res, { slug });
     }
 }

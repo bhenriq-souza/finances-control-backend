@@ -67,3 +67,20 @@ describe('HelloController', () => {
         expect(run()).toEqual(run());
     });
 });
+
+describe('HelloController.handleGetHelloSlug', () => {
+    it('depende só do nome (INV-0025-02)', () => {
+        const run = () => {
+            const json = jest.fn();
+            const res = { status: jest.fn().mockReturnValue({ json }) } as unknown as Response;
+            new HelloController().handleGetHelloSlug(
+                { params: { name: 'João da Silva' } } as unknown as Request,
+                res,
+            );
+            return json.mock.calls[0];
+        };
+
+        expect(run()).toEqual([{ data: { slug: 'joao-da-silva' } }]);
+        expect(run()).toEqual(run());
+    });
+});
