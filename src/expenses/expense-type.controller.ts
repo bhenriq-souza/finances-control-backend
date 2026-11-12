@@ -1,12 +1,13 @@
 import type { Request, Response } from 'express';
 import { inject, injectable } from 'tsyringe';
 
-import { HttpResponses, listQuerySchema } from '../platform';
+import { HttpResponses } from '../platform';
 import { ExpenseTypeServiceSymbol } from './expenses.symbols';
 import { toExpenseTypeResponse } from './expense-type.response';
 import {
     createExpenseTypeSchema,
     expenseTypeIdParamsSchema,
+    listExpenseTypesQuerySchema,
     updateExpenseTypeSchema,
 } from './expense-type.schemas';
 import type { ExpenseTypeService } from './expense-type.service';
@@ -16,7 +17,7 @@ export class ExpenseTypeController {
     constructor(@inject(ExpenseTypeServiceSymbol) private readonly service: ExpenseTypeService) {}
 
     async handleListExpenseTypes(req: Request, res: Response): Promise<Response> {
-        const query = listQuerySchema.parse(req.query);
+        const query = listExpenseTypesQuerySchema.parse(req.query);
 
         return HttpResponses.ok(res, (await this.service.list(query)).map(toExpenseTypeResponse));
     }

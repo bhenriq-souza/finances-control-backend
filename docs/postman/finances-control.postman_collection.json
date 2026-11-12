@@ -1103,6 +1103,12 @@
                                     "value": "true",
                                     "description": "`true` inclui os arquivados na listagem; o padrão os esconde.",
                                     "disabled": true
+                                },
+                                {
+                                    "key": "name",
+                                    "value": "Exemplo name",
+                                    "description": "Filtra os tipos cujo nome contém o termo, sem diferenciar maiúsculas,\nminúsculas nem acentos. Vazio (ou só espaços) equivale a não informar.\nCombina com `archived`.",
+                                    "disabled": true
                                 }
                             ]
                         },
