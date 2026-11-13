@@ -31,6 +31,8 @@ export const HealthControllerSymbol = Symbol.for('HealthController');
 export const HealthRoutesSymbol = Symbol.for('HealthRoutes');
 export const HelloControllerSymbol = Symbol.for('HelloController');
 export const HelloRoutesSymbol = Symbol.for('HelloRoutes');
+export const VersionControllerSymbol = Symbol.for('VersionController');
+export const VersionRoutesSymbol = Symbol.for('VersionRoutes');
 
 /** Eventos de domínio (spec 0004). */
 export const DomainEventDispatcherSymbol = Symbol.for('DomainEventDispatcher');

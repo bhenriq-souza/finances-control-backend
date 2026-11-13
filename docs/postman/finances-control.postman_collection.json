@@ -75,6 +75,20 @@
                     }
                 },
                 {
+                    "name": "Versão da API",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/version",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["version"]
+                        },
+                        "description": "Rota pública, sem autenticação. Devolve o valor de `APPLICATION_VERSION`,\no mesmo exposto em `version` por `GET /health`.",
+                        "auth": { "type": "noauth" }
+                    }
+                },
+                {
                     "name": "Rota de laboratório",
                     "request": {
                         "method": "GET",

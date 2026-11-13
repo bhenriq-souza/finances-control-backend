@@ -6,12 +6,16 @@ import { HealthRoutes } from './platform/health/health.routes';
 import { HealthService } from './platform/health/health.service';
 import { HelloController } from './platform/hello/hello.controller';
 import { HelloRoutes } from './platform/hello/hello.routes';
+import { VersionController } from './platform/version/version.controller';
+import { VersionRoutes } from './platform/version/version.routes';
 import {
     HealthControllerSymbol,
     HealthRoutesSymbol,
     HealthServiceSymbol,
     HelloControllerSymbol,
     HelloRoutesSymbol,
+    VersionControllerSymbol,
+    VersionRoutesSymbol,
 } from './platform/symbols';
 import {
     BankAccountController,
@@ -155,6 +159,17 @@ export const apiModules: ApiModule[] = [
         route: { token: HelloRoutesSymbol, clazz: HelloRoutes },
         provides: [
             { token: HelloControllerSymbol, clazz: HelloController, scope: ScopeTypes.SINGLETON },
+        ],
+    },
+    {
+        path: '/version',
+        route: { token: VersionRoutesSymbol, clazz: VersionRoutes },
+        provides: [
+            {
+                token: VersionControllerSymbol,
+                clazz: VersionController,
+                scope: ScopeTypes.SINGLETON,
+            },
         ],
     },
     {

@@ -59,6 +59,35 @@ paths:
                                     environment: dev
                                     uptimeSeconds: 42
 
+    /version:
+        get:
+            tags: [Platform]
+            summary: Versão da API
+            description: |
+                Rota pública, sem autenticação. Devolve o valor de `APPLICATION_VERSION`,
+                o mesmo exposto em `version` por `GET /health`.
+            operationId: getVersion
+            responses:
+                '200':
+                    description: Versão da API em execução
+                    headers:
+                        x-correlation-id:
+                            $ref: '#/components/headers/CorrelationId'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    data:
+                                        type: object
+                                        properties:
+                                            version:
+                                                type: string
+                                                example: 0.0.0
+                            example:
+                                data:
+                                    version: 0.0.0
+
     /hello:
         get:
             tags: [Platform]

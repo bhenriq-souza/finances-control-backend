@@ -1,7 +1,7 @@
 ---
 id: '0028'
 title: Rota GET /version
-status: draft
+status: implemented
 depends_on: ['0003', '0005']
 ---
 
