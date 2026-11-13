@@ -56,6 +56,7 @@ const IDENTITY =
 const cases: Record<string, RouteCase> = {
     'GET /health': { exempt: 'sem autenticação nem dados de domínio' },
     'GET /health/ready': { exempt: 'sem autenticação nem dados de domínio' },
+    'GET /version': { exempt: 'sem autenticação nem dados de domínio' },
     'GET /hello': { exempt: 'sem autenticação nem dados de domínio' },
     'GET /hello/:name': { exempt: 'sem autenticação nem dados de domínio' },
     'GET /hello/:name/upper': { exempt: 'sem autenticação nem dados de domínio' },

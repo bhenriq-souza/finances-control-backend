@@ -633,7 +633,7 @@ Tarefas da [spec 0027](../specs/0027-hello-example-route.md), rota `example` (it
 
 Tarefas da [spec 0028](../specs/0028-version-route.md), rota `GET /version`. Tarefa única: o gate exige rota, contrato, Postman e isolamento juntos.
 
-- [ ] **T-0028-01 — Rota `GET /version` com a versão da API**
+- [x] **T-0028-01 — Rota `GET /version` com a versão da API**
     - What: `VersionController.handleGetVersion` lendo `APPLICATION_VERSION` do `IEnvService`; `VersionRoutes` montada em `/version` no `src/api.config.ts`; símbolos novos; operação `getVersion` no contrato; collection regenerada por `npm run postman`; entrada `exempt` na suíte de isolamento
     - Where: `src/platform/version/`, `src/platform/symbols/`, `src/api.config.ts`, `docs/openapi.yaml`, `docs/postman/`, `tests/platform/version/`, `tests/openapi.spec.ts`, `tests/integration/isolation/routes.spec.ts`
     - Done when: `AC-0028-01` a `AC-0028-05` cobertos; `INV-0028-01` a `INV-0028-03` verificados; `ERR-0028-01` coberto; última tarefa: muda o `status` da spec para `implemented`

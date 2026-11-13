@@ -240,8 +240,17 @@ describe('docs/openapi.yaml', () => {
             '/hello/{name}/length',
             '/hello/{name}/slug',
             '/hello/{name}/upper',
+            '/version',
         ]);
     });
+    it('GET /version não tem security e documenta 200 (AC-0028-04)', () => {
+        const operation = (document.paths['/version'] as Record<string, any>).get;
+
+        expect(operation.operationId).toBe('getVersion');
+        expect(operation.security).toBeUndefined();
+        expect(operation.responses['200'].headers['x-correlation-id']).toBeDefined();
+    });
+
     it('GET /hello/{name} não tem security e documenta 200 e 400 (AC-0023-08)', () => {
         const operation = (document.paths['/hello/{name}'] as Record<string, any>).get;
 
